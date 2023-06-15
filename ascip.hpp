@@ -678,6 +678,15 @@ template<parser p> struct lexeme_parser : p {};
 constexpr auto skip(const auto& p) { return skip_parser{ p }; }
 constexpr auto lexeme(const auto& p) { return lexeme_parser{ p }; }
 
+namespace literals {
+
+template<typename char_t, char_t... chars>
+constexpr auto operator""_lex() {
+	return lexeme( omit( (... >> char_<chars>) ) );
+}
+
+} // namespace literals
+
 // ===============================
 //          injection part
 // ===============================
@@ -968,6 +977,11 @@ constexpr void test_other_parsers() {
 
 }
 template<typename factory>
+constexpr void test_literals() {
+	using namespace literals;
+	static_cast<const lexeme_parser<omit_parser<opt_seq_parser<char_parser<'a'>,char_parser<'b'>>>>&>( "ab"_lex );
+}
+template<typename factory>
 constexpr void test_reqursion_parsers() {
 	static_assert( ({ char r='c'; ((char_<'a'>|'b') >> -(omit(char_<'('>) >> req<1> >> omit(char_<')'>))).parse(make_test_ctx(), make_source("a(b)"), r);
 	}) == 4, "can parse reqursion");
@@ -1024,6 +1038,7 @@ void test() {
 	test_base_parsers<factory_t>(base_parsers_set{});
 	test_variant_parser<factory_t>();
 	test_other_parsers<factory_t>();
+	test_literals<factory_t>();
 	test_reqursion_parsers<factory_t>();
 }
 
