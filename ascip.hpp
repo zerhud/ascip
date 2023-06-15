@@ -392,6 +392,17 @@ template<typename t> struct value_parser : base_parser<value_parser<t>> {
 	}
 };
 
+template<parser type1, parser type2> struct variant_parser : base_parser<variant_parser<type1, type2>> {
+	type1 p1;
+	type2 p2;
+	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+		auto r1 = p1.parse(ctx, src, result);
+		return 0 <= r1 ? r1 : p2.parse(ctx, src, result);
+	}
+};
+constexpr auto operator|(const auto& p1, const auto& p2) { return variant_parser<decltype(auto(p1)), decltype((p2))>{ {}, p1, p2 }; }
+constexpr auto operator|(const auto& p1, char p2) { value_parser p(p2); return variant_parser{ {}, p1, p }; }
+
 template<auto from, auto to> struct range_parser : base_parser<range_parser<from,to>> { 
 	constexpr auto parse(auto&&, auto src, auto& result) const {
 		auto sym = src();
@@ -424,6 +435,8 @@ constexpr struct any_parser : base_parser<any_parser> {
 constexpr const auto lower = range_parser<'a','z'>{};
 constexpr const auto upper = range_parser<'A','Z'>{};
 constexpr const auto digit = range_parser<'0','9'>{};
+constexpr const auto d10 = range_parser<'0', '9'>{};
+constexpr const auto letter = lower | upper;
 
 constexpr struct int_parser : base_parser<int_parser> {
 	//TODO: replace the algo with algo from main frame
@@ -472,17 +485,6 @@ template<typename value_t, parser parser_t> struct as_parser : parser_t {
 template<typename value_t, parser parser_t> constexpr auto as( parser_t&& p, value_t&& val ){
 	return as_parser<decltype(auto(val)), decltype(auto(p))>{ p, val };
 }
-
-template<parser type1, parser type2> struct variant_parser : base_parser<variant_parser<type1, type2>> {
-	type1 p1;
-	type2 p2;
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
-		auto r1 = p1.parse(ctx, src, result);
-		return 0 <= r1 ? r1 : p2.parse(ctx, src, result);
-	}
-};
-constexpr auto operator|(const auto& p1, const auto& p2) { return variant_parser<decltype(auto(p1)), decltype((p2))>{ {}, p1, p2 }; }
-constexpr auto operator|(const auto& p1, char p2) { value_parser p(p2); return variant_parser{ {}, p1, p }; }
 
 template<parser parser_t> struct omit_parser : parser_t {
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
@@ -918,8 +920,12 @@ constexpr void test_other_parsers() {
 	}) == 'a', "seq parser: can shift fields" );
 	static_assert( ({char r='c';(char_<'a'> >> char_<'b'>).parse(make_test_ctx(), make_source("cc"), r);}) == -1, "seq parser: -1 if fails" );
 	static_assert( ({char r='c';(char_<'a'> >> char_<'b'>).parse(make_test_ctx(), make_source("ac"), r);}) == -1, "seq parser: -1 if fails" );
-	static_assert( ({char r='c';(char_<'a'> >> char_<'u'> >> char_<'b'>).parse(make_test_ctx(), make_source("ab"), r);}) == -1, "seq parser: not use next if fails" );
-	static_assert( ({char r='c';(char_<'a'> >> char_<'u'> >> char_<'b'>).parse(make_test_ctx(), make_source("ab"), r);r;}) == 'a', "seq parser: not use next if fails" );
+	static_assert(
+		({char r='c';(char_<'a'> >> char_<'u'> >> char_<'b'>).parse(make_test_ctx(), make_source("ab"), r);}) == -1,
+		"seq parser: not use next if fails" );
+	static_assert(
+		({char r='c';(char_<'a'> >> char_<'u'> >> char_<'b'>).parse(make_test_ctx(), make_source("ab"), r);r;}) == 'a',
+		"seq parser: not use next if fails" );
 
 	static_assert( ({char r='c';(char_<'a'> >> -char_<'u'>).parse(make_test_ctx(), make_source("ab"), r);}) == 1, "can parser optional" );
 	static_assert( ({char r='c';(char_<'a'> >> -char_<'u'>).parse(make_test_ctx(), make_source("ab"), r);r;}) == 'a', "can parser optional" );
