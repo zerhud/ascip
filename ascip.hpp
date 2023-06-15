@@ -519,6 +519,7 @@ template<parser parser_t> struct unary_req_list_parser : unary_list_parser<parse
 template<parser parser_t> constexpr auto operator+(const parser_t& p) { return unary_req_list_parser<parser_t>{ p }; }
 template<parser parser_t> constexpr auto operator*(const parser_t& p) { return unary_opt_list_parser<parser_t>{ p }; }
 template<parser left, parser right> constexpr auto operator%(const left& l, const right& r) { return l >> *(r >> l); }
+template<parser left> constexpr auto operator%(const left& l, char r) { return l >> *(value_parser{r} >> l); }
 
 constexpr struct cur_pos_parser : base_parser<cur_pos_parser> {
 	constexpr auto parse(auto&&, auto src, auto& result) const {
@@ -932,6 +933,7 @@ constexpr void test_other_parsers() {
 	static_assert( ({char r='c';(char_<'a'> >> -char_<'u'> >> char_<'b'>).parse(make_test_ctx(), make_source("ab"), r);}) == 2, "can parser optional" );
 	static_assert( ({char r='c';(char_<'a'> >> -char_<'u'> >> char_<'b'>).parse(make_test_ctx(), make_source("ab"), r);r;}) == 'b', "can parser optional" );
 
+	static_assert( ({char r='z';(digit % ',').parse(make_test_ctx(), make_source("1,2"), r);}) == 3, "can parse binary list" );
 	static_assert( ({char r='z';(digit % char_<','>).parse(make_test_ctx(), make_source("1,2"), r);}) == 3, "can parse binary list" );
 	static_assert( ({char r='z';(digit % char_<','>).parse(make_test_ctx(), make_source("1,2,3,4"), r);r;}) == '4', "can parse binary list" );
 	static_assert( ({char r='z';(digit % char_<','>).parse(make_test_ctx(), make_source("1,"), r);}) == 1, "can parse binary list" );
