@@ -395,13 +395,14 @@ template<typename t> struct value_parser : base_parser<value_parser<t>> {
 template<parser type1, parser type2> struct variant_parser : base_parser<variant_parser<type1, type2>> {
 	type1 p1;
 	type2 p2;
+	constexpr variant_parser( type1 v1, type2 v2 ) : p1(v1), p2(v2) {}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		auto r1 = p1.parse(ctx, src, result);
 		return 0 <= r1 ? r1 : p2.parse(ctx, src, result);
 	}
 };
-constexpr auto operator|(const auto& p1, const auto& p2) { return variant_parser<decltype(auto(p1)), decltype((p2))>{ {}, p1, p2 }; }
-constexpr auto operator|(const auto& p1, char p2) { value_parser p(p2); return variant_parser{ {}, p1, p }; }
+constexpr auto operator|(const auto& p1, const auto& p2) { return variant_parser<decltype(auto(p1)), decltype((p2))>{ p1, p2 }; }
+constexpr auto operator|(const auto& p1, char p2) { value_parser p(p2); return variant_parser{ p1, p }; }
 
 template<auto from, auto to> struct range_parser : base_parser<range_parser<from,to>> { 
 	constexpr auto parse(auto&&, auto src, auto& result) const {
@@ -877,6 +878,8 @@ constexpr void test_variant_parser() {
 	}) == '0', "can parse valid data and got valid result");
 	static_assert( ({ char r; (char_<'a'> | 'b').parse(make_test_ctx(), make_source("c"), r);
 	}) == -1, "cannot parse invalid data");
+	static_assert( ({ char r='z'; inject_parser<true>((char_<'%'> | d10 | lower), *space).parse(make_test_ctx(), make_source("a"), r); r;
+	}) == 'a', "make sure the variant works with injection" );
 }
 template<typename factory>
 constexpr void test_other_parsers() {
