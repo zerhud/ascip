@@ -495,12 +495,12 @@ template<parser parser_t> struct omit_parser : parser_t {
 };
 constexpr auto omit(auto&& p) { return omit_parser<decltype(auto(p))>{ p }; }
 
-template<parser parser_t, typename lparser> struct unary_list_parser : parser_t {
+template<parser parser_t> struct unary_list_parser : parser_t {
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
-		auto ret = static_cast<const lparser*>(this)->start_parse(ctx, src, result);
+		auto ret = parser_t::parse(ctx, src, details::empback(result));
 		src += ret * (0 <= ret);
 		auto cur_r = ret;
-		while(src && 0<=cur_r) {
+		while(src && 0<=cur_r) { //TODO: if inner parsers always returns 0 the loop never breaks
 			cur_r = parser_t::parse(ctx, src, details::empback(result));
 			ret += cur_r * (0<=cur_r);
 			src += cur_r * (0<=cur_r);
@@ -509,16 +509,8 @@ template<parser parser_t, typename lparser> struct unary_list_parser : parser_t 
 		return ret;
 	}
 };
-template<parser parser_t> struct unary_opt_list_parser : unary_list_parser<parser_t, unary_opt_list_parser<parser_t>> {
-	constexpr auto start_parse(auto&& ctx, auto src, auto& result) const { return 0; }
-};
-template<parser parser_t> struct unary_req_list_parser : unary_list_parser<parser_t, unary_req_list_parser<parser_t>> {
-	constexpr auto start_parse(auto&& ctx, auto src, auto& result) const {
-		return parser_t::parse(ctx, src, details::empback(result));
-	}
-};
-template<parser parser_t> constexpr auto operator+(const parser_t& p) { return unary_req_list_parser<parser_t>{ p }; }
-template<parser parser_t> constexpr auto operator*(const parser_t& p) { return unary_opt_list_parser<parser_t>{ p }; }
+template<parser parser_t> constexpr auto operator+(const parser_t& p) { return unary_list_parser<parser_t>{ p }; }
+template<parser parser_t> constexpr auto operator*(const parser_t& p) { return -(+p); }
 template<parser left, parser right> constexpr auto operator%(const left& l, const right& r) { return l >> *(r >> l); }
 template<parser left> constexpr auto operator%(const left& l, char r) { return l >> *(value_parser{r} >> l); }
 
@@ -729,13 +721,7 @@ requires (!requires{ static_cast<const opt_seq_parser<p1,p2>&>(p); }) {
 	return wrapper{ inject_parser<apply>(a,inject), inject_parser<apply>(b,inject) };
 }
 template<bool apply, typename parser, typename injection_t>
-constexpr const auto inject_parser(const unary_opt_list_parser<parser>& p, const injection_t& inject) {
-	if constexpr (requires{ inject_to_list_seq<apply>(static_cast<const parser&>(p), inject); })
-		return *inject_to_list_seq<apply>(static_cast<const parser&>(p), inject);
-	else return *(inject >> static_cast<const parser&>(p));
-}
-template<bool apply, typename parser, typename injection_t>
-constexpr const auto inject_parser(const unary_req_list_parser<parser>& p, const injection_t& inject) {
+constexpr const auto inject_parser(const unary_list_parser<parser>& p, const injection_t& inject) {
 	if constexpr (requires{ static_cast<const seq_tag&>(p); })
 		return +inject_to_list_seq<apply>(static_cast<const parser&>(p), inject);
 	else return +(inject >> static_cast<const parser&>(p));
@@ -820,9 +806,9 @@ template<typename factory, typename p1, typename p2>
 constexpr void test_two_parsers() { if constexpr (std::is_same_v<p1,p2>) {} else {
 	static_cast<const p1&>(inject_parser<true>(p1{}, p2{}));
 	static_cast<const opt_seq_parser<p2, p1, p2, p1>&>(inject_parser<true>(p1{} >> p1{}, p2{}));
-	static_cast<const unary_req_list_parser<opt_seq_parser<p2, p1>>&>(inject_parser<true>(+(p1{}), p2{}));
-	static_cast<const unary_req_list_parser<opt_seq_parser<p2, p1, p2, p1>>&>(inject_parser<true>(+(p1{} >> p1{}), p2{}));
-	static_cast<const unary_req_list_parser<opt_seq_parser<p1, p1>>&>(inject_parser<true>(lexeme(+(p1{} >> p1{})), p2{}));
+	static_cast<const unary_list_parser<opt_seq_parser<p2, p1>>&>(inject_parser<true>(+(p1{}), p2{}));
+	static_cast<const unary_list_parser<opt_seq_parser<p2, p1, p2, p1>>&>(inject_parser<true>(+(p1{} >> p1{}), p2{}));
+	static_cast<const unary_list_parser<opt_seq_parser<p1, p1>>&>(inject_parser<true>(lexeme(+(p1{} >> p1{})), p2{}));
 	static_cast<const opt_seq_parser< p1, opt_seq_parser<p2,p1,p2,p1> >&>(inject_parser<true>(lexeme(p1{} >> skip(p1{}>>p1{})), p2{}));
 	static_cast<const opt_parser<opt_seq_parser< p2, p1, p2, p1 >>&>( inject_parser<true>(-(p1{} >> p1{}), p2{}) );
 	static_cast<const opt_seq_parser<
