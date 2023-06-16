@@ -1017,13 +1017,12 @@ constexpr void test_reqursion_parsers() {
 }
 
 constexpr auto parse(const auto& parser, auto src, auto& result) {
-	auto ctx = make_test_ctx();
-	return parser.parse(src, result);
+	return parser.parse(make_test_ctx(), src, result);
 }
 
 constexpr auto parse(const auto& parser, const auto& skip, auto src, auto& result) {
 	auto ctx = make_test_ctx();
-	return inject_parser<true>(parser, skip).parse(src, result);
+	return inject_parser<true>(parser, skip).parse(make_test_ctx(), src, result);
 }
 
 template<typename factory_t>
