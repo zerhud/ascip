@@ -440,11 +440,11 @@ constexpr const auto d10 = range_parser<'0', '9'>{};
 constexpr const auto letter = lower | upper;
 
 constexpr struct int_parser : base_parser<int_parser> {
-	//TODO: replace the algo with algo from main frame
 	constexpr bool is_int(auto s) const { return '0' <= s && s <= '9'; }
 	constexpr bool next(auto cur, auto& result) const {
-		bool isint = is_int(cur);
+		const bool isint = is_int(cur);
 		result += ((int)(cur - '0')) * isint;
+		result /= (!isint * 9) + 1;
 		return isint;
 	}
 	constexpr auto parse(auto&&, auto src, auto& _result)  const {
@@ -985,6 +985,8 @@ constexpr void test_other_parsers() {
 		struct { char a='z', b='z'; struct { char c,d; int pos;} i; } r;
 		(char_<'a'>++ >> char_<'b'>++ >> (char_<'c'> >> ++char_<'d'> >> ++cur_shift)).parse(make_test_ctx(), make_source("abcd"), r); r.i.pos;
 	}) == 2, "can parse current shift");
+
+	static_assert( ({ auto r=0; (int_>>omit(lower)).parse(make_test_ctx(), make_source(factory{}.mk_str("1a")), r); r; }) == 1 );
 
 }
 template<typename factory>
