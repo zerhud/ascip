@@ -498,9 +498,9 @@ constexpr auto omit(auto&& p) { return omit_parser<decltype(auto(p))>{ p }; }
 template<parser parser_t> struct unary_list_parser : parser_t {
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = parser_t::parse(ctx, src, details::empback(result));
-		src += ret * (0 <= ret);
+		src += ret;
 		auto cur_r = ret;
-		while(src && 0<=cur_r) { //TODO: if inner parsers always returns 0 the loop never breaks
+		while(src && 0<cur_r) {
 			cur_r = parser_t::parse(ctx, src, details::empback(result));
 			ret += cur_r * (0<=cur_r);
 			src += cur_r * (0<=cur_r);
@@ -886,6 +886,8 @@ constexpr void test_other_parsers() {
 	}) == 'b', "+ parser parses valid data");
 	static_assert( ({ auto r = factory{}.template mk_vec<char>(); (*(char_<'a'>|char_<'b'>)).parse(make_test_ctx(), make_source("aab"), r);r[2];
 	}) == 'b', "* parser parses valid data");
+	static_assert( ({ auto r = factory{}.template mk_vec<char>(); (+(!char_<'a'>)).parse(make_test_ctx(), make_source("cde"), r);
+	}) == 0, "+ parser works with zero length parsers, it returns 0 insteead of infinit loop");
 
 	static_assert( ({char r='c';(char_<'a'> >> 'b').parse(make_test_ctx(), make_source("ab"), r); r;
 	}) == 'b', "seq parser: just override if same field" );
