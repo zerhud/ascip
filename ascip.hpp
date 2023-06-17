@@ -346,6 +346,7 @@ void test_src() {
 	static_assert( ({auto s=make_source("ab");!!s;}) == true, "source from array works, setp 4" );
 	static_assert( ({auto s=make_source("ab");s();!!s;}) == true, "source from array works, setp 5" );
 	static_assert( ({auto s=make_source("ab");s();s();!!s;}) == false, "source from array works, setp 6" );
+	static_assert( ({auto s=make_source("ab");s+=1;s();}) == 'b', "operator += works with source" );
 
 	static_assert( !!make_source(factory_t{}.mk_str()) == false, "source from string works, step 0" );
 	static_assert( make_source(factory_t{}.mk_str("ab"))() == 'a', "source from string works, step 1" );
@@ -418,9 +419,10 @@ template<auto from, auto to> struct range_parser : base_parser<range_parser<from
 };
 
 constexpr struct space_parser : base_parser<space_parser> {
-	constexpr auto parse(auto&&,auto src, auto&) const {
+	constexpr auto parse(auto&&,auto src, auto& r) const {
 		auto sym = src();
-		return 0x07 < sym && sym < '!'; // 0x08 is a backspace
+		const bool is_space = 0x07 < sym && sym < '!'; // 0x08 is a backspace
+		return -1 + (2 * is_space);
 	}
 } space ;
 
@@ -498,9 +500,9 @@ constexpr auto omit(auto&& p) { return omit_parser<decltype(auto(p))>{ p }; }
 template<parser parser_t> struct unary_list_parser : parser_t {
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = parser_t::parse(ctx, src, details::empback(result));
-		src += ret;
+		src += ret * (0<=ret);
 		auto cur_r = ret;
-		while(src && 0<cur_r) {
+		while(!!src && 0<cur_r) {
 			cur_r = parser_t::parse(ctx, src, details::empback(result));
 			ret += cur_r * (0<=cur_r);
 			src += cur_r * (0<=cur_r);
@@ -874,6 +876,13 @@ constexpr void test_variant_parser() {
 }
 template<typename factory>
 constexpr void test_other_parsers() {
+	static_assert( ({char r='z';space.parse(make_test_ctx(), make_source("a"), r);}) == -1, "can parse space by space" );
+	static_assert( ({char r='z';space.parse(make_test_ctx(), make_source(" "), r);}) == 1, "can parse space by space" );
+	static_assert( ({char r='z';space.parse(make_test_ctx(), make_source("\n"), r);}) == 1, "can parse new line by space" );
+	static_assert( ({char r='z';space.parse(make_test_ctx(), make_source("\t"), r);}) == 1, "can parse tab by space" );
+	static_assert( ({char r='z';(+space).parse(make_test_ctx(), make_source("\t \n"), r);}) == 3, "can parse tab by space" );
+	static_assert( ({char r='z';(+space).parse(make_test_ctx(), make_source("\t \n"), r);}) == 3, "can parse tab by space" );
+
 	static_assert( ({ char r = 'c'; omit(char_<'a'>).parse(make_test_ctx(), make_source("a"), r);
 	}) == 1, "omit parser returns count of parsed symbols");
 	static_assert( ({ char r = 'c'; omit(char_<'a'>).parse(make_test_ctx(), make_source("b"), r);
