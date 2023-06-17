@@ -722,7 +722,8 @@ requires (!requires{ static_cast<const opt_seq_parser<p1,p2>&>(p); }) {
 }
 template<bool apply, typename parser, typename injection_t>
 constexpr const auto inject_parser(const unary_list_parser<parser>& p, const injection_t& inject) {
-	if constexpr (requires{ static_cast<const seq_tag&>(p); })
+	if constexpr (!apply) return unary_list_parser{ inject_parser<apply>(static_cast<const parser&>(p), inject) };
+	else if constexpr (requires{ static_cast<const seq_tag&>(p); })
 		return +inject_to_list_seq<apply>(static_cast<const parser&>(p), inject);
 	else return +(inject >> static_cast<const parser&>(p));
 }
@@ -805,6 +806,7 @@ template<auto ind, typename parser> constexpr void test_as_parser_invalid() {
 template<typename factory, typename p1, typename p2>
 constexpr void test_two_parsers() { if constexpr (std::is_same_v<p1,p2>) {} else {
 	static_cast<const p1&>(inject_parser<true>(p1{}, p2{}));
+	static_cast<const opt_seq_parser<p1, p1>&>(inject_parser<false>(p1{} >> p1{}, p2{}));
 	static_cast<const opt_seq_parser<p2, p1, p2, p1>&>(inject_parser<true>(p1{} >> p1{}, p2{}));
 	static_cast<const unary_list_parser<opt_seq_parser<p2, p1>>&>(inject_parser<true>(+(p1{}), p2{}));
 	static_cast<const unary_list_parser<opt_seq_parser<p2, p1, p2, p1>>&>(inject_parser<true>(+(p1{} >> p1{}), p2{}));
@@ -832,6 +834,9 @@ constexpr void test_two_parsers() { if constexpr (std::is_same_v<p1,p2>) {} else
 		auto p = inject_parser<true>(char_<'a'> >> char_<'b'>([&t](...){++t;}), -omit(space));
 		p.parse(make_test_ctx(), make_source(factory{}.mk_str("ab")), r); t;
 	}) == 1, "injection works with semact" );
+
+	static_cast<const opt_parser<unary_list_parser<p1>>&>(inject_parser<true>(lexeme(*p1{}), p2{}));
+	static_cast<const opt_seq_parser<p1, p1>&>(inject_parser<true>(lexeme(p1{} >> p1{}), p2{}));
 }}
 
 template<typename factory_t, typename cur_parser, template<typename...> class parsers_set, typename... parsers>
