@@ -18,6 +18,12 @@ template<typename type> concept parser = requires(const type& p){ static_cast<co
 
 template<typename parser, typename act_t> struct semact_parser : parser {
 	act_t act;
+	constexpr const auto parse(auto&& ctx, auto src, auto& result) const requires (
+	requires{ act(result); } && !requires{ act(); }
+	) {
+		auto& nr = act(result);
+		return parser::parse(ctx, src, nr);
+	}
 	constexpr const auto parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = parser::parse(ctx, src, result);
 		if(ret >= 0) {
@@ -600,11 +606,22 @@ template<typename... parsers> struct opt_seq_parser : com_seq_parser<opt_seq_par
 	constexpr opt_seq_parser(auto&&... args) requires (sizeof...(parsers)==sizeof...(args)): base_t(static_cast<decltype(args)&&>(args)...) {}
 	constexpr auto on_error(auto val) const { return val; }
 };
+template<auto ind, auto ctx_chunk_size, auto ctx_result_pos, typename act_type>
+struct seq_reqursion_praser_act : base_parser<seq_reqursion_praser_act<ind, ctx_chunk_size, ctx_result_pos, act_type>> {
+	act_type fnc;
+	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+		auto& ctx_r = fnc(*get<ind*ctx_chunk_size+ctx_result_pos>(ctx));
+		return !!src ? get<ind*ctx_chunk_size>(ctx)->parse(ctx, static_cast<decltype(src)&&>(src), ctx_r) : -1;
+	}
+};
 template<auto ind, auto ctx_chunk_size, auto ctx_result_pos> struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind, ctx_chunk_size, ctx_result_pos>> {
 	static_assert( ctx_chunk_size > ctx_result_pos, "we need to extract result from ctx"  );
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		auto& ctx_r = *get<ind*ctx_chunk_size+ctx_result_pos>(ctx);
 		return !!src ? get<ind*ctx_chunk_size>(ctx)->parse(ctx, static_cast<decltype(src)&&>(src), ctx_r) : -1;
+	}
+	constexpr auto operator()(auto&& act) const {
+		return seq_reqursion_praser_act<ind, ctx_chunk_size, ctx_result_pos, decltype(auto(act))>{ {}, static_cast<decltype(act)>(act) };
 	}
 };
 template<auto ind> const auto req = seq_reqursion_parser<ind, 3, 1>{};
@@ -1018,6 +1035,18 @@ constexpr void test_reqursion_parsers() {
 	}) == 'a', "can parse reqursion: deeper");
 	static_assert( ({ char r='c'; ((char_<'a'>|'b') >> -(omit(char_<'('>) >> -req<0> >> omit(char_<')'>))).parse(make_test_ctx(), make_source("a(())"), r);
 	}) == 5, "can parse reqursion");
+
+	struct semact_req_tester { char n='z'; char* ptr=nullptr; };
+	static_assert( ({
+		semact_req_tester r, r2;
+		auto p=(char_<'a'>++ >> -(omit(char_<'('>) >> req<1>([&r2](auto& r)->semact_req_tester&{return r2;}) >> omit(char_<')'>)));
+		p.parse(make_test_ctx(), make_source("a(a)"), r);
+	}) == 4, "check semact for create value");
+	static_assert( ({
+		semact_req_tester r, r2;
+		auto p=(char_<'a'>++ >> -(omit(char_<'('>) >> req<1>([&r2](auto& r)->semact_req_tester&{r.n='b';return r2;}) >> omit(char_<')'>)));
+		p.parse(make_test_ctx(), make_source("a(a)"), r); r2.n;
+	}) == 'a', "check semact for create value");
 }
 
 constexpr auto parse(const auto& parser, auto src, auto& result) {
