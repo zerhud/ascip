@@ -1,5 +1,5 @@
 # ascip
-c++ ascii not poisonous parser
+c++ ascii not poisonous parser. requires c++23.
 ## parser list
 here is a list of avaible parsers. you can find examples below
 - `int_` an integer if it can to be stored to result
@@ -94,7 +94,7 @@ constexpr auto type_p =
              // so the ident will be stored on first result field and next item to second
   >> -(      // - is an optional parser
        omit(char_<'<'>) // omits a value
-    >> ascip::req<2> // reqursively calls parser. 2 - the number of sequence parsers to top direction from current place.
+    >> ascip::req<2> // reqursively calls parser. 2 - the number of sequence parsers (as current - number)
        ([](...){...}) // lambda for create object for store reqursion. it get an empty unqie_ptr what emplace_back to result.
        % ','
     >> omit(char_<'>'>)
