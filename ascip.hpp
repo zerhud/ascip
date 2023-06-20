@@ -635,7 +635,7 @@ template<auto ind, auto ctx_chunk_size, auto ctx_result_pos, typename act_type>
 struct seq_reqursion_praser_act : base_parser<seq_reqursion_praser_act<ind, ctx_chunk_size, ctx_result_pos, act_type>> {
 	act_type fnc;
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
-		auto& modified_result = fnc(result);
+		auto& modified_result = *fnc(result);
 		return !!src ? get<ind*ctx_chunk_size>(ctx)->parse(ctx, static_cast<decltype(src)&&>(src), modified_result) : -1;
 	}
 };
@@ -1085,17 +1085,17 @@ constexpr void test_reqursion_parsers() {
 	struct semact_req_tester { char n='z'; semact_req_tester* ptr=nullptr; };
 	static_assert( ({
 		semact_req_tester r, r2;
-		auto p=(char_<'a'>++ >> -(omit(char_<'('>) >> req<1>([&r2](auto& r)->semact_req_tester&{return r2;}) >> omit(char_<')'>)));
+		auto p=(char_<'a'>++ >> -(omit(char_<'('>) >> req<1>([&r2](auto& r){return &r2;}) >> omit(char_<')'>)));
 		p.parse(make_test_ctx(), make_source("a(a)"), r);
 	}) == 4, "check semact for create value");
 	static_assert( ({
 		semact_req_tester r, r2;
-		auto p=(char_<'a'>++ >> -(omit(char_<'('>) >> req<1>([&r2](auto& r)->semact_req_tester&{return r2;}) >> omit(char_<')'>)));
+		auto p=(char_<'a'>++ >> -(omit(char_<'('>) >> req<1>([&r2](auto& r){return &r2;}) >> omit(char_<')'>)));
 		p.parse(make_test_ctx(), make_source("a(a)"), r); r.n * (r2.n == 'a');
 	}) == 'a', "check semact for create value");
 	static_assert( ({
 		semact_req_tester r;
-		auto p=(char_<'a'>++ >> -(omit(char_<'('>) >> req<1>([](auto& r)->semact_req_tester&{r=new semact_req_tester('b');return *r;}) >> omit(char_<')'>)));
+		auto p=(char_<'a'>++ >> -(omit(char_<'('>) >> req<1>([](auto& r){r=new semact_req_tester('b');return r;}) >> omit(char_<')'>)));
 		p.parse(make_test_ctx(), make_source("a(a)"), r);
 		char ret = r.ptr->n * (r.ptr->ptr == nullptr);
 		delete r.ptr;
