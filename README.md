@@ -54,6 +54,33 @@ what about reqursion? we can write a class wrapper with redefined operator = for
 the parser is:
 ```
 constexpr auto ident = lexeme(letter >> *(letter | d10 | char_<'_'>));
-constexpr auto type_p = (ident++ >> -(omit(char_<'<'>) >> ascip::req<2>([](auto&r)->type&{r.reset(new type());return *r;}) % ',' >> omit(char_<'>'>)));
+constexpr auto type_p = ident++ >> -(omit(char_<'<'>) >> ascip::req<2>([](auto&r)->type&{r.reset(new type());return *r;}) % ',' >> omit(char_<'>'>));
 ```
-NOTE: lambda for create reqursion holder has to return reference.
+NOTE: lambda for create reqursion holder has to return reference. (will be fixed soon.)
+
+let's see the `type_p` parser closely
+```
+constexpr auto type_p =
+     ident++ // ident is a ident parser, ++ is a request for next field in structure on next sequence element.
+             // so the ident will be stored on first result field and next item to second
+  >> -(      // - is an optional parser
+       omit(char_<'<'>) // omits a value
+    >> ascip::req<2> // reqursively calls parser. 2 - the number of sequence parsers to top direction from current place.
+       ([](...){...}) // lambda for create object for store reqursion. it get an empty unqie_ptr what emplace_back to result.
+       % ','
+    >> omit(char_<'>'>)
+  )
+;
+```
+what is the `<2>`? let's rewrite the `type_p` parser like this:
+```
+constexpr auto constexpr auto subtype = omit(char_<'<'>) >> ascip::req<2>([](auto&r)->type&{r.reset(new type());return *r;}) % ',' >> omit(char_<'>'>);
+constexpr auto type_p = ident++ >> -subtype;
+```
+as we can see the `type_p` parser contains two sequences: 
+1. `ident` and `subtype`
+2. `subtype` parser definition.
+
+so `req<1>` calls, the `subtype` parser and `req<2>` calls the `type_p` parser. (the numeration starts from one instead of zero. it may be fixed later.)
+
+
