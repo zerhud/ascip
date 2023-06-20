@@ -12,6 +12,7 @@ namespace ascip {
 
 /*TODO list:
  *  handle errors
+ *  add injection test for binary_list
  */
 struct parser_tag {};
 template<typename type> concept parser = requires(const type& p){ static_cast<const parser_tag&>(p); };
@@ -519,8 +520,32 @@ template<parser parser_t> struct unary_list_parser : parser_t {
 };
 template<parser parser_t> constexpr auto operator+(const parser_t& p) { return unary_list_parser<parser_t>{ p }; }
 template<parser parser_t> constexpr auto operator*(const parser_t& p) { return -(+p); }
-template<parser left, parser right> constexpr auto operator%(const left& l, const right& r) { return l >> *(r >> l); }
-template<parser left> constexpr auto operator%(const left& l, char r) { return l >> *(value_parser{r} >> l); }
+
+template<parser left, parser right> struct binary_list_parser : base_parser<binary_list_parser<left, right>> {
+	left l;
+	right r;
+	constexpr binary_list_parser(left l, right r) : l(l), r(r) {}
+	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+		details::type_any_eq_allow fake_result;
+		auto ret = l.parse(ctx, src, details::empback(result));
+		auto cur = ret;
+		while(cur > 0) {
+			src += cur;
+			auto r_res = r.parse(ctx, src, fake_result);
+			if( r_res <= 0 ) break;
+			src += r_res;
+			cur = l.parse(ctx, src, details::empback(result));
+			if( cur <= 0 ) {
+				details::pop(result);
+				break;
+			}
+			ret += cur + r_res;
+		}
+		return ret;
+	}
+};
+template<parser left, parser right> constexpr auto operator%(const left& l, const right& r) { return binary_list_parser( l, r ); }
+template<parser left> constexpr auto operator%(const left& l, char r) { return binary_list_parser( l, value_parser{r} ); }
 
 constexpr struct cur_pos_parser : base_parser<cur_pos_parser> {
 	constexpr auto parse(auto&&, auto src, auto& result) const {
@@ -614,7 +639,8 @@ struct seq_reqursion_praser_act : base_parser<seq_reqursion_praser_act<ind, ctx_
 		return !!src ? get<ind*ctx_chunk_size>(ctx)->parse(ctx, static_cast<decltype(src)&&>(src), modified_result) : -1;
 	}
 };
-template<auto ind, auto ctx_chunk_size, auto ctx_result_pos> struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind, ctx_chunk_size, ctx_result_pos>> {
+template<auto ind, auto ctx_chunk_size, auto ctx_result_pos>
+struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind, ctx_chunk_size, ctx_result_pos>> {
 	static_assert( ctx_chunk_size > ctx_result_pos, "we need to extract result from ctx"  );
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		auto& ctx_r = *get<ind*ctx_chunk_size+ctx_result_pos>(ctx);
@@ -746,6 +772,17 @@ constexpr const auto inject_parser(const unary_list_parser<parser>& p, const inj
 		return +inject_to_list_seq<apply>(static_cast<const parser&>(p), inject);
 	else return +(inject >> static_cast<const parser&>(p));
 }
+template<bool apply, typename left, typename right, typename injection_t>
+constexpr const auto inject_parser(const binary_list_parser<left, right>& p, const injection_t& inject) {
+	constexpr bool is_l_req = requires{ static_cast<const seq_tag&>(p.l); };
+	constexpr bool is_r_req = requires{ static_cast<const seq_tag&>(p.r); };
+	if constexpr (!apply) return inject_parser<apply>(p.l, inject) % inject_parser<apply>(p.r, inject);
+	else if constexpr (apply) {
+		if constexpr (!is_l_req && is_r_req) return (inject >> inject_parser<apply>(p.l, inject)) % inject_parser<apply>(p.r, inject);
+		else if constexpr (is_l_req && !is_r_req) return inject_parser<apply>(p.l, inject) % (inject >> inject_parser<apply>(p.r, inject));
+		else return (inject >> inject_parser<apply>(p.l, inject)) % (inject >> inject_parser<apply>(p.r, inject));
+	}
+}
 template<bool apply, typename parser, typename injection_t>
 constexpr const auto inject_parser(const skip_parser<parser>& p, const injection_t& inject) {
 	return inject_parser<true>(static_cast<const parser&>(p), inject);
@@ -856,6 +893,15 @@ constexpr void test_two_parsers() { if constexpr (std::is_same_v<p1,p2>) {} else
 
 	static_cast<const opt_parser<unary_list_parser<p1>>&>(inject_parser<true>(lexeme(*p1{}), p2{}));
 	static_cast<const opt_seq_parser<p1, p1>&>(inject_parser<true>(lexeme(p1{} >> p1{}), p2{}));
+
+	static_cast<const binary_list_parser<opt_seq_parser<p2, p1>, opt_seq_parser<p2, p1>>&>( inject_parser<true>(p1{} % p1{}, p2{}) );
+	static_cast<const binary_list_parser<opt_seq_parser<p2, p1, p2, p1>, opt_seq_parser<p2, p1>>&>( inject_parser<true>((p1{} >> p1{}) % p1{}, p2{}) );
+	static_cast<const binary_list_parser<opt_seq_parser<p2, p1>, opt_seq_parser<p2, p1, p2, p1>>&>( inject_parser<true>(p1{} % (p1{} >> p1{}), p2{}) );
+
+	static_assert( ({
+		auto r = factory{}.template mk_vec<char>();
+		(char_<'a'> % ',').parse(make_test_ctx(), make_source("a,a,a,b"), r);
+		r.size(); }) == 3, "check emplace and pop works normaly");
 }}
 
 template<typename factory_t, typename cur_parser, template<typename...> class parsers_set, typename... parsers>
