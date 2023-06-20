@@ -12,7 +12,6 @@ namespace ascip {
 
 /*TODO list:
  *  handle errors
- *  add injection test for binary_list
  */
 struct parser_tag {};
 template<typename type> concept parser = requires(const type& p){ static_cast<const parser_tag&>(p); };

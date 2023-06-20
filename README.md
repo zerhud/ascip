@@ -57,7 +57,7 @@ static_assert( ({
   result.major + result.minor; }) == 3 );
 ```
 
-note prefix `++` operator. it increase result field number. first `int_` will store result into `major` and second `int_` stores result into `minor`. for store result to structure instead of single result (for example store to `std::string`) it must to be at least single `++` prefix or postfix operator, or `finc<number>` function for set shift from current field number. wihtout it the result will be treated as single variable.
+note prefix `++` operator. it increases the result field number. first `int_` will store result into `major` and second `int_` stores result into `minor`. for store result to structure instead of single result (for example store to `std::string`) it must to be at least one `++` prefix or postfix operator, or `finc<number>` function for set shift from current field number. wihtout it the result will be treated as single variable.
 
 ## poison
 ok, but what about poison? ascip supports any compatibl type. for example std::vector and std::list can be used for same parser:
@@ -113,3 +113,7 @@ as we can see the `type_p` parser contains two sequences:
 so `req<1>` calls, the `subtype` parser and `req<2>` calls the `type_p` parser. (the numeration starts from one instead of zero. it may be fixed later. now it treats as current - index, so current-0 == current and it have to start from 1.)
 
 
+# roadmap
+- implement error handler
+- implement double parser
+- remove all std includes
