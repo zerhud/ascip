@@ -502,6 +502,7 @@ template<parser parser_t> struct omit_parser : parser_t {
 	}
 };
 constexpr auto omit(auto&& p) { return omit_parser<decltype(auto(p))>{ p }; }
+template<auto val> constexpr const auto _char = omit(char_<val>);
 
 template<parser parser_t> struct unary_list_parser : parser_t {
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
