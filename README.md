@@ -43,21 +43,21 @@ for parse something we have to provide data source. for ascip it's a class what 
 For example we want to parse version number like 'v1.2'.  the major version is 1 and minor version is 2. code to parse it may looks like
 ```
 struct version {
-  int major;
-  int minor;
+  int major=0;
+  int minor=0;
 };
 
-using ascip::char_;
-using ascip::int_;
-using ascip::make_source;
-
 static_assert( ({
-  version result;
-  parse(omit(char_<'v'>) >> int_ >> omit(char_<'.'>) >> ++int_, make_source("v1.2"), result);
-  result.major + result.minor; }) == 3 );
+    version result;
+    parse(_char<'v'> >> int_ >> _char<'.'> >> ++int_, ascip::make_source("v1.2"), result);
+    result.major + result.minor; }) == 3 );
 ```
 
-note prefix `++` operator. it increases the result field number. first `int_` will store result into `major` and second `int_` stores result into `minor`. for store result to structure instead of single result (for example store to `std::string`) it must to be at least one `++` prefix or postfix operator, or `finc<number>` function for set shift from current field number. wihtout it the result will be treated as single variable.
+note
+- prefix `++` operator. it increases the result field number. first `int_` will store result into `major` and second `int_` stores result into `minor`. for store result to structure instead of single result (for example store to `std::string`) it must to be at least one `++` prefix or postfix operator, or `finc<number>` function for set shift from current field number. wihtout it the result will be treated as single variable.
+- `_char` instead of `char_` . the first one omits its value, the second one stores it to result.
+- there is no `lexeme()`: we don't use skip parser here. (you can pass it as second argument.)
+- [see full example on godbolt](https://godbolt.org/#g:!((g:!((g:!((h:codeEditor,i:(filename:'1',fontScale:14,fontUsePx:'0',j:1,lang:c%2B%2B,selection:(endColumn:90,endLineNumber:13,positionColumn:90,positionLineNumber:13,selectionStartColumn:90,selectionStartLineNumber:13,startColumn:90,startLineNumber:13),source:'%23include+%3Chttps://raw.githack.com/zerhud/ascip/master/ascip.hpp%3E%0A%0A%0Astruct+version+%7B%0A++int+major%3D0%3B%0A++int+minor%3D0%3B%0A%7D%3B%0A%0Ausing+ascip::_char%3B%0Ausing+ascip::int_%3B%0Ausing+ascip::make_source%3B%0A%0Aconstexpr+auto+ver+%3D+lexeme(_char%3C!'v!'%3E+%3E%3E+int_+%3E%3E+_char%3C!'.!'%3E+%3E%3E+%2B%2Bint_)%3B+//+other+variant%0A%0Aconstexpr+void+fnc_must_to_be_constexpr()+%7B%0A++static_assert(+(%7B%0A++++version+result%3B%0A++++parse(_char%3C!'v!'%3E+%3E%3E+int_+%3E%3E+_char%3C!'.!'%3E+%3E%3E+%2B%2Bint_,+ascip::make_source(%22v1.2%22),+result)%3B%0A++++result.major+%2B+result.minor%3B+%7D)+%3D%3D+3+)%3B%0A%7D%0A%0Aint+main(int,char**)+%7B%0A++return+0%3B%0A%7D'),l:'5',n:'0',o:'C%2B%2B+source+%231',t:'0')),k:100,l:'4',m:50,n:'0',o:'',s:0,t:'0'),(g:!((g:!((h:compiler,i:(compiler:g131,deviceViewOpen:'1',filters:(b:'0',binary:'1',binaryObject:'1',commentOnly:'0',debugCalls:'1',demangle:'0',directives:'0',execute:'1',intel:'0',libraryCode:'0',trim:'1'),flagsViewOpen:'1',fontScale:14,fontUsePx:'0',j:1,lang:c%2B%2B,libs:!(),options:'-std%3Dc%2B%2B23',overrides:!(),selection:(endColumn:1,endLineNumber:1,positionColumn:1,positionLineNumber:1,selectionStartColumn:1,selectionStartLineNumber:1,startColumn:1,startLineNumber:1),source:1),l:'5',n:'0',o:'+x86-64+gcc+13.1+(Editor+%231)',t:'0')),header:(),k:50,l:'4',m:50,n:'0',o:'',s:0,t:'0'),(g:!((h:output,i:(compilerName:'x86-64+gcc+13.1',editorid:1,fontScale:14,fontUsePx:'0',j:1,wrap:'1'),l:'5',n:'0',o:'Output+of+x86-64+gcc+13.1+(Compiler+%231)',t:'0')),header:(),k:50,l:'4',n:'0',o:'',s:0,t:'0')),l:'2',m:50,n:'0',o:'',t:'0')),l:'3',n:'0',o:'',t:'0')),version:4)
 
 ## poison
 ok, but what about poison? ascip supports any compatibl type. for example std::vector and std::list can be used for same parser:
