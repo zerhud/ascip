@@ -1,6 +1,6 @@
 #pragma once
 
-//          Copyright Hudyaev Alexey 2004 - 2006.
+//          Copyright Hudyaev Alexey 2023.
 // Distributed under the Boost Software License, Version 1.0.
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          https://www.boost.org/LICENSE_1_0.txt)
@@ -848,7 +848,18 @@ template<auto ind, typename factory, typename parser> constexpr void test_as_par
 		as(parser{}, factory{}.mk_str("test")).parse(make_test_ctx(), make_source(parser::valid_data[ind]), result);
 		result == "test";
 	}) == true, "as parser results as required result (with strings)");
+	static_assert( ({
+		char result;
+		(as(parser{} >> parser{}, 'a') | as(parser{}, 'b')).parse(make_test_ctx(), make_source(parser::valid_data[ind]), result);
+		result; }) == 'b' );
 	if constexpr (ind+1 < details::arrsize(parser::valid_data)) test_as_parser<ind+1, factory, parser>();
+	else {
+		static_assert( ({
+			char result;
+			auto src = factory{}.mk_str("cc");
+			(as(_char<'c'> >> _char<'c'>, 'a') | as(_char<'c'>, 'b')).parse(make_test_ctx(), make_source(src), result);
+			result; }) == 'a' );
+	}
 }
 template<auto ind, typename parser> constexpr void test_as_parser_invalid() requires(!requires{parser::invalid_data;}){}
 template<auto ind, typename parser> constexpr void test_as_parser_invalid() {

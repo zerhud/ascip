@@ -7,7 +7,7 @@ here is a list of avaible parsers. you can find examples below
 - `lower` and `upper` for parse asci lower or upper letters. and `letter` is a `lower` or `upper`.
 - `space` means spaces
 - `any` parses any character
-- `char_<'a'>` char with concreate value (it can to be wide char and so on)
+- `char_<'a'>` char with concreate value (it can to be wide char and so on). and `_char<'a'>` is same with omitted value.
 - `operator |` for parse variant
 - `operator !` for negate parser
 - `unary -` for parse optional value. if tere is no value the default constructor will be used.
