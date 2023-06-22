@@ -408,8 +408,8 @@ template<parser type1, parser type2> struct variant_parser : base_parser<variant
 		return 0 <= r1 ? r1 : p2.parse(ctx, src, result);
 	}
 };
-constexpr auto operator|(const auto& p1, const auto& p2) { return variant_parser<decltype(auto(p1)), decltype((p2))>{ p1, p2 }; }
-constexpr auto operator|(const auto& p1, char p2) { value_parser p(p2); return variant_parser{ p1, p }; }
+constexpr auto operator|(const auto& p1, const auto& p2) { return variant_parser<decltype(auto(p1)), decltype(auto(p2))>{ p1, p2 }; }
+constexpr auto operator|(const auto& p1, char p2) { value_parser p(p2); return variant_parser<decltype(auto(p1)), decltype(auto(p))>{ p1, p }; }
 
 template<auto from, auto to> struct range_parser : base_parser<range_parser<from,to>> { 
 	constexpr auto parse(auto&&, auto src, auto& result) const {
@@ -502,7 +502,7 @@ template<typename value_t, parser parser_t> struct as_parser : parser_t {
 template<typename value_t, parser parser_t> constexpr auto as( parser_t&& p, value_t&& val ){
 	return as_parser<decltype(auto(val)), decltype(auto(p))>{ p, val };
 }
-template<auto val, parser parser_t> constexpr auto as( parser_t&& p) { return tmpl_as_parser<val, parser_t>{ p }; }
+template<auto val, parser parser_t> constexpr auto as( parser_t&& p) { return tmpl_as_parser<val, decltype(auto(p))>{ p }; }
 
 template<parser parser_t> struct omit_parser : parser_t {
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
@@ -865,6 +865,7 @@ template<auto ind, typename factory, typename parser> constexpr void test_as_par
 		char result;
 		(as(parser{} >> parser{}, 'a') | as(parser{}, 'b')).parse(make_test_ctx(), make_source(parser::valid_data[ind]), result);
 		result; }) == 'b' );
+	constexpr const auto test_is_constexpr = as(parser{} >> parser{}, 'a') | as(parser{}, 'b');
 	if constexpr (ind+1 < details::arrsize(parser::valid_data)) test_as_parser<ind+1, factory, parser>();
 	else {
 		static_assert( ({
