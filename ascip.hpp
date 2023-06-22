@@ -482,6 +482,14 @@ template<parser type> constexpr auto operator!(const type& p) {
 	return negate_parser<decltype(auto(p))>{ p };
 }
 
+template<auto val, typename parser> struct tmpl_as_parser : parser {
+	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+		details::type_any_eq_allow r;
+		auto shift = parser::parse(ctx, static_cast<decltype(auto(src))&&>(src), r);
+		if(shift >= 0) result = val;
+		return shift;
+	}
+};
 template<typename value_t, parser parser_t> struct as_parser : parser_t {
 	value_t val;
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
@@ -494,6 +502,7 @@ template<typename value_t, parser parser_t> struct as_parser : parser_t {
 template<typename value_t, parser parser_t> constexpr auto as( parser_t&& p, value_t&& val ){
 	return as_parser<decltype(auto(val)), decltype(auto(p))>{ p, val };
 }
+template<auto val, parser parser_t> constexpr auto as( parser_t&& p) { return tmpl_as_parser<val, parser_t>{ p }; }
 
 template<parser parser_t> struct omit_parser : parser_t {
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
@@ -842,6 +851,10 @@ template<auto ind, typename factory, typename parser> constexpr void test_as_par
 	static_assert( ({ char result; as(parser{}, 'a').parse(make_test_ctx(), make_source(parser::valid_data[ind]), result);
 	}) > 0, "as parser can parse based parser");
 	static_assert( ({ char result; as(parser{}, 'a').parse(make_test_ctx(), make_source(parser::valid_data[ind]), result); result;
+	}) == 'a', "as parser results as required result");
+	static_assert( ({ char result; as<'a'>(parser{}).parse(make_test_ctx(), make_source(parser::valid_data[ind]), result);
+	}) > 0, "as parser can parse based parser");
+	static_assert( ({ char result; as<'a'>(parser{}).parse(make_test_ctx(), make_source(parser::valid_data[ind]), result); result;
 	}) == 'a', "as parser results as required result");
 	static_assert( ({
 		auto result = factory{}.mk_str();

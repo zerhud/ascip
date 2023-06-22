@@ -103,7 +103,7 @@ constexpr auto type_p =
 ```
 what is the `<2>`? let's rewrite the `type_p` parser like this:
 ```
-constexpr auto constexpr auto subtype = omit(char_<'<'>) >> ascip::req<2>([](auto&r)->type&{r.reset(new type());return *r;}) % ',' >> omit(char_<'>'>);
+constexpr auto constexpr auto subtype = omit(char_<'<'>) >> ascip::req<2>([](auto&r){r.reset(new type());return r.get();}) % ',' >> omit(char_<'>'>);
 constexpr auto type_p = ident++ >> -subtype;
 ```
 as we can see the `type_p` parser contains two sequences: 
