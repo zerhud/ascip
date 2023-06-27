@@ -15,6 +15,7 @@ namespace ascip {
  */
 struct parser_tag {};
 template<typename type> concept parser = requires(const type& p){ static_cast<const parser_tag&>(p); };
+template<typename type> concept nonparser = !parser<type>;
 
 template<typename parser, typename act_t> struct semact_parser : parser {
 	act_t act;
@@ -285,7 +286,7 @@ constexpr auto exists(const tuple<left_args...>& to, auto&& what) {
 
 
 template<typename arg, template<typename...>class tuple, typename... left_args>
-constexpr const bool contains(const tuple<left_args...>&) { return (std::is_same_v<left_args,arg> || ...); }
+constexpr const bool contains(const tuple<left_args...>*) { return (std::is_same_v<left_args,arg> || ...); }
 
 constexpr auto pos(const auto& src)
 {
@@ -399,6 +400,36 @@ template<typename t> struct value_parser : base_parser<value_parser<t>> {
 	}
 };
 
+template<parser... parsers> struct rstruct_variant_parser : base_parser<rstruct_variant_parser<parsers...>> {
+	std::tuple<parsers...> seq;
+	constexpr rstruct_variant_parser( parsers... l ) : seq( std::forward<parsers>(l)... ) {}
+
+	//template<auto ind> constexpr auto& current_result(auto& result) const
+	//requires requires{ create<ind>(result); } {
+		//return create<ind>(result);
+	//}
+	template<auto ind> constexpr auto& current_result(auto& result) const
+	//requires (requires{ result.template emplace<ind>(); } && !requires{ create<ind>(result); }) {
+	requires requires{ result.template emplace<ind>(); } {
+		return result.template emplace<ind>();
+	}
+	//template<auto ind> constexpr auto current_result(auto& result) const {
+		//return .5;
+		//return result;
+	//}
+	template<auto ind> constexpr auto parse_ind(auto&& ctx, auto& src, auto& result) const {
+		auto tmp = current_result<ind>(result);
+		auto parse_result = get<ind>(seq).parse(ctx, src, tmp);
+		if constexpr (ind+1 == sizeof...(parsers)) return parse_result;
+		else {
+			if(parse_result > 0) return parse_result;
+			return parse_ind<ind+1>(ctx, src, result);
+		}
+	}
+	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+		return parse_ind<0>(ctx, src, result);
+	}
+};
 template<parser... parsers> struct variant_parser : base_parser<variant_parser<parsers...>> {
 	std::tuple<parsers...> seq;
 	constexpr variant_parser( parsers... l ) : seq( std::forward<parsers>(l)... ) {}
@@ -578,6 +609,14 @@ template<parser left, parser right> struct binary_list_parser : base_parser<bina
 template<parser left, parser right> constexpr auto operator%(const left& l, const right& r) { return binary_list_parser( l, r ); }
 template<parser left> constexpr auto operator%(const left& l, char r) { return binary_list_parser( l, value_parser{r} ); }
 
+template<typename good_result, parser p> struct result_checker_parser : p {
+	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+		static_assert( std::is_same_v<good_result, decltype(auto(result))>, "can only parser to required type" );
+		return p::parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(auto(src))&&>(src), result);
+	}
+};
+template<typename result, parser type> constexpr auto check(const type& p) { return result_checker_parser<result, decltype(auto(p))>{ p }; }
+
 constexpr struct cur_pos_parser : base_parser<cur_pos_parser> {
 	constexpr auto parse(auto&&, auto src, auto& result) const {
 		details::eq(result, details::pos(src));
@@ -599,6 +638,7 @@ template<parser p> struct seq_dec_rfield_before : p {};
 template<typename concrete, typename... parsers> struct com_seq_parser : base_parser<concrete>, seq_tag {
 	std::tuple<parsers...> seq;
 
+	constexpr com_seq_parser(std::tuple<parsers...> t) : seq(std::move(t)) {}
 	constexpr com_seq_parser(auto&&... args) requires (sizeof...(parsers) == sizeof...(args)) : seq( static_cast<decltype(args)&&>(args)... ) {}
 
 	template<typename type> constexpr static bool is_field_separator = requires(type&p){ static_cast<const seq_inc_rfield&>(p); };
@@ -649,10 +689,11 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 	}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		if(!src) return -1;
-		if constexpr (details::contains<decltype(this)>(decltype(auto(ctx)){}))
+		const concrete* self = static_cast<const concrete*>(this);
+		if constexpr (details::contains<decltype(self)>((const decltype(auto(ctx))*)nullptr))
 			return parse_seq<0, 0, parsers...>(ctx, src, result);
 		else {
-			auto cur_ctx = details::push_front(ctx, this, &result, &src);
+			auto cur_ctx = details::push_front(ctx, std::move(self), &result, &src);
 			return parse_seq<0, 0, parsers...>(cur_ctx, src, result);
 		}
 	}
@@ -763,17 +804,25 @@ constexpr auto operator""_lex() {
 //          injection part
 // ===============================
 
-template<bool apply,auto... inds, template<typename...>class result_t, typename... parsers, typename injection_t>
+template<bool apply,typename tag, auto... inds, template<typename...>class result_t, typename... parsers, typename injection_t>
 constexpr const auto make_seq_injection(const result_t<parsers...>& p, const injection_t& inject, auto&&... args) {
-        if constexpr (sizeof...(inds) == sizeof...(parsers))
-                return result_t<decltype(auto(args))...>( args... );
-        else {
+	constexpr const bool is_finish =
+		  std::is_same_v<tag,void>
+		? sizeof...(inds) == sizeof...(parsers)
+		: (sizeof...(inds)+1) == sizeof...(parsers)
+		;
+        //if constexpr (sizeof...(inds) == sizeof...(parsers)) {
+	if constexpr (is_finish) {
+		if constexpr (std::is_same_v<tag,void>)
+			return result_t<decltype(auto(args))...>( args... );
+		else return result_t<tag, decltype(auto(args))...>( args... );
+	} else {
                 auto& new_arg = get<sizeof...(inds)>(p.seq);
-                if constexpr (apply) return make_seq_injection<apply,inds..., sizeof...(inds)>(
+                if constexpr (apply) return make_seq_injection<apply,tag,inds..., sizeof...(inds)>(
                         p, inject, std::forward<decltype(args)>(args)...,
                         inject, inject_parser<apply>(new_arg, inject)
                 );
-                else return make_seq_injection<apply,inds..., sizeof...(inds)>(
+                else return make_seq_injection<apply,tag,inds..., sizeof...(inds)>(
                         p, inject, std::forward<decltype(args)>(args)...,
                         inject_parser<apply>(new_arg, inject)
                 );
@@ -798,7 +847,12 @@ template<bool apply, parser... plist, template<typename...>class seq_parser>
 constexpr auto inject_to_list_seq(const seq_parser<plist...>& p, const auto& s) { return inject_parser<apply>(p,s); }
 
 template<bool apply> constexpr auto& inject_parser(const auto& p, const auto& s) { return p; }
-template<bool apply, parser... parsers> constexpr auto inject_parser(const opt_seq_parser<parsers...>& p, const auto& s) { return make_seq_injection<apply>(p,s); }
+template<bool apply, parser... parsers> constexpr auto inject_parser(const opt_seq_parser<parsers...>& p, const auto& s) {
+	return make_seq_injection<apply,void>(p, s); }
+template<bool apply, typename tag, parser type>
+constexpr auto inject_parser(const result_checker_parser<tag, type>& p, const auto& s) {
+	return check<tag>( inject_parser<apply>(static_cast<const type&>(p), s) );
+}
 template<bool apply, parser... parsers> constexpr auto inject_parser(const variant_parser<parsers...>& p, const auto& s) {
 	return reconstruct_with_injection<apply>(p,s); }
 template<bool apply, template<typename>class wrapper, parser parser_t, typename injection_t>
@@ -807,7 +861,7 @@ constexpr const auto inject_parser(const wrapper<parser_t>& p, const injection_t
 }
 template<bool apply, template<typename,typename>class wrapper, parser p1, parser p2, typename injection_t>
 constexpr const auto inject_parser(const wrapper<p1,p2>& p, const injection_t& inject)
-requires (!requires{ static_cast<const opt_seq_parser<p1,p2>&>(p); }) {
+requires (!requires{ static_cast<const opt_seq_parser<p1,p2>&>(p); } && !requires{ static_cast<const variant_parser<p1,p2>&>(p); }) {
 	const auto& [a,b] = p;
 	return wrapper{ inject_parser<apply>(a,inject), inject_parser<apply>(b,inject) };
 }
@@ -817,7 +871,9 @@ constexpr const auto inject_parser(const unary_list_parser<parser>& p, const inj
 }
 template<bool apply, typename left, typename right, typename injection_t>
 constexpr const auto inject_parser(const binary_list_parser<left, right>& p, const injection_t& inject) {
-	return inject_or_make_seq<apply>(p.l, inject) % inject_or_make_seq<apply>(p.r, inject);
+	//TODO: can we trust in right parameter?
+	//return inject_or_make_seq<apply>(p.l, inject) % inject_or_make_seq<apply>(p.r, inject);
+	return inject_parser<apply>(p.l, inject) % (inject_or_make_seq<apply>(p.r, inject) >> inject);
 }
 template<bool apply, typename parser, typename injection_t>
 constexpr const auto inject_parser(const skip_parser<parser>& p, const injection_t& inject) {
@@ -945,18 +1001,26 @@ constexpr void test_two_parsers() { if constexpr (std::is_same_v<p1,p2>) {} else
 	static_cast<const variant_parser<opt_seq_parser<p2,p1>, opt_seq_parser<p2,p1>, opt_seq_parser<p2,p1>>&>(
 			inject_parser<true>( p1{} | p1{} | p1{}, p2{} )
 			);
+	/*
+	static_cast<const variant_parser<
+		result_checker_parser<char,opt_seq_parser<p2,p1>>,
+		result_checker_parser<char,opt_seq_parser<p2,p1>>
+			>&>(inject_parser<true>( check<char>(p1{}) | check<char>(p1{}), p2{} ));
+			*/
 
 	static_cast<const opt_parser<unary_list_parser<p1>>&>(inject_parser<true>(lexeme(*p1{}), p2{}));
 	static_cast<const opt_seq_parser<p1, p1>&>(inject_parser<true>(lexeme(p1{} >> p1{}), p2{}));
 
-	static_cast<const binary_list_parser<opt_seq_parser<p2, p1>, opt_seq_parser<p2, p1>>&>( inject_parser<true>(p1{} % p1{}, p2{}) );
-	static_cast<const binary_list_parser<opt_seq_parser<p2, p1, p2, p1>, opt_seq_parser<p2, p1>>&>( inject_parser<true>((p1{} >> p1{}) % p1{}, p2{}) );
-	static_cast<const binary_list_parser<opt_seq_parser<p2, p1>, opt_seq_parser<p2, p1, p2, p1>>&>( inject_parser<true>(p1{} % (p1{} >> p1{}), p2{}) );
+	static_cast<const binary_list_parser<p1, opt_seq_parser<p2, p1, p2>>&>( inject_parser<true>(p1{} % p1{}, p2{}) );
+	static_cast<const binary_list_parser<opt_seq_parser<p2, p1, p2, p1>, opt_seq_parser<p2, p1, p2>>&>( inject_parser<true>((p1{} >> p1{}) % p1{}, p2{}) );
+	static_cast<const binary_list_parser<p1, opt_seq_parser<p2, p1, p2, p1, p2>>&>( inject_parser<true>(p1{} % (p1{} >> p1{}), p2{}) );
 
 	static_assert( ({
 		auto r = factory{}.template mk_vec<char>();
-		(char_<'a'> % ',').parse(make_test_ctx(), make_source("a,a,a,b"), r);
+		(lower % ',').parse(make_test_ctx(), make_source("a,b,c,D"), r);
 		r.size(); }) == 3, "check emplace and pop works normaly");
+
+	static_cast<const result_checker_parser<int, opt_seq_parser<p2,p1,p2,p1>>&>( inject_parser<true>(check<int>(p1{} >> p1{}), p2{}) );
 }}
 
 template<typename factory_t, typename cur_parser, template<typename...> class parsers_set, typename... parsers>
