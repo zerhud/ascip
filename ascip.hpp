@@ -804,89 +804,54 @@ constexpr auto operator""_lex() {
 //          injection part
 // ===============================
 
-template<bool apply,typename tag, auto... inds, template<typename...>class result_t, typename... parsers, typename injection_t>
-constexpr const auto make_seq_injection(const result_t<parsers...>& p, const injection_t& inject, auto&&... args) {
-	constexpr const bool is_finish =
-		  std::is_same_v<tag,void>
-		? sizeof...(inds) == sizeof...(parsers)
-		: (sizeof...(inds)+1) == sizeof...(parsers)
-		;
-        //if constexpr (sizeof...(inds) == sizeof...(parsers)) {
-	if constexpr (is_finish) {
-		if constexpr (std::is_same_v<tag,void>)
-			return result_t<decltype(auto(args))...>( args... );
-		else return result_t<tag, decltype(auto(args))...>( args... );
-	} else {
-                auto& new_arg = get<sizeof...(inds)>(p.seq);
-                if constexpr (apply) return make_seq_injection<apply,tag,inds..., sizeof...(inds)>(
-                        p, inject, std::forward<decltype(args)>(args)...,
-                        inject, inject_parser<apply>(new_arg, inject)
-                );
-                else return make_seq_injection<apply,tag,inds..., sizeof...(inds)>(
-                        p, inject, std::forward<decltype(args)>(args)...,
-                        inject_parser<apply>(new_arg, inject)
-                );
-        }
-}
+template<parser skip, parser base> struct injected_parser : base_parser<injected_parser<skip,base>> {
+	skip s;
+	base b;
+	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+		details::type_any_eq_allow skip_result;
+		auto sr = s.parse(ctx, src, skip_result);
+		sr *= (0<=sr);
+		src += sr;
+		return sr + b.parse(ctx, src, result);
+	}
+};
+template<parser p1, parser p2> constexpr auto make_injected(const p1& l, const p2& r) { return injected_parser<p1, p2>{ l, r }; }
 
-template<bool apply, parser type>
-constexpr const auto inject_or_make_seq(const type& p, const auto& s) {
-	if constexpr (requires{ static_cast<const seq_tag&>(p); }) return inject_parser<apply>(p, s);
-	else if constexpr (apply) return s >> p;
-	else return p;
-}
-
-//template<bool apply> constexpr auto inject_to_list(const auto& p, const auto& s){ return s >> inject_parser<apply>(p,s); }
-template<bool apply, auto... inds, template<typename...>class result_t, typename... parsers, typename injection_t>
-constexpr const auto reconstruct_with_injection(const result_t<parsers...>& p, const injection_t& s) {
+template<bool apply, auto... inds, template<typename...>class result_t, parser... parsers>
+constexpr auto inject_skipping_seq(const result_t<parsers...>& to, const auto& what, auto&&... args) {
 	if constexpr (sizeof...(inds) == sizeof...(parsers))
-		return result_t( inject_or_make_seq<apply>(get<inds>(p.seq),s)... );
-	else return reconstruct_with_injection<apply, inds..., sizeof...(inds)>(p, s);
+		return result_t<decltype(auto(args))...>( std::forward<decltype(args)>(args)... );
+	else return inject_skipping_seq<apply, inds..., sizeof...(inds)>(
+			to, what, std::forward<decltype(args)>(args)...,
+			inject_skipping<apply>(get<sizeof...(inds)>( to.seq ), what)
+	);
 }
-template<bool apply, parser... plist, template<typename...>class seq_parser>
-constexpr auto inject_to_list_seq(const seq_parser<plist...>& p, const auto& s) { return inject_parser<apply>(p,s); }
 
-template<bool apply> constexpr auto& inject_parser(const auto& p, const auto& s) { return p; }
-template<bool apply, parser... parsers> constexpr auto inject_parser(const opt_seq_parser<parsers...>& p, const auto& s) {
-	return make_seq_injection<apply,void>(p, s); }
+template<bool apply> constexpr auto inject_skipping(const auto& to, const auto& what) {
+	if constexpr (apply) return injected_parser{ {}, what, to };
+	else return to; };
+template<bool apply, parser... parsers> constexpr auto inject_skipping(const opt_seq_parser<parsers...>& to, const auto& what) {
+	return inject_skipping_seq<apply>(to, what); }
+template<bool apply, parser type> constexpr auto inject_skipping(const lexeme_parser<type>& to, const auto& what) {
+	return inject_skipping<false>(static_cast<const type&>(to), what); }
+template<bool apply, parser type> constexpr auto inject_skipping(const skip_parser<type>& to, const auto& what) {
+	return inject_skipping<true>(static_cast<const type&>(to), what); }
+template<bool apply, parser... parsers> constexpr auto inject_skipping(const variant_parser<parsers...>& to, const auto& what) {
+	return inject_skipping_seq<apply>(to, what); }
 template<bool apply, typename tag, parser type>
-constexpr auto inject_parser(const result_checker_parser<tag, type>& p, const auto& s) {
-	return check<tag>( inject_parser<apply>(static_cast<const type&>(p), s) );
+constexpr auto inject_skipping(const result_checker_parser<tag, type>& p, const auto& s) {
+	return check<tag>( inject_skipping<apply>(static_cast<const type&>(p), s) );
 }
-template<bool apply, parser... parsers> constexpr auto inject_parser(const variant_parser<parsers...>& p, const auto& s) {
-	return reconstruct_with_injection<apply>(p,s); }
-template<bool apply, template<typename>class wrapper, parser parser_t, typename injection_t>
-constexpr const auto inject_parser(const wrapper<parser_t>& p, const injection_t& inject) {
-	return wrapper{ inject_parser<apply>(static_cast<const parser_t&>(p), inject) };
-}
-template<bool apply, template<typename,typename>class wrapper, parser p1, parser p2, typename injection_t>
-constexpr const auto inject_parser(const wrapper<p1,p2>& p, const injection_t& inject)
-requires (!requires{ static_cast<const opt_seq_parser<p1,p2>&>(p); } && !requires{ static_cast<const variant_parser<p1,p2>&>(p); }) {
-	const auto& [a,b] = p;
-	return wrapper{ inject_parser<apply>(a,inject), inject_parser<apply>(b,inject) };
-}
-template<bool apply, typename parser, typename injection_t>
-constexpr const auto inject_parser(const unary_list_parser<parser>& p, const injection_t& inject) {
-	return +inject_or_make_seq<apply>(static_cast<const parser&>(p), inject);
-}
-template<bool apply, typename left, typename right, typename injection_t>
-constexpr const auto inject_parser(const binary_list_parser<left, right>& p, const injection_t& inject) {
-	//TODO: can we trust in right parameter?
-	//return inject_or_make_seq<apply>(p.l, inject) % inject_or_make_seq<apply>(p.r, inject);
-	return inject_parser<apply>(p.l, inject) % (inject_or_make_seq<apply>(p.r, inject) >> inject);
-}
-template<bool apply, typename parser, typename injection_t>
-constexpr const auto inject_parser(const skip_parser<parser>& p, const injection_t& inject) {
-	return inject_parser<true>(static_cast<const parser&>(p), inject);
-}
-template<bool apply, typename parser, typename injection_t>
-constexpr const auto inject_parser(const lexeme_parser<parser>& p, const injection_t& inject) {
-	return inject_parser<false>(static_cast<const parser&>(p), inject);
-}
-template<bool apply, typename parser, typename action, typename injection_t>
-constexpr const auto inject_parser(const semact_parser<parser, action>& p, const injection_t& inject) {
-	return inject_parser<apply>(static_cast<const parser&>(p), inject)(p.act);
-}
+
+template<bool apply, template<typename>class wrapper_type, parser wrapped_type>
+constexpr auto inject_skipping(const wrapper_type<wrapped_type>& to, const auto& what) {
+	return wrapper_type{ inject_skipping<apply>(static_cast<const wrapped_type&>(to), what) }; }
+template<bool apply, template<typename,typename>class wrapper_type, parser wrapped_type1, parser wrapped_type2>
+constexpr auto inject_skipping(const wrapper_type<wrapped_type1, wrapped_type2>& to, const auto& what)
+requires (
+  !requires{ static_cast<const opt_seq_parser<wrapped_type1,wrapped_type2>&>(to); } &&
+  !requires{ static_cast<const variant_parser<wrapped_type1,wrapped_type2>&>(to); }) {
+	return wrapper_type{ inject_skipping<apply>(reflect::get<0>(to), what), inject_skipping<apply>(reflect::get<1>(to), what) }; }
 
 // ===============================
 //          tests part
@@ -968,59 +933,78 @@ template<auto ind, typename parser> constexpr void test_as_parser_invalid() {
 }
 
 template<typename factory, typename p1, typename p2>
-constexpr void test_two_parsers() { if constexpr (std::is_same_v<p1,p2>) {} else {
-	static_cast<const p1&>(inject_parser<true>(p1{}, p2{}));
-	static_cast<const opt_seq_parser<p1, p1>&>(inject_parser<false>(p1{} >> p1{}, p2{}));
-	static_cast<const opt_seq_parser<p2, p1, p2, p1>&>(inject_parser<true>(p1{} >> p1{}, p2{}));
-	static_cast<const unary_list_parser<opt_seq_parser<p2, p1>>&>(inject_parser<true>(+(p1{}), p2{}));
-	static_cast<const unary_list_parser<opt_seq_parser<p2, p1, p2, p1>>&>(inject_parser<true>(+(p1{} >> p1{}), p2{}));
-	static_cast<const unary_list_parser<opt_seq_parser<p1, p1>>&>(inject_parser<true>(lexeme(+(p1{} >> p1{})), p2{}));
-	static_cast<const opt_seq_parser< p1, opt_seq_parser<p2,p1,p2,p1> >&>(inject_parser<true>(lexeme(p1{} >> skip(p1{}>>p1{})), p2{}));
-	static_cast<const opt_parser<opt_seq_parser< p2, p1, p2, p1 >>&>( inject_parser<true>(-(p1{} >> p1{}), p2{}) );
+constexpr void test_injection() {
+	static_assert( !std::is_same_v<p1,p2>, "cannot differ p1 or p2" );
+	using inj_t = injected_parser<p2,p1>;
+
+	static_assert( ({ char r='z'; make_injected(char_<' '>, char_<'a'>).parse(make_test_ctx(), make_source(" a"), r);
+	}) == 2, "inejction parser can parse");
+	static_assert( ({ char r='z';
+		make_injected(char_<' '>, char_<'a'>).parse(make_test_ctx(), make_source(" a"), r);
+	r;}) == 'a', "the first parameter of inejction parser skipped");
+	static_assert( ({ char r='z';
+		make_injected(char_<' '>, char_<'a'>).parse(make_test_ctx(), make_source("ba"), r);
+	}) == -1, "inejction parser fails if cannot parse first parameter");
+	static_assert( ({ char r='z';
+		auto pr=make_injected(char_<' '>, char_<'a'>).parse(make_test_ctx(), make_source("a"), r);
+	(pr==1) + (2*(r=='a'));}) == 3, "inejction parser parse if only first parameter fails");
+	static_assert( ({ char r='z';
+		auto pr=make_injected(char_<' '>, char_<'a'>).parse(make_test_ctx(), make_source("aa"), r);
+	(pr==1) + (2*(r=='a'));}) == 3, "inejction parser parse if only first parameter fails");
+
+	static_cast<const p1&>(inject_skipping<false>(p1{}, p2{}));
+	static_cast<const inj_t&>(inject_skipping<true>(p1{}, p2{}));
+
+	static_cast<const opt_seq_parser<p1, p1>&>(inject_skipping<false>(p1{} >> p1{}, p2{}));
+	static_cast<const opt_seq_parser<inj_t, inj_t>&>(inject_skipping<true>(p1{} >> p1{}, p2{}));
+
+	static_cast<const opt_seq_parser<p1, p1, p1>&>(inject_skipping<true>(lexeme(p1{} >> p1{} >> p1{}), p2{}));
+	static_cast<const opt_seq_parser<p1, opt_seq_parser<inj_t, inj_t>>&>(
+			inject_skipping<true>(lexeme(p1{} >> skip(p1{} >> p1{})), p2{}));
+
+	static_cast<const unary_list_parser<inj_t>&>(inject_skipping<true>( +p1{}, p2{} ));
+	static_cast<const unary_list_parser<opt_seq_parser<inj_t,inj_t>>&>(inject_skipping<true>( +(p1{}>>p1{}), p2{} ));
+
+	static_cast<const opt_parser<inj_t>&>(inject_skipping<true>( -p1{}, p2{} ));
+	static_cast<const opt_parser<opt_seq_parser<inj_t,inj_t>>&>(inject_skipping<true>( -(p1{}>>p1{}), p2{} ));
+
+	static_cast<const different_parser<inj_t, inj_t>&>(inject_skipping<true>( p1{} - p1{}, p2{} ));
 	static_cast<const opt_seq_parser<
-		p2, p1, p2,
-		opt_parser<
-		  opt_seq_parser< p2, p1, p2, p1 >
-		>
-	>&>( inject_parser<true>(p1{} >> -(p1{} >> p1{}), p2{}) );
-	static_cast<const opt_seq_parser<
-		p2, p1, p2,
+		inj_t,
 		different_parser<
-		  opt_seq_parser< p2, p1, p2, p1 >,
-		  p1
+		  opt_seq_parser<inj_t,inj_t>,
+		  inj_t
 		>
-	>&>( inject_parser<true>(p1{} >> (p1{}>>p1{}) - p1{}, p2{}) );
+		>&>(inject_skipping<true>( p1{} >> (p1{}>>p1{}) - p1{}, p2{} ));
+
 	static_assert( ({ char r='z'; int t=0;
 		auto p = char_<'a'> >> char_<'b'>([&t](...){++t;});
 		p.parse(make_test_ctx(), make_source(factory{}.mk_str("ab")), r); t;
 	}) == 1, "injection works with semact" );
 	static_assert( ({ char r='z'; int t=0;
-		auto p = inject_parser<true>(char_<'a'> >> char_<'b'>([&t](...){++t;}), -omit(space));
+		auto p = inject_skipping<true>(char_<'a'> >> char_<'b'>([&t](...){++t;}), +space);
 		p.parse(make_test_ctx(), make_source(factory{}.mk_str("ab")), r); t;
 	}) == 1, "injection works with semact" );
-	static_cast<const variant_parser<opt_seq_parser<p2,p1>, opt_seq_parser<p2,p1>, opt_seq_parser<p2,p1>>&>(
-			inject_parser<true>( p1{} | p1{} | p1{}, p2{} )
-			);
-	/*
+
+	static_cast<const variant_parser<inj_t,inj_t>&>(inject_skipping<true>( p1{}|p1{}, p2{} ));
+	static_cast<const variant_parser<inj_t,inj_t,inj_t>&>(inject_skipping<true>( p1{}|p1{}|p1{}, p2{} ));
 	static_cast<const variant_parser<
-		result_checker_parser<char,opt_seq_parser<p2,p1>>,
-		result_checker_parser<char,opt_seq_parser<p2,p1>>
-			>&>(inject_parser<true>( check<char>(p1{}) | check<char>(p1{}), p2{} ));
-			*/
+		result_checker_parser<char,inj_t>,
+		result_checker_parser<char,inj_t>
+		>&>(inject_skipping<true>( check<char>(p1{})|check<char>(p1{}), p2{} ));
 
-	static_cast<const opt_parser<unary_list_parser<p1>>&>(inject_parser<true>(lexeme(*p1{}), p2{}));
-	static_cast<const opt_seq_parser<p1, p1>&>(inject_parser<true>(lexeme(p1{} >> p1{}), p2{}));
+	static_cast<const result_checker_parser<int, inj_t>&>(inject_skipping<true>( check<int>(p1{}), p2{} ));
+	static_cast<const result_checker_parser<int, opt_seq_parser<inj_t,inj_t>>&>(inject_skipping<true>( check<int>(p1{} >> p1{}), p2{} ));
 
-	static_cast<const binary_list_parser<p1, opt_seq_parser<p2, p1, p2>>&>( inject_parser<true>(p1{} % p1{}, p2{}) );
-	static_cast<const binary_list_parser<opt_seq_parser<p2, p1, p2, p1>, opt_seq_parser<p2, p1, p2>>&>( inject_parser<true>((p1{} >> p1{}) % p1{}, p2{}) );
-	static_cast<const binary_list_parser<p1, opt_seq_parser<p2, p1, p2, p1, p2>>&>( inject_parser<true>(p1{} % (p1{} >> p1{}), p2{}) );
-
+	static_cast<const binary_list_parser<inj_t, inj_t>&>(inject_skipping<true>( p1{} % p1{}, p2{} ));
+}
+template<typename factory, typename p1, typename p2>
+constexpr void test_two_parsers() { if constexpr (std::is_same_v<p1,p2>) {} else {
+	test_injection<factory,p1,p2>();
 	static_assert( ({
 		auto r = factory{}.template mk_vec<char>();
 		(lower % ',').parse(make_test_ctx(), make_source("a,b,c,D"), r);
 		r.size(); }) == 3, "check emplace and pop works normaly");
-
-	static_cast<const result_checker_parser<int, opt_seq_parser<p2,p1,p2,p1>>&>( inject_parser<true>(check<int>(p1{} >> p1{}), p2{}) );
 }}
 
 template<typename factory_t, typename cur_parser, template<typename...> class parsers_set, typename... parsers>
@@ -1053,7 +1037,7 @@ constexpr void test_variant_parser() {
 	}) == '0', "can parse valid data and got valid result");
 	static_assert( ({ char r; (char_<'a'> | 'b').parse(make_test_ctx(), make_source("c"), r);
 	}) == -1, "cannot parse invalid data");
-	static_assert( ({ char r='z'; inject_parser<true>((char_<'%'> | d10 | lower), *space).parse(make_test_ctx(), make_source("a"), r); r;
+	static_assert( ({ char r='z'; inject_skipping<true>((char_<'%'> | d10 | lower), *space).parse(make_test_ctx(), make_source("a"), r); r;
 	}) == 'a', "make sure the variant works with injection" );
 }
 template<typename factory>
@@ -1228,7 +1212,7 @@ constexpr auto parse(const auto& parser, auto src, auto& result) {
 
 constexpr auto parse(const auto& parser, const auto& skip, auto src, auto& result) {
 	auto ctx = make_test_ctx();
-	return inject_parser<true>(parser, skip).parse(make_test_ctx(), src, result);
+	return inject_skipping<true>(parser, skip).parse(make_test_ctx(), src, result);
 }
 
 template<typename factory_t>
