@@ -571,7 +571,7 @@ template<parser parser_t> struct unary_list_parser : parser_t {
 		auto ret = parser_t::parse(ctx, src, details::empback(result));
 		src += ret * (0<=ret);
 		auto cur_r = ret;
-		while(!!src && 0<cur_r) {
+		while(src && 0<cur_r) {
 			cur_r = parser_t::parse(ctx, src, details::empback(result));
 			ret += cur_r * (0<=cur_r);
 			src += cur_r * (0<=cur_r);
@@ -812,7 +812,8 @@ template<parser skip, parser base> struct injected_parser : base_parser<injected
 		auto sr = s.parse(ctx, src, skip_result);
 		sr *= (0<=sr);
 		src += sr;
-		return sr + b.parse(ctx, src, result);
+		auto mr = b.parse(ctx, src, result);
+		return (sr * (0<=mr)) + mr; // 0<=mr ? mr+sr : mr;
 	}
 };
 template<parser p1, parser p2> constexpr auto make_injected(const p1& l, const p2& r) { return injected_parser<p1, p2>{ l, r }; }
@@ -833,7 +834,7 @@ template<bool apply> constexpr auto inject_skipping(const auto& to, const auto& 
 template<bool apply, parser... parsers> constexpr auto inject_skipping(const opt_seq_parser<parsers...>& to, const auto& what) {
 	return inject_skipping_seq<apply>(to, what); }
 template<bool apply, parser type> constexpr auto inject_skipping(const lexeme_parser<type>& to, const auto& what) {
-	return inject_skipping<false>(static_cast<const type&>(to), what); }
+	return injected_parser{ {}, what, inject_skipping<false>(static_cast<const type&>(to), what) }; }
 template<bool apply, parser type> constexpr auto inject_skipping(const skip_parser<type>& to, const auto& what) {
 	return inject_skipping<true>(static_cast<const type&>(to), what); }
 template<bool apply, parser... parsers> constexpr auto inject_skipping(const variant_parser<parsers...>& to, const auto& what) {
@@ -881,10 +882,12 @@ template<auto ind, typename parser> constexpr void test_base_parser_invalid() {
 	if constexpr (ind+1 < details::arrsize(parser::invalid_data)) test_base_parser_invalid<ind+1, parser>();
 }
 template<auto ind, typename parser> constexpr void test_negate_parser() {
-	if constexpr (requires{ parser::valid_data[ind]; } && ind < details::arrsize(parser::valid_data)) static_assert( ({
-		auto result = parser::valid_result[0];
-		(!parser{}).parse(make_test_ctx(), make_source(parser::valid_data[ind]), result);
-	}) == -1, "parsing valid data with negate parser is an error");
+	if constexpr (requires{ parser::valid_data[ind]; } && ind < details::arrsize(parser::valid_data)) {
+		static_assert( ({
+			auto result = parser::valid_result[0];
+			(!parser{}).parse(make_test_ctx(), make_source(parser::valid_data[ind]), result);
+		}) == -1, "parsing valid data with negate parser is an error");
+	}
 	if constexpr (ind+1 < details::arrsize(parser::valid_data)) test_negate_parser<ind+1, parser>();
 }
 template<auto ind, typename parser> constexpr void test_negate_parser_invalid() requires(!requires{parser::invalid_data;}){ }
@@ -939,6 +942,8 @@ constexpr void test_injection() {
 
 	static_assert( ({ char r='z'; make_injected(char_<' '>, char_<'a'>).parse(make_test_ctx(), make_source(" a"), r);
 	}) == 2, "inejction parser can parse");
+	static_assert( ({ char r='z'; make_injected(char_<' '>, char_<'a'>).parse(make_test_ctx(), make_source("  b"), r);
+	}) == -1, "inejction parser cannot parse invalid data");
 	static_assert( ({ char r='z';
 		make_injected(char_<' '>, char_<'a'>).parse(make_test_ctx(), make_source(" a"), r);
 	r;}) == 'a', "the first parameter of inejction parser skipped");
@@ -958,8 +963,8 @@ constexpr void test_injection() {
 	static_cast<const opt_seq_parser<p1, p1>&>(inject_skipping<false>(p1{} >> p1{}, p2{}));
 	static_cast<const opt_seq_parser<inj_t, inj_t>&>(inject_skipping<true>(p1{} >> p1{}, p2{}));
 
-	static_cast<const opt_seq_parser<p1, p1, p1>&>(inject_skipping<true>(lexeme(p1{} >> p1{} >> p1{}), p2{}));
-	static_cast<const opt_seq_parser<p1, opt_seq_parser<inj_t, inj_t>>&>(
+	static_cast<const injected_parser<p2,opt_seq_parser<p1, p1, p1>>&>(inject_skipping<true>(lexeme(p1{} >> p1{} >> p1{}), p2{}));
+	static_cast<const injected_parser<p2,opt_seq_parser<p1, opt_seq_parser<inj_t, inj_t>>>&>(
 			inject_skipping<true>(lexeme(p1{} >> skip(p1{} >> p1{})), p2{}));
 
 	static_cast<const unary_list_parser<inj_t>&>(inject_skipping<true>( +p1{}, p2{} ));
@@ -1062,6 +1067,8 @@ constexpr void test_other_parsers() {
 	}) == -1, "+ parser fails on no data");
 	static_assert( ({ auto r = factory{}.template mk_vec<char>(); (+char_<'a'>).parse(make_test_ctx(), make_source("aaa"), r);
 	}) == 3, "+ parser parses valid data");
+	static_assert( ({ auto r = factory{}.template mk_vec<char>(); (+char_<'a'>).parse(make_test_ctx(), make_source("aab"), r);r.size();
+	}) == 2, "+ parser parses only valid data");
 	static_assert( ({ auto r = factory{}.template mk_vec<char>(); (+(char_<'a'>|char_<'b'>)).parse(make_test_ctx(), make_source("aab"), r);r[2];
 	}) == 'b', "+ parser parses valid data");
 	static_assert( ({ auto r = factory{}.template mk_vec<char>(); (*(char_<'a'>|char_<'b'>)).parse(make_test_ctx(), make_source("aab"), r);r[2];
@@ -1158,6 +1165,22 @@ constexpr void test_other_parsers() {
 
 }
 template<typename factory>
+constexpr void test_real_cases() {
+	using namespace ascip::literals;
+	static_cast<const result_checker_parser<char,opt_seq_parser<
+		injected_parser<space_parser, char_parser<'b'>>,
+		injected_parser<space_parser, omit_parser<opt_seq_parser<char_parser<'c'>,char_parser<'d'>>>>,
+		injected_parser<space_parser,char_parser<'a'>>
+	>>&>(inject_skipping<true>(check<char>(char_<'b'> >> "cd"_lex >> char_<'a'>), space));
+	static_assert( ({char r='z';
+		auto pr = inject_skipping<true>(check<char>(char_<'b'> >> "cd"_lex >> char_<'a'>), space).parse(make_test_ctx(), make_source("b cd a"), r);
+	r;}) == 'a' );
+	static_assert( ({
+		struct { char a; decltype(factory{}.template mk_vec<char>()) vec; } r { 'z', factory{}.template mk_vec<char>() };
+		inject_skipping<true>(char_<'a'>++ >> *(char_<'b'> | char_<'c'>), +space).parse(make_test_ctx(), make_source("acbd"), r);
+		r.vec.size(); }) == 2 );
+}
+template<typename factory>
 constexpr void test_literals() {
 	using namespace literals;
 	static_cast<const lexeme_parser<omit_parser<opt_seq_parser<char_parser<'a'>,char_parser<'b'>>>>&>( "ab"_lex );
@@ -1238,6 +1261,7 @@ void test() {
 	test_base_parsers<factory_t>(base_parsers_set{});
 	test_variant_parser<factory_t>();
 	test_other_parsers<factory_t>();
+	test_real_cases<factory_t>();
 	test_literals<factory_t>();
 	test_reqursion_parsers<factory_t>();
 }
