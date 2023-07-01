@@ -7,6 +7,7 @@
 
 #include <tuple>
 #include <utility>
+#include <type_traits>
 
 namespace ascip {
 
@@ -20,7 +21,7 @@ template<typename type> concept nonparser = !parser<type>;
 template<typename parser, typename act_t> struct semact_parser : parser {
 	act_t act;
 	constexpr const auto parse(auto&& ctx, auto src, auto& result) const requires (
-	requires{ act(result); } && !requires{ act(); }
+	requires{ requires std::is_lvalue_reference_v<decltype(act(result))>; } && !requires{ act(); /* check if ... pattern */ }
 	) {
 		auto& nr = act(result);
 		return parser::parse(ctx, src, nr);
@@ -679,7 +680,7 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 		auto& cur = get<pind>(seq);
 		auto ret = call_parse<cur_field>(cur, ctx, src, result);
 		src += ret * (0 <= ret);
-		if constexpr (pind+1 == sizeof...(parsers)) return on_error(ret); 
+		if constexpr (pind+1 == sizeof...(parsers)) return ret; 
 		else {
 			if( ret < 0 ) return on_error(ret);
 			auto req = parse_seq<nxt_field, pind+1, tail...>(ctx, src, result);
@@ -841,8 +842,10 @@ template<bool apply, parser... parsers> constexpr auto inject_skipping(const var
 	return inject_skipping_seq<apply>(to, what); }
 template<bool apply, typename tag, parser type>
 constexpr auto inject_skipping(const result_checker_parser<tag, type>& p, const auto& s) {
-	return check<tag>( inject_skipping<apply>(static_cast<const type&>(p), s) );
-}
+	return check<tag>( inject_skipping<apply>(static_cast<const type&>(p), s) ); }
+template<bool apply, auto val, parser type>
+constexpr auto inject_skipping(const _seq_inc_rfield_val<val, type>& p, const auto& s) {
+	return  finc<val>(inject_skipping<apply>(static_cast<const type&>(p), s)); }
 
 template<bool apply, template<typename>class wrapper_type, parser wrapped_type>
 constexpr auto inject_skipping(const wrapper_type<wrapped_type>& to, const auto& what) {
@@ -1097,6 +1100,10 @@ constexpr void test_other_parsers() {
 	}) == 'a', "seq parser: can shift fields" );
 	static_assert( ({seq_result2 r;(finc<1>(char_<'a'>) >> finc<-1>(char_<'b'>) >> char_<'c'>).parse(make_test_ctx(), make_source("abc"), r);r.rch * (r.rstr=="bc");
 	}) == 'a', "seq parser: can shift fields" );
+	static_assert( ({seq_result2 r;
+		inject_skipping<true>(finc<1>(char_<'a'>) >> finc<-1>(char_<'b'>) >> char_<'c'>,space).parse(make_test_ctx(), make_source("abc"), r);
+		r.rch * (r.rstr=="bc");
+	}) == 'a', "seq parser: can shift fields" );
 	static_assert( ({char r='c';(char_<'a'> >> char_<'b'>).parse(make_test_ctx(), make_source("cc"), r);}) == -1, "seq parser: -1 if fails" );
 	static_assert( ({char r='c';(char_<'a'> >> char_<'b'>).parse(make_test_ctx(), make_source("ac"), r);}) == -1, "seq parser: -1 if fails" );
 	static_assert(
@@ -1235,6 +1242,11 @@ constexpr auto parse(const auto& parser, auto src, auto& result) {
 
 constexpr auto parse(const auto& parser, const auto& skip, auto src, auto& result) {
 	auto ctx = make_test_ctx();
+	return inject_skipping<true>(parser, skip).parse(make_test_ctx(), src, result);
+}
+
+constexpr auto parse(const auto& parser, const auto& skip, auto src, auto& result, const auto& err) {
+	auto ctx = make_test_ctx(&err);
 	return inject_skipping<true>(parser, skip).parse(make_test_ctx(), src, result);
 }
 
