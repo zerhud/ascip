@@ -19,6 +19,8 @@ here is a list of avaible parsers. you can find examples below
 - `omit` method for skip value
 - `cur_pos` just stores to result current position, parse nothing
 - `>>` for sequence parser
+- `check` method checks that the parser got as result exactly required type
+- `cast` method try to `static_cast` gotten result to required type. it usefull for parse to struct with inheritance as result due for language limitations. see example below.
 
 with sequence parser can be used
 - `cur_shift` for store to result current shift position from sequence start
@@ -114,6 +116,19 @@ as we can see the `type_p` parser contains two sequences:
 
 so `req<1>` calls, the `subtype` parser and `req<2>` calls the `type_p` parser. (the numeration starts from one instead of zero. it may be fixed later. now it treats as current - index, so current-0 == current and it have to start from 1.)
 
+## inheritance
+due to an language limitations we cannot parse into struct with inheritance same way as simple struct. [here is example](https://godbolt.org/#g:!((g:!((g:!((h:codeEditor,i:(filename:'1',fontScale:14,fontUsePx:'0',j:1,lang:c%2B%2B,selection:(endColumn:14,endLineNumber:10,positionColumn:14,positionLineNumber:10,selectionStartColumn:14,selectionStartLineNumber:10,startColumn:14,startLineNumber:10),source:'%23include+%3Chttps://raw.githack.com/zerhud/ascip/master/ascip.hpp%3E%0A%0A%0Astruct+base+%7B+char+a,+b%3B+%7D%3B%0Astruct+child+:+base+%7B+char+c%3B+%7D%3B%0A%0Aconstexpr+void+example()+%7B%0A++++using+ascip::char_%3B%0A++++using+ascip::space%3B%0A++++constexpr+auto+parser+%3D+cast%3Cbase%3E(char_%3C!'a!'%3E%2B%2B+%3E%3E+char_%3C!'b!'%3E)+%3E%3E+char_%3C!'c!'%3E(%5B%5D(auto%26r)-%3Echar%26%7Breturn+r.c%3B%7D)%3B%0A++++static_assert(+(%7B+child+r%3B%0A++++++++parse(parser,+%2Bspace,+ascip::make_source(%22a+b+c%22),+r)%3B%0A++++++++(r.a%3D%3D!'a!')+%2B+(2*(r.b%3D%3D!'b!'))+%2B+(4*(r.c%3D%3D!'c!'))%3B%0A++++%7D)+%3D%3D+7+)%3B%0A%7D%0A%0Aint+main(int,char**)+%7B%0A++++example()%3B%0A++++return+0%3B%0A%7D'),l:'5',n:'0',o:'C%2B%2B+source+%231',t:'0')),k:100,l:'4',m:50,n:'0',o:'',s:0,t:'0'),(g:!((g:!((h:compiler,i:(compiler:g131,deviceViewOpen:'1',filters:(b:'0',binary:'1',binaryObject:'1',commentOnly:'0',debugCalls:'1',demangle:'0',directives:'0',execute:'1',intel:'0',libraryCode:'0',trim:'1'),flagsViewOpen:'1',fontScale:14,fontUsePx:'0',j:1,lang:c%2B%2B,libs:!(),options:'-std%3Dc%2B%2B23',overrides:!(),selection:(endColumn:1,endLineNumber:1,positionColumn:1,positionLineNumber:1,selectionStartColumn:1,selectionStartLineNumber:1,startColumn:1,startLineNumber:1),source:1),l:'5',n:'0',o:'+x86-64+gcc+13.1+(Editor+%231)',t:'0')),header:(),k:50,l:'4',m:50,n:'0',o:'',s:0,t:'0'),(g:!((h:output,i:(compilerName:'x86-64+gcc+13.1',editorid:1,fontScale:14,fontUsePx:'0',j:1,wrap:'1'),l:'5',n:'0',o:'Output+of+x86-64+gcc+13.1+(Compiler+%231)',t:'0')),header:(),k:50,l:'4',n:'0',o:'',s:0,t:'0')),l:'2',m:50,n:'0',o:'',t:'0')),l:'3',n:'0',o:'',t:'0')),version:4) showing how to parse in such case.
+
+primary code is
+```
+struct base { char a, b; };
+struct child : base { char c; };
+constexpr auto parser = cast<base>(char_<'a'>++ >> char_<'b'>) >> char_<'c'>([](auto&r)->char&{return r.c;});
+```
+
+please note:
+- `cast` parser `static_cast`s result into `base` type, so inner parser can work
+- `()` operator is a special semact. the semact allows to transform the result (it's single argument). it is another method for parse with inheritance.
 
 # roadmap
 - implement error handler
