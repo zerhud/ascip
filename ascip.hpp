@@ -799,6 +799,10 @@ template<parser p> struct lexeme_parser : p {};
 constexpr auto skip(const auto& p) { return skip_parser{ p }; }
 constexpr auto lexeme(const auto& p) { return lexeme_parser{ p }; }
 
+constexpr auto dquoted_string = lexeme(_char<'"'> >> *(as<'"'>(char_<'\\'> >> char_<'"'>)| (ascip::any - char_<'"'>)) >> _char<'"'>);
+constexpr auto squoted_string = lexeme(_char<'\''> >> *(as<'\''>(char_<'\\'> >> char_<'\''>)| (ascip::any - char_<'\''>)) >> _char<'\''>);
+constexpr auto quoted_string = lexeme(squoted_string | dquoted_string);
+
 namespace literals {
 
 template<typename char_t, char_t... chars>
@@ -1211,6 +1215,12 @@ constexpr void test_real_cases() {
 		struct { char a; decltype(factory{}.template mk_vec<char>()) vec; } r { 'z', factory{}.template mk_vec<char>() };
 		inject_skipping<true>(char_<'a'>++ >> *(char_<'b'> | char_<'c'>), +space).parse(make_test_ctx(), make_source("acbd"), r);
 		r.vec.size(); }) == 2 );
+	static_assert( ({ auto r = factory{}.mk_str();
+		inject_skipping<true>(quoted_string, +space).parse(make_test_ctx(), make_source("' a\\''"), r);
+		(r.size() == 3) + (2*(r[0]==' ')) + (4*(r[2]=='\'')); }) == 7 );
+	static_assert( ({ auto r = factory{}.mk_str();
+		inject_skipping<true>(quoted_string, +space).parse(make_test_ctx(), make_source("\" a\\\"\""), r);
+		(r.size() == 3) + (2*(r[0]==' ')) + (4*(r[2]=='"')); }) == 7 );
 }
 template<typename factory>
 constexpr void test_literals() {
