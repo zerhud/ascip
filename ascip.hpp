@@ -802,6 +802,7 @@ constexpr auto lexeme(const auto& p) { return lexeme_parser{ p }; }
 constexpr auto dquoted_string = lexeme(_char<'"'> >> *(as<'"'>(char_<'\\'> >> char_<'"'>)| (ascip::any - char_<'"'>)) >> _char<'"'>);
 constexpr auto squoted_string = lexeme(_char<'\''> >> *(as<'\''>(char_<'\\'> >> char_<'\''>)| (ascip::any - char_<'\''>)) >> _char<'\''>);
 constexpr auto quoted_string = lexeme(squoted_string | dquoted_string);
+constexpr auto nl = _char<'\n'>;
 
 namespace literals {
 
