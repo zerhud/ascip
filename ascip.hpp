@@ -617,6 +617,13 @@ template<typename good_result, parser p> struct result_checker_parser : p {
 	}
 };
 template<typename result, parser type> constexpr auto check(const type& p) { return result_checker_parser<result, decltype(auto(p))>{ p }; }
+template<typename needed, parser type> struct cast_parser : type {
+	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+		static_assert( requires{ static_cast<needed&>(result); }, "the result must to be castable to needed type" );
+		return type::parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(auto(src))&&>(src), static_cast<needed&>(result));
+	}
+};
+template<typename result, parser type> constexpr auto cast(const type& p){ return cast_parser<result, decltype(auto(p))>{ p }; }
 
 constexpr struct cur_pos_parser : base_parser<cur_pos_parser> {
 	constexpr auto parse(auto&&, auto src, auto& result) const {
@@ -843,6 +850,9 @@ template<bool apply, parser... parsers> constexpr auto inject_skipping(const var
 template<bool apply, typename tag, parser type>
 constexpr auto inject_skipping(const result_checker_parser<tag, type>& p, const auto& s) {
 	return check<tag>( inject_skipping<apply>(static_cast<const type&>(p), s) ); }
+template<bool apply, typename tag, parser type>
+constexpr auto inject_skipping(const cast_parser<tag, type>& p, const auto& s) {
+	return cast<tag>( inject_skipping<apply>(static_cast<const type&>(p), s) ); }
 template<bool apply, auto val, parser type>
 constexpr auto inject_skipping(const _seq_inc_rfield_val<val, type>& p, const auto& s) {
 	return  finc<val>(inject_skipping<apply>(static_cast<const type&>(p), s)); }
@@ -1169,7 +1179,22 @@ constexpr void test_other_parsers() {
 	}) == 2, "can parse current shift");
 
 	static_assert( ({ auto r=0; (int_>>omit(lower)).parse(make_test_ctx(), make_source(factory{}.mk_str("1a")), r); r; }) == 1 );
+}
+template<typename factory>
+constexpr void test_checking_parsers() {
+	struct base { char a,b; };
+	struct child : base { char c; };
 
+	static_assert( ({ child r;
+		(cast<base>(char_<'a'>++ >> char_<'b'>) >> char_<'c'>([](auto&r)->char&{return r.c;})).parse(make_test_ctx(), make_source("abc"), r);
+		(r.a=='a') + (2*(r.b=='b')) + (4*(r.c=='c'));}) == 7 );
+	static_assert( ({ child r;
+		inject_skipping<true>(cast<base>(char_<'a'>++ >> char_<'b'>) >> char_<'c'>([](auto&r)->char&{return r.c;}), +space)
+		.parse(make_test_ctx(), make_source("a b c"), r); }) == 5);
+	static_assert( ({ child r;
+		inject_skipping<true>(cast<base>(char_<'a'>++ >> char_<'b'>) >> char_<'c'>([](auto&r)->char&{return r.c;}), +space)
+		.parse(make_test_ctx(), make_source("a b c"), r);
+		(r.a=='a') + (2*(r.b=='b')) + (4*(r.c=='c'));}) == 7 );
 }
 template<typename factory>
 constexpr void test_real_cases() {
@@ -1274,6 +1299,7 @@ void test() {
 	test_variant_parser<factory_t>();
 	test_other_parsers<factory_t>();
 	test_real_cases<factory_t>();
+	test_checking_parsers<factory_t>();
 	test_literals<factory_t>();
 	test_reqursion_parsers<factory_t>();
 }
