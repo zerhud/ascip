@@ -1272,6 +1272,11 @@ constexpr void test_reqursion_parsers() {
 	}) == 'a', "check semact for create value");
 }
 
+constexpr auto parse(const auto& parser, auto src) {
+	details::type_any_eq_allow r;
+	return parse(parser, src, r);
+}
+
 constexpr auto parse(const auto& parser, auto src, auto& result) {
 	return parser.parse(make_test_ctx(), src, result);
 }
