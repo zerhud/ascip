@@ -591,6 +591,7 @@ template<parser left, parser right> struct binary_list_parser : base_parser<bina
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		details::type_any_eq_allow fake_result;
 		auto ret = l.parse(ctx, src, details::empback(result));
+		if(ret<0) details::pop(result);
 		auto cur = ret;
 		while(cur > 0) {
 			src += cur;
@@ -1222,6 +1223,9 @@ constexpr void test_real_cases() {
 	static_assert( ({ auto r = factory{}.mk_str();
 		inject_skipping<true>(quoted_string, +space).parse(make_test_ctx(), make_source("\" a\\\"\""), r);
 		(r.size() == 3) + (2*(r[0]==' ')) + (4*(r[2]=='"')); }) == 7 );
+	static_assert( ({ auto r = factory{}.mk_str();
+		auto pr=(_char<'('> >> -(char_<'a'>%',') >> _char<')'>).parse(make_test_ctx(), make_source("()"), r);
+		(r.size()==0) + (2*(pr==2)); }) == 3 );
 }
 template<typename factory>
 constexpr void test_literals() {
