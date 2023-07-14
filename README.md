@@ -133,6 +133,7 @@ please note:
 - `()` operator is a special semact. the semact allows to transform the result (it's single argument). it is another method for parse with inheritance.
 
 # roadmap
+- left reqursive parser for variant and sequences
 - test, writing few parsers
 - implement error handler
 - alfa release
