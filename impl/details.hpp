@@ -7,6 +7,9 @@
 
 namespace ascip_details {
 
+template<typename type, template<typename...>class tmpl> constexpr const bool is_specialization_of = false;
+template<template<typename...>class type, typename... args> constexpr const bool is_specialization_of<type<args...>, type> = true;
+
 struct type_any_eq_allow {
 	template<typename type> constexpr auto& operator =(const type&){ return *this; }
 	template<typename type> constexpr auto& operator+=(const type&){ return *this; }
