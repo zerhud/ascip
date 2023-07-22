@@ -57,6 +57,7 @@ friend constexpr auto make_test_ctx(const base_parser<auto>&) { return make_test
 #include "impl/base_parsers.ipp"
 #include "impl/wrappers.ipp"
 #include "impl/variant.ipp"
+#include "impl/lists.ipp"
 
 constexpr static void test() {
 	static_assert( ascip_details::parser<decltype(char_<'b'>)> );
@@ -70,8 +71,20 @@ constexpr static void test() {
 	static_assert( test_range_parser() );
 	static_assert( test_negate() );
 	static_assert( test_optional() );
+	static_assert( test_omit() );
+	static_assert( test_as() );
+	static_assert( test_lists() );
 }
 
 }; // struct ascip (context)
 
 #include "impl/operators.ipp"
+
+namespace ascip_literals {
+	/*
+template<typename char_t, char_t... chars>
+constexpr auto operator""_lex() {
+	return lexeme( omit( (... >> char_<chars>) ) );
+}
+*/
+} // namespace ascip_literals

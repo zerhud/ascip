@@ -11,13 +11,22 @@ struct factory {
 	constexpr auto mk_str(auto&&... args) { return std::string(args...); }
 	constexpr auto mk_sv(const char* str){ return std::string_view{ str }; }
 };
+struct factory_for_redefine_test {
+	template<typename type>
+	constexpr auto mk_vec() { return std::vector<type>(); }
+	constexpr auto mk_str() { return std::string(); }
+	constexpr auto mk_str(auto&&... args) { return std::string(args...); }
+	constexpr auto mk_sv(const char* str){ return std::string_view{ str }; }
+};
 
 using parser = ascip<factory, std::tuple>;
-//using parser_with_own_tuple = ascip<factory, ascip_details::tuple>;
+using parser_with_own_tuple = ascip<factory, ascip_details::tuple>;
+using redefined_parser = ascip<factory_for_redefine_test, std::tuple>;
 
 int main(int,char**) {
 	std::cout << "start" << std::endl;
 	parser::test();
+	redefined_parser::test();
 	//parser_with_own_tuple::test();
 	std::cout << "finish" << std::endl;
 
