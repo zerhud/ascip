@@ -11,23 +11,29 @@ template<ascip_details::parser parser> struct negate_parser : base_parser<negate
 	constexpr auto operator!() const { return p; }
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = p.parse(ctx, static_cast<decltype(auto(src))&&>(src), result);
-		return -1 * (0 <= ret);
+		return ret * (-1);
 	}
 };
 
 constexpr static bool test_negate() {
 	static_assert( ({char r;(!char_<'a'>).parse(make_test_ctx(), make_source('a'), r);}) == -1 );
+	static_assert( ({char r;(!char_<'a'>).parse(make_test_ctx(), make_source('b'), r);}) ==  1 );
+	static_assert( ({char r='z';(!char_<'a'>).parse(make_test_ctx(), make_source('b'), r);r;}) ==  'z' );
+
 	static_assert( ({char r;(!!char_<'a'>).parse(make_test_ctx(), make_source('a'), r);}) == 1 );
 	static_assert( ({char r;(!!!!char_<'a'>).parse(make_test_ctx(), make_source('a'), r);r;}) == 'a' );
+
 	static_cast<const decltype(auto(char_<'a'>))&>(!!char_<'a'>);
 	static_cast<const decltype(auto(char_<'a'>))&>(!!!!char_<'a'>);
 	static_cast<const opt_parser<negate_parser<char_parser<'a'>>>&>(-(!char_<'a'>));
 	static_cast<const opt_parser<char_parser<'a'>>&>(-(!!char_<'a'>));
+
 	return true;
 }
 
 template<ascip_details::parser parser> struct opt_parser : base_parser<opt_parser<parser>> {
 	[[no_unique_address]] parser p;
+	//opt_parser(parser p) : p(p) {}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		if(!src) return 0;
 		auto ret = p.parse(ctx, src, result);

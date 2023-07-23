@@ -8,6 +8,7 @@
 
 template<ascip_details::parser parser> struct unary_list_parser : base_parser<unary_list_parser<parser>> {
 	[[no_unique_address]] parser p;
+	//unary_list_parser(parser p) : p(p) {}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = p.parse(ctx, src, ascip_details::empback(result));
 		src += ret * (0<=ret);
@@ -22,25 +23,73 @@ template<ascip_details::parser parser> struct unary_list_parser : base_parser<un
 	}
 };
 
-template<typename type>
-constexpr static auto mk_vec() { 
-	return factory_t{}.template mk_vec<type>();
+template<ascip_details::parser left, ascip_details::parser right>
+struct binary_list_parser : base_parser<binary_list_parser<left, right>> {
+	left l;
+	right r;
+	constexpr binary_list_parser(left l, right r) : l(l), r(r) {}
+	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+		ascip_details::type_any_eq_allow fake_result;
+		auto ret = l.parse(ctx, src, ascip_details::empback(result));
+		if(ret<0) ascip_details::pop(result);
+		auto cur = ret;
+		while(cur > 0) {
+			src += cur;
+			auto r_res = r.parse(ctx, src, fake_result);
+			if( r_res <= 0 ) break;
+			src += r_res;
+			cur = l.parse(ctx, src, ascip_details::empback(result));
+			if( cur <= 0 ) {
+				ascip_details::pop(result);
+				break;
+			}
+			ret += cur + r_res;
+		}
+		return ret;
+	}
+};
+
+template<typename type> constexpr static auto mk_vec() { return factory_t{}.template mk_vec<type>(); }
+constexpr static auto mk_str() { return factory_t{}.template mk_str(); }
+
+constexpr static auto test_parser_parse(auto&& r, auto p, auto&& src, auto pr) {
+	auto rr = p.parse(make_test_ctx(), make_source(src), r);
+	rr /= (rr==pr);
+	return r;
 }
 
-template<auto pr, const char* srct>
-constexpr static auto test_parser_parse(auto&& r, auto p, auto&& src) {
-	ascip_details::type_any_eq_allow res;
-	auto rr = p.parse(make_test_ctx(), make_source(src), res);
-	rr /= (rr==pr);
-	return 1;
+constexpr static auto test_cmp_vec(const auto& vec, auto... vals) {
+	auto correct = mk_vec<decltype(auto(vec[0]))>();
+	(correct.emplace_back(vals), ...);
+	vec.size() / (vec.size() == sizeof...(vals));
+	for(auto i=0;i<vec.size();++i) vec[i] / (vec[i] == correct[i]);
+	return true;
 }
 
 constexpr static bool test_unary_list() {
-	static_assert( ({auto r=mk_vec<char>(); (*char_<'a'>).parse(make_test_ctx(),make_source(""), r); }) == 0 );
-	test_parser_parse<0>(mk_vec<char>(), *char_<'a'>, "");
+	test_parser_parse(mk_vec<char>(), *char_<'a'>, "", 0);
+	static_assert(test_parser_parse(mk_vec<char>(), *char_<'a'>, "", 0).size() == 0);
+	static_assert(test_parser_parse(mk_vec<char>(), *char_<'a'>, "aa", 2).size() == 2);
+	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), *char_<'a'>, "aa", 2), 'a', 'a' ));
+	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), +char_<'a'>, "aa", 2), 'a', 'a' ));
+
+	static_assert( ({char r='z';char_<'a'>.parse(make_test_ctx(),make_source('b'),r);r;}) == 'z' );
+	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), +(!char_<'a'>), "bb", 2), 0x00, 0x00 ),
+			"!char_<'a'> parses but don't sore it's value, we have list with zeros");
+
+	static_assert(test_cmp_vec( test_parser_parse(mk_str(),+(char_<'a'>|char_<'b'>), "aab", 3), 'a', 'a', 'b' ));
+
+	return true;
+}
+
+constexpr static bool test_binary_list() {
+	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), lower % ',', "a,b,c", 5), 'a', 'b', 'c' ));
+	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), lower % d10, "a1b2c", 5), 'a', 'b', 'c' ));
+	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), lower % d10, "a", 1), 'a' ));
+	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), lower % d10, "a1", 1), 'a' ));
 	return true;
 }
 
 constexpr static bool test_lists() {
-	return test_unary_list();
+	return test_unary_list() && test_binary_list();
 }

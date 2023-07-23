@@ -34,6 +34,7 @@ constexpr static void test_parser_char() {
 	static_assert( char_<'!'>.test() ); static_assert( char_<'Z'>.test() );
 	static_assert( ({char r;char_<'a'>.parse(make_test_ctx(), make_source("abc"), r);}) == 1 );
 	static_assert( ({char r;char_<'b'>.parse(make_test_ctx(), make_source("abc"), r);}) == -1 );
+	static_assert( ({char r;char_<'a'>.parse(make_test_ctx(), make_source("abc"), r);r;}) == 'a' );
 }
 
 template<typename t> struct value_parser : base_parser<value_parser<t>> {

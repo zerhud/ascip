@@ -15,10 +15,13 @@ constexpr auto operator|(const ascip_details::nonparser auto& p2) const {
 constexpr auto operator!() const {
 	return negate_parser<parser>{ static_cast<const parser&>(*this) };
 }
-constexpr auto operator-()const{ return opt_parser<parser>{static_cast<const parser&>(*this)}; }
-constexpr auto operator+()const{ return unary_list_parser<parser>{ static_cast<const parser&>(*this) }; }
+constexpr auto operator-()const{ return opt_parser<parser>{{}, static_cast<const parser&>(*this)}; }
+constexpr auto operator+()const{ return unary_list_parser<parser>{ {}, static_cast<const parser&>(*this) }; }
 constexpr auto operator*()const{ return -( +(static_cast<const parser&>(*this)) ); }
 
+template<ascip_details::parser right> constexpr auto operator%(const right& r) const {
+	return binary_list_parser( static_cast<const parser&>(*this), r ); }
+constexpr auto operator%(char r)const{ return binary_list_parser( static_cast<const parser&>(*this), value_parser{r} ); }
 /*
 template<typename... left, ascip_details::parser right>
 constexpr auto operator|(const variant_parser<left...>& p1, const right& p2) {
