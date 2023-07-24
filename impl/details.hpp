@@ -66,4 +66,16 @@ constexpr auto init_with_get(const src_t<src_args_t...>& src, args_t&&... args) 
 	if constexpr (sizeof...(inds) == sizeof...(src_args_t)) return init_t{ get<inds>(src)..., static_cast<args_t&&>(args)... };
 	else return init_with_get<init_t, inds..., sizeof...(inds)>(src, static_cast<args_t&&>(args)...);
 }
+
+struct adl_tag {};
+
+template<typename value_t, ascip_details::parser parser_t> constexpr static auto as( parser_t&& p, value_t&& val ){
+	return typename decltype(auto(p))::holder::template as_parser<decltype(auto(val)), decltype(auto(p))>{ p, val };
+}
+template<auto val, ascip_details::parser parser_t> constexpr static auto as( parser_t&& p) {
+	return typename decltype(auto(p))::holder::template tmpl_as_parser<val, decltype(auto(p))>{ p }; }
+constexpr static auto omit(auto&& p) {
+	return typename decltype(auto(p))::holder::template omit_parser<decltype(auto(p))>{ p }; }
+
+
 } // namespace ascip_details

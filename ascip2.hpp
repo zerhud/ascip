@@ -16,14 +16,12 @@
 
 namespace {
 
-#include "impl/adl_duplicates.ipp"
 
 template<typename factory_t, template<typename...>class tuple>
 struct ascip {
 
 using holder = ascip<factory_t, tuple>;
 
-struct parser_tag {};
 template<typename parser, typename act_t> struct semact_parser : parser {
 	act_t act;
 	constexpr const auto parse(auto&& ctx, auto src, auto& result) const requires (
@@ -42,7 +40,7 @@ template<typename parser, typename act_t> struct semact_parser : parser {
 		return ret;
 	}
 };
-template<typename parser> struct base_parser : parser_tag {
+template<typename parser> struct base_parser : ascip_details::adl_tag {
 	using holder = ascip<factory_t, tuple>;
 	constexpr static int start_context_arg = 1;
 	constexpr static char source_symbol = 'a';

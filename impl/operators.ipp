@@ -22,11 +22,3 @@ constexpr auto operator*()const{ return -( +(static_cast<const parser&>(*this)) 
 template<ascip_details::parser right> constexpr auto operator%(const right& r) const {
 	return binary_list_parser( static_cast<const parser&>(*this), r ); }
 constexpr auto operator%(char r)const{ return binary_list_parser( static_cast<const parser&>(*this), value_parser{r} ); }
-/*
-template<typename... left, ascip_details::parser right>
-constexpr auto operator|(const variant_parser<left...>& p1, const right& p2) {
-	return ascip_details::init_with_get<variant_parser<left..., right>>(p1.seq, p2); }
-template<typename... left>
-constexpr auto operator|(const variant_parser<left...>& p1, char p2) {
-	return p1 | value_parser( p2 ); }
-*/

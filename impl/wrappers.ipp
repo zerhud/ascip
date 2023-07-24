@@ -60,7 +60,6 @@ template<ascip_details::parser parser> struct omit_parser : base_parser<omit_par
 		return p.parse(ctx, src, r);
 	}
 };
-constexpr static auto omit(auto&& p) { return omit_parser<decltype(auto(p))>{ p }; }
 template<auto val> constexpr static const auto _char = omit(char_<val>);
 
 constexpr static bool test_omit() {
@@ -90,11 +89,6 @@ template<typename value_t, ascip_details::parser parser> struct as_parser : base
 		return shift;
 	}
 };
-template<typename value_t, ascip_details::parser parser_t> constexpr static auto as( parser_t&& p, value_t&& val ){
-	return as_parser<decltype(auto(val)), decltype(auto(p))>{ p, val };
-}
-template<auto val, ascip_details::parser parser_t> constexpr static auto as( parser_t&& p) { return tmpl_as_parser<val, decltype(auto(p))>{ p }; }
-
 constexpr static bool test_as() {
 	static_assert( test_parser_char(as(char_<'a'>, 'b'), "a", 1) == 'b' );
 	static_assert( test_parser_char(as(char_<'a'>, 'b'), "b", -1) == 'z' );
