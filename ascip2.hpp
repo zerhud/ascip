@@ -14,9 +14,14 @@
  * negate parser switching state and it drived from wrapped parser
  */
 
+namespace {
+
+#include "impl/adl_duplicates.ipp"
+
 template<typename factory_t, template<typename...>class tuple>
 struct ascip {
 
+using holder = ascip<factory_t, tuple>;
 
 struct parser_tag {};
 template<typename parser, typename act_t> struct semact_parser : parser {
@@ -38,6 +43,7 @@ template<typename parser, typename act_t> struct semact_parser : parser {
 	}
 };
 template<typename parser> struct base_parser : parser_tag {
+	using holder = ascip<factory_t, tuple>;
 	constexpr static int start_context_arg = 1;
 	constexpr static char source_symbol = 'a';
 	constexpr auto operator()(auto act) const {
@@ -76,9 +82,22 @@ constexpr static void test() {
 	static_assert( test_lists() );
 }
 
+template<auto sym> struct terms {
+	constexpr static auto& char_ = holder::char_<sym>;
+	constexpr static auto& _char = holder::_char<sym>;
+	constexpr static auto& space = holder::space;
+	constexpr static auto& any = holder::any;
+	constexpr static auto& int_ = holder::int_;
+	constexpr static auto& lower = holder::lower;
+	constexpr static auto& upper = holder::upper;
+	constexpr static auto& digit = holder::digit;
+	constexpr static auto& d10 = holder::d10;
+	constexpr static auto& ascii = holder::ascii;
+};
+
 }; // struct ascip (context)
 
-#include "impl/operators.ipp"
+} // namespace <anonymus>
 
 namespace ascip_literals {
 	/*

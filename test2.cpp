@@ -23,11 +23,28 @@ using parser = ascip<factory, std::tuple>;
 using parser_with_own_tuple = ascip<factory, ascip_details::tuple>;
 using redefined_parser = ascip<factory_for_redefine_test, std::tuple>;
 
+template<typename gram_holder>
+struct test_grammar {
+	using gh = gram_holder;
+	template<auto s> static auto c_ = gram_holder::template char_<s>;
+	constexpr static auto make() {
+		auto& int_ = gh::int_;
+		return as(c_<'a'>, 'b') % int_;
+	}
+};
+
+template< typename gram_holder, template<auto>class term=gram_holder::template terms >
+constexpr auto make_test_gram() {
+	return as(term<'a'>::char_, 'b') % gram_holder::int_;
+}
+
 int main(int,char**) {
 	std::cout << "start" << std::endl;
 	parser::test();
 	redefined_parser::test();
 	//parser_with_own_tuple::test();
+	static_assert( ({char r;make_test_gram<parser>().parse(parser::make_test_ctx(), parser::make_source("a"), r);r;}) == 'b' );
+	static_assert( ({char r;test_grammar<parser>::make().parse(parser::make_test_ctx(), parser::make_source("a"), r);r;}) == 'b' );
 	std::cout << "finish" << std::endl;
 
 	ascip_details::tuple<int,double> tt{ 1, .5 };
