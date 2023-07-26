@@ -42,9 +42,15 @@ int main(int,char**) {
 	std::cout << "start" << std::endl;
 	parser::test();
 	redefined_parser::test();
+	//TODO: implement own tuple :)
 	//parser_with_own_tuple::test();
 	static_assert( ({char r;make_test_gram<parser>().parse(parser::make_test_ctx(), parser::make_source("a"), r);r;}) == 'b' );
 	static_assert( ({char r;test_grammar<parser>::make().parse(parser::make_test_ctx(), parser::make_source("a"), r);r;}) == 'b' );
+	std::cout << "finish" << std::endl;
+	std::cout << "rt start" << std::endl;
+	std::string rt_r;
+	parse(make_test_gram<parser>(), +parser::space, parser::make_source("a1  a2 a  3 a 3a"), rt_r);
+	std::cout << "\t(5 == " << rt_r.size() << ") " << rt_r << std::endl;
 	std::cout << "finish" << std::endl;
 
 	ascip_details::tuple<int,double> tt{ 1, .5 };

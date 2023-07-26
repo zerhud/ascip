@@ -95,11 +95,10 @@ template<auto sym> struct terms {
 
 } // namespace <anonymus>
 
-namespace ascip_literals {
-	/*
+template<typename factory_t, template<typename...>class tuple>
+struct ascip_literals {
 template<typename char_t, char_t... chars>
-constexpr auto operator""_lex() {
-	return lexeme( omit( (... >> char_<chars>) ) );
+friend constexpr auto operator""_lex() {
+	return lexeme( omit( (... >> ascip<factory_t, tuple>::template char_<chars>) ) );
 }
-*/
-} // namespace ascip_literals
+}; // namespace ascip_literals

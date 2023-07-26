@@ -35,6 +35,31 @@ template<parser type> constexpr auto skip(const type& p) {
 	return typename decltype(auto(p))::holder::template skip_parser<type>{ {}, p }; }
 
 
+// ===============================
+//          parse part
+// ===============================
+
+constexpr auto parse(const auto& parser, auto src) {
+	type_any_eq_allow r;
+	return parse(parser, src, r);
+}
+
+constexpr auto parse(const auto& parser, auto src, auto& result) {
+	return parser.parse(decltype(auto(parser))::holder::make_test_ctx(), src, result);
+}
+
+constexpr auto parse(const auto& parser, const auto& skip, auto src, auto& result) {
+	auto ctx = decltype(auto(parser))::holder::make_test_ctx();
+	return decltype(auto(parser))::holder::template
+		inject_skipping<true>(parser, skip).parse(ctx, src, result);
+}
+
+constexpr auto parse(const auto& parser, const auto& skip, auto src, auto& result, const auto& err) {
+	auto ctx = decltype(auto(parser))::holder::make_test_ctx(&err);
+	return decltype(auto(parser))::holder::template
+		inject_skipping<true>(parser, skip).parse(ctx, src, result);
+}
+
 
 // ===============================
 //          operators part
