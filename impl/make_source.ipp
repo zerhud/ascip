@@ -18,7 +18,7 @@ constexpr static auto make_source(type&& src) {
 }
 
 constexpr static auto make_source(auto sym)
-requires( !ascip_details::string_view<decltype(sym)> && !ascip_details::vector<decltype(sym)> ) {
+requires( !ascip_details::string_view<decltype(sym)> && !ascip_details::vector<decltype(sym)> && !std::is_array_v<decltype(sym)>) {
 	struct {
 		decltype(sym) val; bool where_is_more=true;
 		constexpr auto operator()(){ where_is_more=false; return val; }
@@ -52,6 +52,7 @@ constexpr static bool test_sources(auto&& s) {
 	return true;
 }
 constexpr static void test_sources() {
+	static_assert( make_source("ab").ind == 0, "source from qutoed string must to be with index" );
 	static_assert( !!make_source("") == false, "source from array works, setp 0" );
 	static_assert( test_sources( make_source("ab") ) );
 	static_assert( test_sources( make_source(factory_t{}.mk_sv("ab")) ) );

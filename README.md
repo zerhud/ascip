@@ -6,7 +6,7 @@ here is a list of avaible parsers. you can find examples below
 - `d10` or `digit` for parser 0-9
 - `lower` and `upper` for parse asci lower or upper letters. and `letter` is a `lower` or `upper`.
 - `space` means spaces
-- `any` parses any character
+- `any` parses any character (if the character is not an ascii store (use `push_back`) it in result)
 - `nl` parses new line character
 - `quoted_string` parsers string in single or double quoted with escaping character \\. also `dquoted_string` parses only string and double quotes and `squoted_string` - single.
 - `char_<'a'>` char with concreate value (it can to be wide char and so on). and `_char<'a'>` is same with omitted value.
@@ -30,7 +30,9 @@ with sequence parser can be used
 - `++` prefix or postfix for increate result's field number to store parser result. prefix `++` will increate the number for current parser and postfix `++` - for next parser.
 - `--` same as `++` but decrease the number
 - `finc<number>` method. same as `++` or `--` but you can specify the number will be added to current position (the number can also to be negative).
+- `fnum<number>` method. setts the resulting field position independently the current one.
 - `must` method. WIP. causes an error on fail.
+- lambda in sequnce: sequence parser will call it with arguments: source on start parsing, source in current position and result. it returned value, if present, will be added to the source position.
 
 # examples
 

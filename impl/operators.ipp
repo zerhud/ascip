@@ -5,6 +5,10 @@
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          https://www.boost.org/LICENSE_1_0.txt)
 
+constexpr auto operator()(auto act) const {
+	return semact_parser<parser, decltype(auto(act))>{
+		static_cast<const parser&>(*this), static_cast<decltype(act)&&>(act) };
+}
 
 constexpr auto operator|(const ascip_details::parser auto& p2) const {
 	return variant_parser( static_cast<const parser&>(*this), p2 );
@@ -22,3 +26,7 @@ constexpr auto operator*()const{ return -( +(static_cast<const parser&>(*this)) 
 template<ascip_details::parser right> constexpr auto operator%(const right& r) const {
 	return binary_list_parser( static_cast<const parser&>(*this), r ); }
 constexpr auto operator%(char r)const{ return binary_list_parser( static_cast<const parser&>(*this), value_parser{r} ); }
+
+template<ascip_details::parser right> constexpr auto operator-(const right& r)const{
+	return different_parser( static_cast<const parser&>(*this), r ); }
+

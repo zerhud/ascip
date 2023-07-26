@@ -41,12 +41,6 @@ template<ascip_details::parser parser> struct opt_parser : base_parser<opt_parse
 	}
 };
 
-constexpr static auto test_parser_char(const auto& p, auto&& s, auto pr) {
-	char result='z';
-	auto answer = p.parse(make_test_ctx(), make_source(s), result);
-	return (answer==pr) * result;
-}
-
 constexpr static bool test_optional() {
 	static_assert( test_parser_char(-char_<'a'>, "b", 0) == 'z' );
 	static_assert( test_parser_char(-char_<'a'>, "a", 1) == 'a' );
@@ -61,6 +55,7 @@ template<ascip_details::parser parser> struct omit_parser : base_parser<omit_par
 	}
 };
 template<auto val> constexpr static const auto _char = omit(char_<val>);
+constexpr static const auto nl = _char<'\n'>;
 
 constexpr static bool test_omit() {
 	static_assert( test_parser_char(omit(char_<'a'>), "a", 1) == 'z' );
@@ -97,3 +92,53 @@ constexpr static bool test_as() {
 	static_assert( test_parser_char(as<'b'>(int_), "a", -1) == 'z' );
 	return true;
 }
+
+template<typename good_result, ascip_details::parser parser>
+struct result_checker_parser : base_parser<result_checker_parser<good_result, parser>> {
+	parser p;
+	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+		static_assert(
+			   ascip_details::is_in_concept_check(decltype(auto(ctx)){})
+			|| std::is_same_v<good_result, decltype(auto(result))>,
+			"can only parser to required type" );
+		return p.parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(auto(src))&&>(src), result);
+	}
+};
+template<typename needed, ascip_details::parser type> struct cast_parser : base_parser<cast_parser<needed,type>> {
+	type p;
+	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+		if constexpr ( ascip_details::is_in_concept_check(decltype(auto(ctx)){}) )
+			return 0;
+		else {
+		static_assert(requires{ static_cast<needed&>(result); }, "the result must to be castable to needed type" );
+		return p.parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(auto(src))&&>(src), static_cast<needed&>(result));
+		}
+	}
+};
+constexpr static bool test_checkers() {
+	//NOTE: for c++23 we can only test if it works and cannot test if it fails
+	static_assert( requires(char& r) {
+		check<char>(char_<'a'>).parse(make_test_ctx(),make_source('a'),r);
+		});
+	static_assert( requires(char& r) {
+		cast<char>(char_<'a'>).parse(make_test_ctx(),make_source('a'),r);
+		});
+	return true;
+}
+
+template<ascip_details::parser left, ascip_details::parser right> struct different_parser : base_parser<different_parser<left, right>> {
+	left lp;
+	right rp;
+	constexpr different_parser( left l, right r ) : lp(l), rp(r) {}
+	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+		ascip_details::type_any_eq_allow fake_result;
+		if(rp.parse(ctx, src, fake_result) >= 0) return -1;
+		return lp.parse(ctx, src, result);
+	}
+};
+constexpr static bool test_different() {
+	static_assert( ({char r='z';(*(any - char_<'a'>)).parse(make_test_ctx(), make_source("#$%a"), r);}) == 3, "different parser: stops on it's excluding parser" );
+	static_assert( ({char r='z';(*(any - char_<'a'>)).parse(make_test_ctx(), make_source("#$%a"), r);r;}) == '%', "different parser: excluded left result as is" );
+	return true;
+}
+

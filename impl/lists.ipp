@@ -49,23 +49,6 @@ struct binary_list_parser : base_parser<binary_list_parser<left, right>> {
 	}
 };
 
-template<typename type> constexpr static auto mk_vec() { return factory_t{}.template mk_vec<type>(); }
-constexpr static auto mk_str() { return factory_t{}.template mk_str(); }
-
-constexpr static auto test_parser_parse(auto&& r, auto p, auto&& src, auto pr) {
-	auto rr = p.parse(make_test_ctx(), make_source(src), r);
-	rr /= (rr==pr);
-	return r;
-}
-
-constexpr static auto test_cmp_vec(const auto& vec, auto... vals) {
-	auto correct = mk_vec<decltype(auto(vec[0]))>();
-	(correct.emplace_back(vals), ...);
-	vec.size() / (vec.size() == sizeof...(vals));
-	for(auto i=0;i<vec.size();++i) vec[i] / (vec[i] == correct[i]);
-	return true;
-}
-
 constexpr static bool test_unary_list() {
 	test_parser_parse(mk_vec<char>(), *char_<'a'>, "", 0);
 	static_assert(test_parser_parse(mk_vec<char>(), *char_<'a'>, "", 0).size() == 0);
@@ -75,7 +58,7 @@ constexpr static bool test_unary_list() {
 
 	static_assert( ({char r='z';char_<'a'>.parse(make_test_ctx(),make_source('b'),r);r;}) == 'z' );
 	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), +(!char_<'a'>), "bb", 2), 0x00, 0x00 ),
-			"!char_<'a'> parses but don't sore it's value, we have list with zeros");
+			"!char_<'a'> parses but don't sore it's value, we have list with zeros (instead of infinit loop)");
 
 	static_assert(test_cmp_vec( test_parser_parse(mk_str(),+(char_<'a'>|char_<'b'>), "aab", 3), 'a', 'a', 'b' ));
 
