@@ -7,6 +7,73 @@
 
 namespace ascip_details {
 
+template<typename tag, typename val, typename next_ctx> struct context { using tag_t = tag; val v; next_ctx next; };
+template<typename tag, typename val> struct last_context { using tag_t = tag; val v; };
+constexpr const struct  ctx_not_found_type {} ctx_not_found;
+
+template<typename tag, typename value>
+constexpr auto make_ctx(value&& val) {
+	return last_context<tag, decltype(auto(val))>{ static_cast<value&&>(val) };
+}
+template<typename tag, typename value>
+constexpr auto make_ctx(value&& val, auto&& ctx) {
+	return context<tag, decltype(auto(val)), decltype(auto(ctx))>{
+		static_cast<value&&>(val), static_cast<decltype(ctx)&&>(ctx) };
+}
+template<typename tag>
+constexpr bool exists_in_ctx(auto&& ctx) {
+	if constexpr (std::is_same_v<typename decltype(auto(ctx))::tag_t, tag>) return true;
+	else if constexpr (requires{ ctx.next; }) return exists_in_ctx<tag>(ctx.next);
+	else return false;
+}
+template<typename tag>
+constexpr auto& search_in_ctx(auto&& ctx) {
+	if constexpr (std::is_same_v<typename decltype(auto(ctx))::tag_t, tag>) return ctx.v;
+	else if constexpr (requires{ ctx.next; }) return search_in_ctx<tag>(ctx.next);
+	else return ctx_not_found;
+}
+template<auto ind, typename tag, auto cur=0>
+constexpr auto& by_ind_from_ctx(auto&& ctx) {
+	if constexpr (std::is_same_v<typename decltype(auto(ctx))::tag_t, tag>) {
+		if constexpr (ind == cur) return ctx.v;
+		else return by_ind_from_ctx<ind,tag,cur+1>(ctx.next);
+	}
+	else if constexpr (requires{ ctx.next; }) return by_ind_from_ctx<ind,tag,cur>(ctx.next);
+	else return ctx_not_found;
+}
+
+constexpr void test_context() {
+	struct v1_t{int v=1;}; struct v2_t{int v=2;}; struct v3_t{int v=4;}; struct v4_t{int v=8;};
+	struct t1_t{}; struct t2_t{}; struct t3_t{}; struct t4_t{};
+	static_assert( ({ v1_t v1;
+		auto ctx = make_ctx<t1_t>(v1);
+		search_in_ctx<t1_t>(ctx).v;
+	})==1, "can find in single context" );
+	static_assert( ({ v1_t v1; v2_t v2;
+		auto ctx2 = make_ctx<t2_t>(v2, make_ctx<t1_t>(v1));
+		search_in_ctx<t1_t>(ctx2).v;
+	})==1, "can find in 2 deep context" );
+	static_assert( ({ v1_t v1; v2_t v2;
+		auto ctx2 = make_ctx<t2_t>(v2, make_ctx<t1_t>(v1));
+		search_in_ctx<t2_t>(ctx2).v;
+	})==2, "can find in 2 deep context" );
+	static_assert( ({ v1_t v1; v3_t v3;
+		auto ctx3 = make_ctx<t3_t>(v3, make_ctx<t1_t>(v1));
+		exists_in_ctx<t3_t>(ctx3) && exists_in_ctx<t1_t>(ctx3) && !exists_in_ctx<t2_t>(ctx3);
+	})==true, "exists_in_ctx by tag only" );
+	static_assert( ({ v1_t v1; v2_t v2;
+		auto ctx2 = make_ctx<t1_t>(v2, make_ctx<t1_t>(v1));
+		by_ind_from_ctx<0,t1_t>(ctx2).v;
+	})==2, "can find by ind" );
+	static_assert( ({ v1_t v1; v2_t v2;
+		auto ctx2 = make_ctx<t1_t>(v2, make_ctx<t1_t>(v1));
+		by_ind_from_ctx<1,t1_t>(ctx2).v;
+	})==1, "can find by ind" );
+	static_assert(  exists_in_ctx<t1_t>(make_ctx<t1_t>(v1_t{})) );
+	static_assert( !exists_in_ctx<t2_t>(make_ctx<t1_t>(v1_t{})) );
+	static_cast<const decltype(ctx_not_found)&>(by_ind_from_ctx<0,t2_t>(make_ctx<t1_t>(v2_t{}, make_ctx<t1_t>(v1_t{}))));
+}
+
 template<typename type, template<typename...>class tmpl> constexpr const bool is_specialization_of = false;
 template<template<typename...>class type, typename... args> constexpr const bool is_specialization_of<type<args...>, type> = true;
 
@@ -18,6 +85,7 @@ struct type_any_eq_allow {
 	template<typename type> constexpr auto& operator*=(const type&){ return *this; }
 };
 struct type_result_for_parser_concept : type_any_eq_allow {using type_any_eq_allow::operator=;};
+struct parser_concept_check_tag {};
 
 template<typename type> concept vector = requires(const type& v){ v.size(); v[0]; v.back(); } && requires(type& v){ v.pop_back(); };
 template<typename type> concept string = requires(type& s){ s += typename type::value_type{}; } && vector<type>;
@@ -27,49 +95,57 @@ template<typename type> concept parser = requires(type& p, type_result_for_parse
 	p.parse(make_test_ctx<1,2,3,4,5,6,7,8,' ','c','o','c','e','p','t',' ',1,2,3,4>(p), make_source(p), r) < 0; };
 template<typename type> concept nonparser = !parser<type>;
 
-
-template<template<typename...>class tuple, typename... args>
-constexpr auto tuple_size(const tuple<args...>&) { return sizeof...(args); }
-
-template<template<typename...>class tuple, typename... left_args, typename... extra_args>
-constexpr auto push_back(tuple<left_args...>& to, extra_args&&... what) {
-	using ret_t = tuple<left_args..., extra_args...>;
-	return init_with_get<ret_t>(to, static_cast<extra_args&&>(what)...);
-}
-template<template<typename...>class tuple, typename... left_args, typename... extra_args>
-constexpr auto push_front(tuple<left_args...>& to, extra_args&&... what) {
-	using ret_t = tuple<extra_args..., left_args...>;
-	return init_with_get_inv<ret_t>(to, static_cast<extra_args&&>(what)...);
-}
-
 constexpr bool is_in_concept_check(auto&& ctx) {
-	if constexpr (tuple_size(decltype(auto(ctx)){})==1) return false;
-	else return std::is_same_v<int,decltype(auto(get<tuple_size(decltype(auto(ctx)){})-2>(ctx)))>;
+	return exists_in_ctx<parser_concept_check_tag>(ctx);
 }
 
 struct in_req_flag{ };
+struct err_handler_tag{};
 struct without_req_flag{ };
 constexpr bool is_in_reqursion_check(auto&& ctx) {
-	return std::is_same_v<in_req_flag,decltype(auto(get<tuple_size(decltype(auto(ctx)){})-1>(ctx)))>;
+	return exists_in_ctx<in_req_flag>(ctx);
 }
 
 namespace { // tuple
 	template<auto ind, typename t> struct tuple_base { t val;
+		constexpr tuple_base() {}
+		constexpr tuple_base(t&& val) : val(static_cast<t&&>(val)) {}
 		template<auto i> constexpr auto& get() const requires (i==ind) { return val; }
 		template<auto i> constexpr std::enable_if_t<i==ind, t>& _get() const { return val; }
 	};
 	template<auto cur, typename... list> struct tuple_recursion {};
-	template<auto cur, typename t, typename... list> struct tuple_recursion<cur,t,list...> : tuple_base<cur, t>, tuple_recursion<cur+1,list...> { };
-	template<typename... types> struct tuple :  tuple_recursion<0, types...> { };
+	template<auto cur, typename t, typename... list> struct tuple_recursion<cur,t,list...> : tuple_base<cur, t>, tuple_recursion<cur+1,list...> {
+		constexpr tuple_recursion() {}
+		constexpr tuple_recursion(t&& cv, list&&... lv) : tuple_base<cur,t>(static_cast<t&&>(cv)),tuple_recursion<cur+1,list...>(static_cast<list&&>(lv)...) {}
+		template<auto i> constexpr const auto& __get() const {
+			if constexpr (i == cur) return tuple_base<cur, t>::val;
+			else return tuple_recursion<cur+1,list...>::template __get<i>();
+		}
+		template<auto i> constexpr auto& __get() {
+			if constexpr (i == cur) return tuple_base<cur, t>::val;
+			else return tuple_recursion<cur+1,list...>::template __get<i>();
+		}
+	};
+	template<typename... types> struct tuple :  tuple_recursion<0, types...> {
+		constexpr tuple() : tuple_recursion<0, types...>() {}
+		constexpr tuple(types&&... vals) : tuple_recursion<0, types...>(static_cast<types&&>(vals)...) {}
+	};
+	/*
 	template<auto ind, auto cur, typename type, typename... types> constexpr const auto& get_impl(const auto& src) {
 		if constexpr (ind==cur) return static_cast<const tuple_base<ind,type>*>(&src)->val;
 		else return get_impl<ind, cur+1, types...>(src);
 	}
+	*/
 	template<auto ind, typename... types> constexpr const auto& get(const tuple<types...>& src) {
 		static_assert( ind < sizeof...(types), "tuple: out of range" );
+		return src.template __get<ind>();
 		//return src.template _get<ind>();
 		//return src.template get<ind>();
-		return get_impl<ind, 0, types...>(src);
+		//return get_impl<ind, 0, types...>(src);
+	}
+	template<auto ind, typename... types> constexpr auto& get(tuple<types...>& src) {
+		static_assert( ind < sizeof...(types), "tuple: out of range" );
+		return src.template __get<ind>();
 	}
 } // namespace (anonymus) tuple
  
@@ -104,20 +180,6 @@ template<class init_t, auto... inds, template<typename...>class src_t, typename.
 constexpr auto init_with_get_inv(const src_t<src_args_t...>& src, args_t&&... args) {
 	if constexpr (sizeof...(inds) == sizeof...(src_args_t)) return init_t{ static_cast<args_t&&>(args)..., get<inds>(src)... };
 	else return init_with_get_inv<init_t, inds..., sizeof...(inds)>(src, static_cast<args_t&&>(args)...);
-}
-
-template<typename arg, template<typename...>class tuple, typename... left_args>
-constexpr const bool contains(const tuple<left_args...>*) { return (std::is_same_v<left_args,arg> || ...); }
-
-
-template<auto cur, typename arg, template<typename...>class tuple, typename... left_args>
-constexpr const auto find_first_impl(const tuple<left_args...>* v) {
-	if constexpr (std::is_same_v<arg,decltype(auto(get<cur>(*v)))>) return cur;
-	else return find_first_impl<cur+1,arg>(v);
-}
-template<typename arg, template<typename...>class tuple, typename... left_args>
-constexpr const auto find_first(const tuple<left_args...>* v) {
-	return find_first_impl<0,arg>(v);
 }
 
 

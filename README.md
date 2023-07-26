@@ -11,6 +11,7 @@ here is a list of avaible parsers. you can find examples below
 - `quoted_string` parsers string in single or double quoted with escaping character \\. also `dquoted_string` parses only string and double quotes and `squoted_string` - single.
 - `char_<'a'>` char with concreate value (it can to be wide char and so on). and `_char<'a'>` is same with omitted value.
 - `operator |` for parse variant
+- `lreq<num>` for parse variant with left reqursion (num is position in variant)
 - `operator !` for negate parser
 - `unary -` for parse optional value. if tere is no value the default constructor will be used.
 - `binary -` for parse one value except other

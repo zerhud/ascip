@@ -5,6 +5,10 @@
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          https://www.boost.org/LICENSE_1_0.txt)
 
+struct seq_stack_tag{};
+struct seq_src_stack_tag{};
+struct seq_shift_stack_tag{};
+struct seq_result_stack_tag{};
 constexpr static struct cur_pos_parser : base_parser<cur_pos_parser> {
 	constexpr auto parse(auto&&, auto src, auto& result) const {
 		//TODO: extract the info from context or from parent's object
@@ -21,7 +25,7 @@ constexpr static struct cur_shift_parser : base_parser<cur_shift_parser> {
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr (ascip_details::is_in_concept_check(decltype(auto(ctx)){})) return 0;
 		else {
-			ascip_details::eq(result, *get<3>(ctx));
+			ascip_details::eq(result, *search_in_ctx<seq_shift_stack_tag>(ctx));
 			return 0;
 		}
 	}
@@ -30,23 +34,23 @@ template<auto ind, auto ctx_chunk_size, auto ctx_result_pos>
 struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind, ctx_chunk_size, ctx_result_pos>> {
 	static_assert( ctx_chunk_size > ctx_result_pos, "we need to extract result from ctx"  );
 	constexpr auto& extract_result(auto& ctx) const {
-		return *get<ind*ctx_chunk_size+ctx_result_pos>(ctx);
+		return *by_ind_from_ctx<ind, seq_result_stack_tag>(ctx);
 	}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr( ascip_details::is_in_concept_check(decltype(auto(ctx)){})  ) return 0;
 		else if constexpr (ascip_details::is_in_reqursion_check(decltype(auto(ctx)){})) {
-			return !!src ? get<ind*ctx_chunk_size>(ctx)->parse(ctx, static_cast<decltype(src)&&>(src), extract_result(ctx)) : -1;
+			return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse(ctx, static_cast<decltype(src)&&>(src), extract_result(ctx)) : -1;
 		} else {
-			auto new_ctx = ascip_details::push_back(ctx, ascip_details::in_req_flag{});
-			return !!src ? get<ind*ctx_chunk_size>(new_ctx)->parse(new_ctx, static_cast<decltype(src)&&>(src), extract_result(new_ctx)) : -1;
+			auto new_ctx = make_ctx<ascip_details::in_req_flag>(true, ctx);
+			return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse(new_ctx, static_cast<decltype(src)&&>(src), extract_result(new_ctx)) : -1;
 		}
 	}
 	constexpr auto parse_with_user_result(auto&& ctx, auto src, auto& result) const {
 		if constexpr (ascip_details::is_in_reqursion_check(decltype(auto(ctx)){})) {
-			return !!src ? get<ind*ctx_chunk_size>(ctx)->parse(ctx, static_cast<decltype(src)&&>(src), result) : -1;
+			return !!src ? by_ind_from_ctx<ind,seq_stack_tag>(ctx)->parse(ctx, static_cast<decltype(src)&&>(src), result) : -1;
 		} else {
-			auto new_ctx = ascip_details::push_back(ctx, ascip_details::in_req_flag{});
-			return !!src ? get<ind*ctx_chunk_size>(new_ctx)->parse(new_ctx, static_cast<decltype(src)&&>(src), result) : -1;
+			auto new_ctx = make_ctx<ascip_details::in_req_flag>(true, ctx);
+			return !!src ? by_ind_from_ctx<ind,seq_stack_tag>(new_ctx)->parse(new_ctx, static_cast<decltype(src)&&>(src), result) : -1;
 		}
 	}
 };
@@ -102,7 +106,7 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 		return p.parse(ctx, src, result);
 	}
 	template<auto find> constexpr auto call_parse(auto& p, auto&& ctx, auto src, auto& result) const requires (!ascip_details::parser<decltype(auto(p))>) {
-		auto& prev_src = *get<2>(ctx);
+		auto& prev_src = *search_in_ctx<concrete>(ctx);
 		if constexpr (requires{ p(src, src, result, ctx);})
 			return p(prev_src, src, result, ctx);
 		else if constexpr (!requires{ { p(src, src, result) } -> std::same_as<void>; })
@@ -119,7 +123,7 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 		auto& cur = get<pind>(seq);
 		auto ret = call_parse<cur_field>(cur, ctx, src, result);
 		src += ret * (0 <= ret);
-		(*get<3>(ctx))+=ret * (0 <= ret);
+		*search_in_ctx<seq_shift_stack_tag>(ctx) += ret * (0 <= ret);
 		if constexpr (pind+1 == sizeof...(parsers)) return ret; 
 		else {
 			if( ret < 0 ) return on_error(ret);
@@ -129,38 +133,48 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 		}
 	}
 
+	template<auto find, auto pind>
 	constexpr auto parse_and_store_shift(auto&& ctx, auto src, auto& result) const {
-		auto* old_shift = get<3>(ctx);
+		//static_assert - exists concrete in ctx
+		auto* old_shift = search_in_ctx<seq_shift_stack_tag>(ctx);
 		auto cur_shift = 0;
-		get<3>(ctx) = &cur_shift;
-		auto ret = parse_seq<0, 0, parsers...>(static_cast<decltype(ctx)&&>(ctx), src, result);
-		get<3>(ctx) = old_shift;
+		search_in_ctx<seq_shift_stack_tag>(ctx) = &cur_shift;
+		auto ret = parse_seq<find, pind, parsers...>(static_cast<decltype(ctx)&&>(ctx), src, result);
+		search_in_ctx<seq_shift_stack_tag>(ctx) = old_shift;
 		return ret;
 	}
 	constexpr auto parse_with_modified_ctx(auto&& ctx, auto src, auto& result) const {
-		const concrete* self = static_cast<const concrete*>(this);
+		const concrete* _self = static_cast<const concrete*>(this);
 		ascip_details::type_any_eq_allow fake_r;
-		auto shift_store = 0; // we can use single int on top of the ctx, but the top is used already
-				      // TODO: implement ctx with tags (as in boost.spirit.x3) for we can search by tag
-				      //       if adds something to the context
-		auto cur_ctx = ascip_details::push_front(ctx, std::move(self), &result, &src, &shift_store);
-		return parse_and_store_shift(cur_ctx, src, result);
+		auto shift_store = 0;
+		auto cur_ctx = make_ctx<seq_shift_stack_tag>(&shift_store,
+		      make_ctx<seq_src_stack_tag>(&src, 
+			make_ctx<seq_result_stack_tag>(&result,
+			  make_ctx<seq_stack_tag>(this,
+			    ascip_details::make_ctx<concrete>(&src, ctx)
+			  )
+			)
+		      )
+		);
+		return parse_and_store_shift<0,0>(cur_ctx, src, result);
 	}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		if(!src) return -1;
 		if constexpr (ascip_details::is_in_concept_check(decltype(auto(ctx)){})) return 0;
 		else {
-			if constexpr (ascip_details::is_in_reqursion_check(decltype(auto(ctx)){}))
-				return parse_and_store_shift(static_cast<decltype(ctx)&&>(ctx), src, result);
+			if constexpr (exists_in_ctx<concrete>(decltype(auto(ctx)){}))
+				return parse_and_store_shift<0,0>(static_cast<decltype(ctx)&&>(ctx), src, result);
 			else return parse_with_modified_ctx(static_cast<decltype(ctx)&&>(ctx), src, result);
-		/*
-			using ctx_ptr = const decltype(auto(ctx))*;
-			using self_ptr = const concrete*;
-			if constexpr (ascip_details::contains<self_ptr>((ctx_ptr)nullptr))
-			      return parse_seq<0, 0, parsers...>(static_cast<decltype(ctx)&&>(ctx), src, result);
-			else return parse_with_modified_ctx(static_cast<decltype(ctx)&&>(ctx), src, result);
-		*/
 		}
+	}
+	template<auto ind>
+	constexpr auto parse_from(auto&& ctx, auto src, auto& result) const {
+		static_assert(
+			exists_in_ctx<seq_shift_stack_tag>(decltype(auto(ctx)){}),
+			"parse_from must be called with preallocated shift store"
+		);
+		if(!src) return -1;
+		return parse_and_store_shift<ind,ind>(ctx, src, result);
 	}
 
 	template<typename right> constexpr auto operator>>(const right& r)const{
@@ -175,15 +189,11 @@ template<typename... parsers> struct opt_seq_parser : com_seq_parser<opt_seq_par
 };
 
 template<ascip_details::parser type> struct seq_error_parser : type {
-	template<template<typename...>class tuple_t, typename... args>
-	constexpr auto& extract_first(const tuple_t<args...>& ctx) const {
-		return get<sizeof...(args)-1>(ctx);
-	}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = type::parse(static_cast<decltype(ctx)&&>(ctx), src, result);
-		auto& first = extract_first(ctx);
-		if constexpr (!requires{ (*first)(src,src,result,ret); } ) return ret;
-		else return (*first)(*get<2>(ctx), src, result, ret);
+		auto err = search_in_ctx<ascip_details::err_handler_tag>(ctx);
+		if constexpr (!requires{ (*err)(src,src,result,ret); }) return ret;
+		else return (*err)(*search_in_ctx<seq_src_stack_tag>(ctx), src, result, ret);
 	}
 	//TODO: implement operator [] here for we can call it like
 	//  foo >> bar >> char_<'a'>["some name"]
@@ -222,6 +232,10 @@ constexpr static bool test_seq_result_fields() {
 	static_cast<const opt_seq_parser<char_parser<'a'>, char_parser<'b'>, char_parser<'c'>>&>(char_<'a'> >> char_<'b'> >> char_<'c'>);
 	static_cast<const opt_seq_parser<char_parser<'a'>, int_parser, char_parser<'c'>, int_parser>&>(char_<'a'> >> int_ >> char_<'c'> >> int_);
 	static_assert( test_cmp_struct( test_parser_parse(with_2_chars{}, char_<'a'>++ >> char_<'b'>-- >> char_<'c'>, "abc", 3), 'c', 'b' ) );
+	static_assert( ({ with_2_chars r; auto shift_store = 0;
+		(char_<'a'>++ >> char_<'b'>).template parse_from<1>(
+				make_ctx<seq_shift_stack_tag>(&shift_store, make_test_ctx()), make_source("b"), r);
+	r.b; }) == 'b' );
 	return true;
 }
 constexpr static bool test_seq_finc() {

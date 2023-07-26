@@ -10,8 +10,15 @@ template<typename parser, typename act_t> struct semact_parser : base_parser<sem
 	act_t act;
 	[[no_unique_address]] parser p;
 
+	//constexpr const bool test_act() const {
+		//return requires{ requires std::is_lvalue_reference_v<decltype(act(result))>; };
+	//}
+	constexpr const auto parse(auto&& ctx, auto src, auto& result) const
+		requires requires{ static_cast<const ascip_details::type_result_for_parser_concept&>(result); }
+	{ return 0; }
 	constexpr const auto parse(auto&& ctx, auto src, auto& result) const requires (
 		   !ascip_details::is_in_concept_check(decltype(auto(ctx)){})
+		&& !requires{ static_cast<const ascip_details::type_result_for_parser_concept&>(result); }
 		&& requires{ requires std::is_lvalue_reference_v<decltype(act(result))>; }
 		&& !requires{ act(); /* check if ... pattern */ }
 	) {

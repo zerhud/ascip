@@ -19,7 +19,8 @@ template<typename t> constexpr auto size = size_impl<t>();
 template<auto ind,auto cur=0> constexpr auto& nth(auto& first, auto&... args) { if constexpr (cur==ind) return first; else return nth<ind,cur+1>(args...); }
 template<auto ind> constexpr auto& get(auto& r) requires (size<decltype(auto(r))> == 1) { auto&[f1]=r; return f1; }
 template<auto ind> constexpr auto& get(auto& r) requires (size<decltype(auto(r))> == 2) { auto&[f1,f2]=r; return nth<ind>(f1,f2); }
-template<auto ind> constexpr auto& get(auto& r) requires (size<decltype(auto(r))> == 3) { auto&[f1,f2,f3]=r; return nth<ind>(f1,f2,f3); }
+//template<auto ind> constexpr auto& get(auto& r) requires (size<decltype(auto(r))> == 3) { auto&[f1,f2,f3]=r; return nth<ind>(f1,f2,f3); }
+template<auto ind> constexpr auto& get(auto& r) requires (size<std::decay_t<decltype(r)>> == 3) { auto&[f1,f2,f3]=r; return nth<ind>(f1,f2,f3); }
 template<auto ind> constexpr auto& get(auto& r) requires (size<decltype(auto(r))> == 4) { auto&[f1,f2,f3,f4]=r; return nth<ind>(f1,f2,f3,f4); }
 template<auto ind> constexpr auto& get(auto& r) requires (size<decltype(auto(r))> == 5) { auto&[f1,f2,f3,f4,f5]=r; return nth<ind>(f1,f2,f3,f4,f5); }
 template<auto ind> constexpr auto& get(auto& r) requires (size<decltype(auto(r))> == 6) { auto&[f1,f2,f3,f4,f5,f6]=r; return nth<ind>(f1,f2,f3,f4,f5,f6); }

@@ -59,7 +59,11 @@ template<bool apply, typename tag, ascip_details::parser type> constexpr static 
 	return cast<tag>( inject_skipping<apply>(p.p, s) ); }
 template<bool apply, template<typename>class wrapper_type, ascip_details::parser wrapped_type> constexpr static auto
 inject_skipping(const wrapper_type<wrapped_type>& to, const auto& what) {
-	return wrapper_type{ {}, inject_skipping<apply>(to.p, what) }; }
+	if constexpr (requires{ wrapper_type{ {}, inject_skipping<apply>(to.p, what) }; })
+		return wrapper_type{ {}, inject_skipping<apply>(to.p, what) };
+	else
+		return wrapper_type{ inject_skipping<apply>(static_cast<const wrapped_type&>(to), what) };
+}
 template<bool apply, template<typename,typename>class wrapper_type, ascip_details::parser wrapped_type1, ascip_details::parser wrapped_type2> constexpr static auto
 inject_skipping(const wrapper_type<wrapped_type1, wrapped_type2>& to, const auto& what)
 requires (
