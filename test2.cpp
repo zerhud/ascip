@@ -33,36 +33,18 @@ using parser_with_own_tuple = ascip<ascip_details::tuple, factory>;
 using redefined_parser = ascip<std::tuple, factory_for_redefine_test>;
 using parser_without_tests = ascip<std::tuple>;
 
-template<typename gram_holder>
-struct expr_grammar {
-	using gh = gram_holder;
-	template<auto s> static auto char_ = gh::template char_<s>;
-	template<auto s> static auto _char = gh::template _char<s>;
-	template<auto s> static auto lreq = gh::template lreq<s>;
-	constexpr static auto alpha = gh::alpha;
-	constexpr static auto d10 = gh::d10;
-	constexpr static auto int_ = gh::int_;
-	constexpr static auto make() {
-		auto result_maker = [](auto& r){ r.reset(new (std::decay_t<decltype(*r)>){}); return r.get(); };
-		auto ident = gh::alpha >> *(alpha|d10|char_<'_'>);
-		auto term = int_ | ident;
-		auto expr =
-			  ((lreq<0>(result_maker))++ >> as(_char<'+'>, 0)++ >> term(result_maker))
-//			| ((lreq<1>(result_maker))++ >> as(_char<'*'>, 0)++ >> term(result_maker))
-			| term;
-		return expr;
-	}
-};
 template<typename type> concept printable = requires(std::ostream& o, const type& obj){ o << obj; };
 using term_rt = std::variant<int,std::string>;
 struct expr_rt;
 struct dbl_expr {
 	std::unique_ptr<expr_rt> left;
 	int opcode=5000;
-	std::unique_ptr<term_rt> right;
+	std::unique_ptr<expr_rt> right;
 	void print(std::ostream& o) const ;
 };
-struct expr_rt : std::variant<dbl_expr, term_rt> {};
+struct operator_mul: dbl_expr {};
+struct operator_plus : dbl_expr {};
+struct expr_rt : std::variant<operator_plus, operator_mul, term_rt> {};
 template<template<typename...>class variant, printable... types>
 std::ostream& operator<<(std::ostream& o, const variant<types...>& obj) {
 	std::visit([&o](auto& v){o << v;}, obj);
@@ -84,6 +66,27 @@ std::ostream& operator<<(std::ostream& o, const dbl_expr& obj) {
 	return o << ')';
 }
 void dbl_expr::print(std::ostream& o) const { o << *this; }
+template<typename gram_holder>
+struct expr_grammar {
+	using gh = gram_holder;
+	template<auto s> static auto char_ = gh::template char_<s>;
+	template<auto s> static auto _char = gh::template _char<s>;
+	template<auto s> static auto lreq = gh::template lreq<s>;
+	template<auto s> static auto lrreq = gh::template lrreq<s>;
+	constexpr static auto alpha = gh::alpha;
+	constexpr static auto d10 = gh::d10;
+	constexpr static auto int_ = gh::int_;
+	constexpr static auto make() {
+		auto result_maker = [](auto& r){ r.reset(new (std::decay_t<decltype(*r)>){}); return r.get(); };
+		auto ident = gh::alpha >> *(alpha|d10|char_<'_'>);
+		auto term = int_ | ident;
+		auto expr =
+			  cast<dbl_expr>((lreq<0>(result_maker))++ >> as(_char<'+'>, 0)++ >> lrreq<0>(result_maker))
+			| cast<dbl_expr>((lreq<1>(result_maker))++ >> as(_char<'*'>, 1)++ >> lrreq<1>(result_maker))
+			| term;
+		return expr;
+	}
+};
 
 constexpr void test_expr(auto&& src, auto&& correct) {
 	expr_rt result;
@@ -109,6 +112,9 @@ constexpr void test_expr() {
 	test_expr("11 + 2 + 4 + 8", "14 (((11 0 2) 0 3) 0 8)");
 	test_expr("11 + 2 + 4 + 8 + 9", "18 ((((11 0 2) 0 4) 0 8) 0 9)");
 	test_expr("kuku + 2 + 4 + ok + 9 + 2143", "28 (((((kuku 0 2) 0 4) 0 ok) 0 9) 0 2143)");
+	test_expr("11 * 2 + 3", "10 ((11 1 2) 0 3)");
+	test_expr("11 + 2 * 4 + 8", "14 ((11 0 (2 1 3)) 0 8)");
+	test_expr("kuku + 2 + 4 * ok + 9 + 2143", "28 (((((kuku 0 2) 0 (4 1 ok) 0 9) 0 2143)");
 	std::cout << "finish test" << std::endl;
 }
 

@@ -103,6 +103,15 @@ struct result_checker_parser : base_parser<result_checker_parser<good_result, pa
 			"can only parser to required type" );
 		return p.parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(auto(src))&&>(src), result);
 	}
+	template<auto ind>
+	constexpr auto parse_from(auto&& ctx, auto src, auto& result) const {
+		static_assert( std::is_same_v<good_result, decltype(auto(result))>,
+			"can only parser to required type" );
+		return p.template parse_from<ind>(
+				static_cast<decltype(ctx)&&>(ctx),
+				static_cast<decltype(auto(src))&&>(src),
+				result);
+	}
 };
 template<typename needed, ascip_details::parser type> struct cast_parser : base_parser<cast_parser<needed,type>> {
 	type p;
@@ -113,6 +122,14 @@ template<typename needed, ascip_details::parser type> struct cast_parser : base_
 		static_assert(requires{ static_cast<needed&>(result); }, "the result must to be castable to needed type" );
 		return p.parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(auto(src))&&>(src), static_cast<needed&>(result));
 		}
+	}
+	template<auto ind>
+	constexpr auto parse_from(auto&& ctx, auto src, auto& result) const {
+		static_assert(requires{ static_cast<needed&>(result); }, "the result must to be castable to needed type" );
+		return p.template parse_from<ind>(
+				static_cast<decltype(ctx)&&>(ctx),
+				static_cast<decltype(auto(src))&&>(src),
+				static_cast<needed&>(result));
 	}
 };
 constexpr static bool test_checkers() {

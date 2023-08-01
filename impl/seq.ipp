@@ -134,7 +134,7 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 	}
 
 	template<auto find, auto pind>
-	constexpr auto parse_and_store_shift(auto&& ctx, auto src, auto& result) const {
+	constexpr auto parse_and_store_shift(auto&& ctx, auto src, auto& result) const -> decltype(0) {
 		//static_assert - exists concrete in ctx
 		auto* old_shift = search_in_ctx<seq_shift_stack_tag>(ctx);
 		auto cur_shift = 0;

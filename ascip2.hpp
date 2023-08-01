@@ -29,6 +29,15 @@ template<typename parser> struct base_parser : ascip_details::adl_tag {
 	constexpr static int start_context_arg = 1;
 	constexpr static const char* source_symbol = "ab";
 
+	template<auto ind>
+	constexpr auto parse_from(auto&& ctx, auto src, auto& result) const {
+		return static_cast<const parser&>(*this)
+			.p.template parse_from<ind>(
+					static_cast<decltype(ctx)&&>(ctx),
+					static_cast<decltype(src)&&>(src),
+					result);
+	}
+
 #include "impl/operators.ipp"
 };
 
