@@ -13,7 +13,9 @@
  * wrapping parser contains wrapped parser with [[no_unique_address]] attribute (most parsers are empty)
  * seq parser stores parsed part even if parser fails: the object must to be deleted and we cannot clean everithing
  * use seq operators in adl instead on base parser - we cannot use it on all parsers (+(++p) for example)
- * seq with left seq - hard to implement in adl and no reason to do it, so it's a part of seq structure
+ * seq with left seq operator - hard to implement in adl and no reason to do it, so it's a part of seq structure
+ * variant_pos_tag - used for get variant position from context. there is no easy way to get it from type or by this.
+ *   (lambda works as unique type only from free function, inside a template<...> struct {...}; it doesn't)
  */
 
 namespace {
@@ -25,7 +27,9 @@ struct ascip {
 using holder = ascip<tuple, factory_t>;
 
 template<typename parser> struct base_parser : ascip_details::adl_tag {
+	using type_in_base = parser;
 	using holder = ascip<tuple, factory_t>;
+
 	constexpr static int start_context_arg = 1;
 	constexpr static const char* source_symbol = "ab";
 
@@ -41,7 +45,7 @@ template<typename parser> struct base_parser : ascip_details::adl_tag {
 #include "impl/operators.ipp"
 };
 
-constexpr static auto make_test_ctx() { return ascip_details::make_ctx<ascip_details::without_req_flag>(1); }
+constexpr static auto make_test_ctx() { return ascip_details::make_ctx<ascip_details::new_line_count_tag>(1); }
 constexpr static auto make_test_ctx(auto err_handler){ return make_ctx<ascip_details::err_handler_tag>(err_handler, make_test_ctx()); }
 template<auto... i> friend constexpr auto make_test_ctx(const base_parser<auto>&) { return ascip_details::make_ctx<ascip_details::parser_concept_check_tag>(1); }
 // ^^ implemented for ascip_details::parser concept 

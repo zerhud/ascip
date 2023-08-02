@@ -6,9 +6,13 @@
 //          https://www.boost.org/LICENSE_1_0.txt)
 
 template<auto sym> struct char_parser : base_parser<char_parser<sym>> {
-	constexpr auto parse(auto&&, auto src, auto& result) const {
+	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		const bool ok = src() == sym;
-		if(ok) ascip_details::eq(result, sym);
+		if(ok) {
+			ascip_details::eq(result, sym);
+			if constexpr (sym == '\n' && exists_in_ctx<ascip_details::new_line_count_tag>(decltype(auto(ctx)){}))
+				++search_in_ctx<ascip_details::new_line_count_tag>(ctx);
+		}
 		return -1 + (2 * ok);
 	}
 
@@ -24,6 +28,19 @@ template<auto sym> struct char_parser : base_parser<char_parser<sym>> {
 		r=sym+1;
 		(parse(make_test_ctx(), make_source(sym-1), r),r) == sym+1 || (throw __LINE__, 1);
 
+		auto ctx = make_test_ctx();
+		if constexpr (sym=='\n') {
+			parse(ctx, make_source(' '), r);
+			search_in_ctx<ascip_details::new_line_count_tag>(ctx) == 1 || (throw __LINE__, 1);
+			parse(ctx, make_source('\n'), r);
+			search_in_ctx<ascip_details::new_line_count_tag>(ctx) == 2 || (throw __LINE__, 1);
+		} else {
+			parse(ctx, make_source(' '), r);
+			search_in_ctx<ascip_details::new_line_count_tag>(ctx) == 1 || (throw __LINE__, 1);
+			parse(ctx, make_source('\n'), r);
+			search_in_ctx<ascip_details::new_line_count_tag>(ctx) == 1 || (throw __LINE__, 1);
+		}
+
 		return true;
 	}
 };
@@ -32,6 +49,7 @@ template<auto val> constexpr static const auto char_ = char_parser<val>{};
 constexpr static void test_parser_char() {
 	static_assert( char_<'a'>.test() ); static_assert( char_<'z'>.test() );
 	static_assert( char_<'!'>.test() ); static_assert( char_<'Z'>.test() );
+	static_assert( char_<' '>.test() ); static_assert( char_<'\n'>.test() );
 	static_assert( ({char r;char_<'a'>.parse(make_test_ctx(), make_source("abc"), r);}) == 1 );
 	static_assert( ({char r;char_<'b'>.parse(make_test_ctx(), make_source("abc"), r);}) == -1 );
 	static_assert( ({char r;char_<'a'>.parse(make_test_ctx(), make_source("abc"), r);r;}) == 'a' );
@@ -70,9 +88,10 @@ constexpr static void test_parser_value() {
 }
 
 constexpr static struct space_parser : base_parser<space_parser> {
-	constexpr auto parse(auto&&,auto src, auto& r) const {
+	constexpr auto parse(auto&& ctx,auto src, auto& r) const {
 		auto sym = src();
 		const bool is_space = 0x07 < sym && sym < '!'; // 0x08 is a backspace
+		ascip_details::count_new_line(ctx, sym);
 		return -1 + (2 * is_space);
 	}
 	constexpr bool test() const {
@@ -82,17 +101,26 @@ constexpr static struct space_parser : base_parser<space_parser> {
 		parse(make_test_ctx(), make_source('\t'), r) == 1   || (throw __LINE__, 1);
 		parse(make_test_ctx(), make_source('!'), r) == -1   || (throw __LINE__, 1);
 		r == 0x00                                           || (throw __LINE__, 1);
+
+		auto ctx = make_test_ctx();
+		search_in_ctx<ascip_details::new_line_count_tag>(ctx) == 1 || (throw __LINE__, 1);
+		parse(ctx, make_source(' '), r);
+		search_in_ctx<ascip_details::new_line_count_tag>(ctx) == 1 || (throw __LINE__, 1);
+		parse(ctx, make_source('\n'), r);
+		search_in_ctx<ascip_details::new_line_count_tag>(ctx) == 2 || (throw __LINE__, 1);
+
 		return true;
 	}
 } space {};
 
 constexpr static struct any_parser : base_parser<any_parser> {
-	constexpr auto parse(auto&&, auto src, auto& result) const {
+	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = 0;
 		decltype(src()) cur;
 		do { 
 			cur = src();
 			ascip_details::eq( result, cur );
+			count_new_line(ctx, cur);
 			++ret;
 		}
 		while(src && (cur & 0x80)) ;
@@ -106,6 +134,14 @@ constexpr static struct any_parser : base_parser<any_parser> {
 		static_assert(any_parser{}.parse(make_test_ctx(), make_source("я"), rr)  == 2);
 		static_assert(any_parser{}.parse(make_test_ctx(), make_source(L"я"), rr) == 1);
 		static_assert(any_parser{}.parse(make_test_ctx(), make_source(L"яz"), rr) == 1);
+
+		auto ctx = make_test_ctx();
+		search_in_ctx<ascip_details::new_line_count_tag>(ctx) == 1 || (throw __LINE__, 1);
+		parse(ctx, make_source(' '), r);
+		search_in_ctx<ascip_details::new_line_count_tag>(ctx) == 1 || (throw __LINE__, 1);
+		parse(ctx, make_source('\n'), r);
+		search_in_ctx<ascip_details::new_line_count_tag>(ctx) == 2 || (throw __LINE__, 1);
+
 		return true;
 	}
 } any {};

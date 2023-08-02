@@ -5,17 +5,18 @@
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          https://www.boost.org/LICENSE_1_0.txt)
 
-template<auto pos_in_variant>
+template<auto pos> struct lreq_parser_req_need_count {};
+template<auto pos> struct lreq_parser_org_src {};
+
 constexpr static auto parse_next_variant(auto&& ctx, auto src, auto& result) {
 	auto* next_variant = search_in_ctx<variant_stack_tag>(ctx);
-	return next_variant->template parse_from<pos_in_variant+1>(ctx, src, result);
+	return next_variant->template parse_from<search_in_ctx<variant_pos_tag>(decltype(auto(ctx)){}).pos+1>(ctx, src, result);
 }
 
-template<auto pos_in_variant, auto element_in_seq>
-struct lreq_parser : base_parser<lreq_parser<pos_in_variant,element_in_seq>> {
-
-	struct lreq_parser_org_src {};
-	struct lreq_parser_req_need_count {};
+//TODO: delete element_in_seq? left reqursion is a trouble only if it's a first element in sequence
+//   for reqursion we must call the sequence from start - from 0 element, so it's always must to be 0
+template<auto element_in_seq, auto unique_type>
+struct lreq_parser : base_parser<lreq_parser<element_in_seq,unique_type>> {
 
 	constexpr auto parse(auto&& ctx,auto,auto&) const requires (
 		   ascip_details::is_in_concept_check(decltype(auto(ctx)){}) ){ return 0; }
@@ -24,7 +25,8 @@ struct lreq_parser : base_parser<lreq_parser<pos_in_variant,element_in_seq>> {
 		auto* next_variant = search_in_ctx<variant_stack_tag>(ctx);
 		src += shift;
 		if(!src) return -1;
-		return next_variant->template parse_parse_from_only<pos_in_variant, element>(ctx, src, result);
+		return next_variant->template parse_parse_from_only<
+			search_in_ctx<variant_pos_tag>(decltype(auto(ctx)){}).pos, element>(ctx, src, result);
 	}
 	constexpr auto count_reqursion_expressions(auto start_pos, auto&& ctx, auto src, auto& result) const {
 			auto cur = 0;
@@ -40,36 +42,37 @@ struct lreq_parser : base_parser<lreq_parser<pos_in_variant,element_in_seq>> {
 	}
 	//TODO: implement for copiable result type - it will be faster, maybe
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
-		if constexpr (exists_in_ctx<lreq_parser_req_need_count>(decltype(auto(ctx)){})) {
-			auto need_iter_count = --search_in_ctx<lreq_parser_req_need_count>(ctx);
-			auto expr_start = *search_in_ctx<lreq_parser_org_src>(ctx);
-			if(need_iter_count == 0) return parse_next_variant<pos_in_variant>(ctx, expr_start, result);
+		constexpr auto pos = search_in_ctx<variant_pos_tag>(decltype(auto(ctx)){}).pos;
+		if constexpr (exists_in_ctx<lreq_parser_req_need_count<pos>>(decltype(auto(ctx)){})) {
+			auto need_iter_count = --search_in_ctx<lreq_parser_req_need_count<pos>>(ctx);
+			auto expr_start = *search_in_ctx<lreq_parser_org_src<pos>>(ctx);
+			if(need_iter_count == 0) return parse_next_variant(ctx, expr_start, result);
 			return parse_current_parser<0>(0, ctx, expr_start, result);
 		}
 		else {
-			auto shift_next_parser = parse_next_variant<pos_in_variant>(ctx, src, result);
+			auto shift_next_parser = parse_next_variant(ctx, src, result);
 			if(shift_next_parser < 0) return shift_next_parser;
 
 			auto req_call_count = count_reqursion_expressions(shift_next_parser, ctx, src, result)-1;
-			if(req_call_count<=0) return parse_next_variant<pos_in_variant>(ctx, src, result);
+			if(req_call_count<=0) return parse_next_variant(ctx, src, result);
 
-			auto nctx = make_ctx<lreq_parser_org_src>(&src,
-			  make_ctx<lreq_parser_req_need_count>(req_call_count, ctx)
+			auto nctx = make_ctx<lreq_parser_org_src<pos>>(&src,
+			  make_ctx<lreq_parser_req_need_count<pos>>(req_call_count, ctx)
 			);
 			return parse_current_parser<0>(0, nctx, src, result);
 		}
 	}
 };
-template<auto pos_in_variant> constexpr static auto lreq = lreq_parser<pos_in_variant,0>{};
+constexpr static auto lreq = lreq_parser<0, []{}>{};
 
-template<auto pos_in_variant> struct lrreq_parser : base_parser<lrreq_parser<pos_in_variant>> {
+struct lrreq_parser : base_parser<lrreq_parser> {
 	constexpr auto parse(auto&& ctx,auto,auto&) const requires (
 		   ascip_details::is_in_concept_check(decltype(auto(ctx)){}) ){ return 0; }
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
-		return parse_next_variant<pos_in_variant>(ctx, src, result);
+		return parse_next_variant(ctx, src, result);
 	}
 };
-template<auto pos_in_variant> constexpr static auto lrreq = lrreq_parser<pos_in_variant>{};
+constexpr static auto lrreq = lrreq_parser{};
 
 constexpr static auto test_lreq_mk_result() {
 	using term_rt = factory_t::template variant<int,decltype(mk_str())>;
@@ -105,7 +108,7 @@ constexpr static bool test_lreq(auto&& src, auto rw, auto rs, auto checker) {
 	auto ident = alpha >> *(alpha|d10|char_<'_'>);
 	auto term = int_ | ident;
 	auto expr =
-		  ((lreq<0>(result_maker))++ >> as(_char<'+'>, 0)++ >> term(result_maker))
+		  ((lreq(result_maker))++ >> as(_char<'+'>, 0)++ >> term(result_maker))
 		| term
 		;
 
@@ -125,8 +128,8 @@ constexpr static bool test_lreq_wm(auto&& src, auto rw, auto rs, auto checker) {
 	auto ident = alpha >> *(alpha|d10|char_<'_'>);
 	auto term = int_ | ident;
 	auto expr =
-		  ((lreq<0>(result_maker))++ >> as(_char<'+'>, 0)++ >> lrreq<0>(result_maker))
-		| ((lreq<1>(result_maker))++ >> as(_char<'*'>, 1)++ >> lrreq<1>(result_maker))
+		  ((lreq(result_maker))++ >> as(_char<'+'>, 0)++ >> lrreq(result_maker))
+		| ((lreq(result_maker))++ >> as(_char<'*'>, 1)++ >> lrreq(result_maker))
 		| term
 		;
 

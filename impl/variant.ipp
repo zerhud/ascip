@@ -5,8 +5,10 @@
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          https://www.boost.org/LICENSE_1_0.txt)
 
+struct variant_pos_tag{};
 struct variant_stack_tag{};
 struct variant_stack_result_tag{};
+template<auto val> struct variant_pos_value{ constexpr static auto pos = val; };
 template<ascip_details::parser... parsers> struct variant_parser : base_parser<variant_parser<parsers...>> {
 	using self_type = variant_parser<parsers...>;
 	tuple<parsers...> seq;
@@ -24,7 +26,8 @@ template<ascip_details::parser... parsers> struct variant_parser : base_parser<v
 		return result;
 	}
 	template<auto ind> constexpr auto parse_ind(auto&& ctx, auto& src, auto& result) const {
-		auto parse_result = get<ind>(seq).parse(ctx, src, current_result<ind>(result));
+		auto parse_ctx = make_ctx<variant_pos_tag>(variant_pos_value<ind>{}, ctx);
+		auto parse_result = get<ind>(seq).parse(parse_ctx, src, current_result<ind>(result));
 		if constexpr (ind+1 == sizeof...(parsers)) return parse_result;
 		else {
 			if(parse_result > 0) return parse_result;

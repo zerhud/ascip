@@ -71,8 +71,6 @@ struct expr_grammar {
 	using gh = gram_holder;
 	template<auto s> static auto char_ = gh::template char_<s>;
 	template<auto s> static auto _char = gh::template _char<s>;
-	template<auto s> static auto lreq = gh::template lreq<s>;
-	template<auto s> static auto lrreq = gh::template lrreq<s>;
 	constexpr static auto alpha = gh::alpha;
 	constexpr static auto d10 = gh::d10;
 	constexpr static auto int_ = gh::int_;
@@ -81,8 +79,8 @@ struct expr_grammar {
 		auto ident = gh::alpha >> *(alpha|d10|char_<'_'>);
 		auto term = int_ | ident;
 		auto expr =
-			  cast<dbl_expr>((lreq<0>(result_maker))++ >> as(_char<'+'>, 0)++ >> lrreq<0>(result_maker))
-			| cast<dbl_expr>((lreq<1>(result_maker))++ >> as(_char<'*'>, 1)++ >> lrreq<1>(result_maker))
+			  cast<dbl_expr>((gh::lreq(result_maker))++ >> as(_char<'+'>, 0)++ >> gh::lrreq(result_maker))
+			| cast<dbl_expr>((gh::lreq(result_maker))++ >> as(_char<'*'>, 1)++ >> gh::lrreq(result_maker))
 			| term;
 		return expr;
 	}

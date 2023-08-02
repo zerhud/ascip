@@ -101,9 +101,14 @@ constexpr bool is_in_concept_check(auto&& ctx) {
 
 struct in_req_flag{ };
 struct err_handler_tag{};
-struct without_req_flag{ };
+struct new_line_count_tag{};
 constexpr bool is_in_reqursion_check(auto&& ctx) {
 	return exists_in_ctx<in_req_flag>(ctx);
+}
+
+constexpr void count_new_line(auto& ctx, auto sym) {
+	if constexpr (exists_in_ctx<new_line_count_tag>(decltype(auto(ctx)){}))
+		search_in_ctx<new_line_count_tag>(ctx) += (sym == '\n');
 }
 
 namespace { // tuple
