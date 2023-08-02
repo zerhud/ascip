@@ -137,6 +137,7 @@ constexpr static bool test_lreq_wm(auto&& src, auto rw, auto rs, auto checker) {
 	r = parse(expr, +space, make_source(src), result_ss);
 	r /= (r==rs);
 
+	checker(result);
 	checker(result_ss);
 
 	return true;
@@ -167,6 +168,11 @@ constexpr static bool test_lreq() {
 
 	static_assert( test_lreq_wm("", -1, -1, [](const auto&){}) );
 	static_assert( test_lreq_wm("1", 1,  1, [](const auto&){}) );
+	static_assert( test_lreq_wm("1+1", 3,  3, [](const auto&){}) );
+	static_assert( test_lreq_wm("11+1*4+2", 8,  8, [](const auto& r){
+		get<0>( get<2>(*get<0>(*get<0>(r).left).left) ) / (get<0>( get<2>(*get<0>(*get<0>(r).left).left) )==11);
+		get<0>( get<2>(*get<1>(*get<0>(*get<0>(r).left).right).right) ) / (get<0>( get<2>(*get<1>(*get<0>(*get<0>(r).left).right).right) ) == 4);
+	}) );
 
 	return true;
 }
