@@ -10,7 +10,7 @@ template<auto pos> struct lreq_parser_org_src {};
 
 constexpr static auto parse_next_variant(auto&& ctx, auto src, auto& result) {
 	auto* next_variant = search_in_ctx<variant_stack_tag>(ctx);
-	return next_variant->template parse_from<search_in_ctx<variant_pos_tag>(decltype(auto(ctx)){}).pos+1>(ctx, src, result);
+	return next_variant->template parse_from<decltype(search_in_ctx_constexpr<variant_pos_tag>(decltype(auto(ctx)){}))::pos+1>(ctx, src, result);
 }
 
 //TODO: delete element_in_seq? left reqursion is a trouble only if it's a first element in sequence
@@ -26,7 +26,7 @@ struct lreq_parser : base_parser<lreq_parser<element_in_seq,unique_type>> {
 		src += shift;
 		if(!src) return -1;
 		return next_variant->template parse_parse_from_only<
-			search_in_ctx<variant_pos_tag>(decltype(auto(ctx)){}).pos, element>(ctx, src, result);
+			decltype(search_in_ctx_constexpr<variant_pos_tag>(decltype(auto(ctx)){}))::pos, element>(ctx, src, result);
 	}
 	constexpr auto count_reqursion_expressions(auto start_pos, auto&& ctx, auto src, auto& result) const {
 			auto cur = 0;
@@ -42,7 +42,7 @@ struct lreq_parser : base_parser<lreq_parser<element_in_seq,unique_type>> {
 	}
 	//TODO: implement for copiable result type - it will be faster, maybe
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
-		constexpr auto pos = search_in_ctx<variant_pos_tag>(decltype(auto(ctx)){}).pos;
+		constexpr auto pos = decltype(search_in_ctx_constexpr<variant_pos_tag>(decltype(auto(ctx)){}))::pos;
 		if constexpr (exists_in_ctx<lreq_parser_req_need_count<pos>>(decltype(auto(ctx)){})) {
 			auto need_iter_count = --search_in_ctx<lreq_parser_req_need_count<pos>>(ctx);
 			auto expr_start = *search_in_ctx<lreq_parser_org_src<pos>>(ctx);

@@ -24,8 +24,8 @@ constexpr static bool integrated_tests() {
 	static_assert( ({ auto r = mk_str(); parse(+alpha, +space, make_source(" a b c "), r); }) == 6);
 	static_assert( ({ auto r = mk_str(); parse((as(char_<'a'>, 'b')|char_<'c'>) % int_, +space, make_source("c1  a2 a  3 a 3a"), r); }) == 16);
 
-	/*static_assert( ({ auto r = mk_str(); auto ctx = make_test_ctx();
+	static_assert( ({ auto r = mk_str(); auto ctx = make_test_ctx();
 		quoted_string.parse(ctx, make_source("'1\n2\n'"), r);
-		search_in_ctx<ascip_details::new_line_count_tag>(ctx);}) == 2);*/
+		search_in_ctx<ascip_details::new_line_count_tag>(ctx);}) == 3);
 	return true;
 }

@@ -7,7 +7,18 @@
 
 namespace ascip_details {
 
-template<typename tag, typename val, typename next_ctx> struct context { using tag_t = tag; val v; next_ctx next; };
+template<typename tag, typename val, typename next_ctx> struct context {
+	using tag_t = tag;
+	using next_t = next_ctx;
+	val v; next_ctx _next;
+	constexpr bool has_next() const {return true; } constexpr next_ctx& next() {return _next;}
+};
+template<typename tag, typename val, typename next_ctx> struct context_ptr {
+	using tag_t = tag;
+	using next_t = next_ctx;
+	val v; next_ctx* _next=nullptr;
+	constexpr bool has_next() const {return _next!=nullptr; } constexpr next_ctx& next() {return *_next;}
+};
 template<typename tag, typename val> struct last_context { using tag_t = tag; val v; };
 constexpr const struct  ctx_not_found_type {} ctx_not_found;
 
@@ -17,28 +28,41 @@ constexpr auto make_ctx(value&& val) {
 }
 template<typename tag, typename value>
 constexpr auto make_ctx(value&& val, auto&& ctx) {
-	return context<tag, decltype(auto(val)), decltype(auto(ctx))>{
-		static_cast<value&&>(val), static_cast<decltype(ctx)&&>(ctx) };
+	if constexpr (std::is_lvalue_reference_v<decltype(ctx)>)
+		return context_ptr<tag, decltype(auto(val)), decltype(auto(ctx))>{
+			static_cast<value&&>(val), &ctx };
+	else
+		return context<tag, decltype(auto(val)), decltype(auto(ctx))>{
+			static_cast<value&&>(val), static_cast<decltype(ctx)&&>(ctx) };
 }
 template<typename tag>
 constexpr bool exists_in_ctx(auto&& ctx) {
 	if constexpr (std::is_same_v<typename decltype(auto(ctx))::tag_t, tag>) return true;
-	else if constexpr (requires{ ctx.next; }) return exists_in_ctx<tag>(ctx.next);
+	else if constexpr (requires{ ctx.next(); }) {
+		if(ctx.has_next()) return exists_in_ctx<tag>(ctx.next());
+		return exists_in_ctx<tag>(typename decltype(auto(ctx))::next_t{});
+	}
 	else return false;
+}
+template<typename tag>
+constexpr auto search_in_ctx_constexpr(auto&& ctx) {
+	if constexpr (std::is_same_v<typename decltype(auto(ctx))::tag_t, tag>) return ctx.v;
+	else if constexpr (requires{ ctx.next(); }) return search_in_ctx<tag>(typename decltype(auto(ctx))::next_t{});
+	else return ctx_not_found;
 }
 template<typename tag>
 constexpr auto& search_in_ctx(auto&& ctx) {
 	if constexpr (std::is_same_v<typename decltype(auto(ctx))::tag_t, tag>) return ctx.v;
-	else if constexpr (requires{ ctx.next; }) return search_in_ctx<tag>(ctx.next);
+	else if constexpr (requires{ ctx.next(); }) return search_in_ctx<tag>(ctx.next());
 	else return ctx_not_found;
 }
 template<auto ind, typename tag, auto cur=0>
 constexpr auto& by_ind_from_ctx(auto&& ctx) {
 	if constexpr (std::is_same_v<typename decltype(auto(ctx))::tag_t, tag>) {
 		if constexpr (ind == cur) return ctx.v;
-		else return by_ind_from_ctx<ind,tag,cur+1>(ctx.next);
+		else return by_ind_from_ctx<ind,tag,cur+1>(ctx.next());
 	}
-	else if constexpr (requires{ ctx.next; }) return by_ind_from_ctx<ind,tag,cur>(ctx.next);
+	else if constexpr (requires{ ctx.next(); }) return by_ind_from_ctx<ind,tag,cur>(ctx.next());
 	else return ctx_not_found;
 }
 
