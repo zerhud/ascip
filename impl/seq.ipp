@@ -5,10 +5,27 @@
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          https://www.boost.org/LICENSE_1_0.txt)
 
+constexpr static auto call_err_method(auto& method, auto& ctx, auto src, auto& result, auto message) {
+	if constexpr (requires{ { method(result,src,0,message) } -> std::same_as<void>; })
+		return (method(
+			result,
+			src, //*search_in_ctx<seq_src_stack_tag>(ctx),
+			search_in_ctx<ascip_details::new_line_count_tag>(ctx),
+			message
+			), -1);
+	else return method(
+			result,
+			src, //*search_in_ctx<seq_src_stack_tag>(ctx),
+			search_in_ctx<ascip_details::new_line_count_tag>(ctx),
+			message
+			);
+}
+
 struct seq_stack_tag{};
 struct seq_src_stack_tag{};
 struct seq_shift_stack_tag{};
 struct seq_result_stack_tag{};
+//TODO: dose we realy need the pos parser?
 constexpr static struct cur_pos_parser : base_parser<cur_pos_parser> {
 	constexpr auto parse(auto&&, auto src, auto& result) const {
 		//TODO: extract the info from context or from parent's object
@@ -107,12 +124,7 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 	}
 	template<auto find> constexpr auto call_parse(auto& p, auto&& ctx, auto src, auto& result) const requires (!ascip_details::parser<decltype(auto(p))>) {
 		auto& prev_src = *search_in_ctx<concrete>(ctx);
-		if constexpr (requires{ p(src, src, result, ctx);})
-			return p(prev_src, src, result, ctx);
-		else if constexpr (!requires{ { p(src, src, result) } -> std::same_as<void>; })
-			return p(prev_src, src, result);
-		else
-			return p(prev_src, src, result), 0;
+		return call_err_method(p, ctx, src, result, "unknown");
 	}
 	template<auto find, auto pind, typename cur_t, typename... tail> constexpr auto parse_seq(auto&& ctx, auto src, auto& result) const {
 		//TODO: use -1 as last struct field, -2 as the field before last one and so on...
@@ -180,7 +192,7 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 	template<typename right> constexpr auto operator>>(const right& r)const{
 		return ascip_details::init_with_get<opt_seq_parser<parsers..., right>>(seq, r); }
 	template<ascip_details::parser right> constexpr auto operator>(const right& r)const{
-		return operator>>(seq_error_parser{r}); }
+		return operator>>(seq_error_parser<"unknown", right>{{}, r}); }
 };
 template<typename... parsers> struct opt_seq_parser : com_seq_parser<opt_seq_parser<parsers...>, parsers...> {
 	using base_t = com_seq_parser<opt_seq_parser<parsers...>, parsers...>;
@@ -188,25 +200,20 @@ template<typename... parsers> struct opt_seq_parser : com_seq_parser<opt_seq_par
 	constexpr auto on_error(auto val) const { return val; }
 };
 
-template<ascip_details::parser type> struct seq_error_parser : type {
+template<ascip_details::string_literal message, ascip_details::parser type>
+struct seq_error_parser : base_parser<seq_error_parser<message,type>> {
+	type p;
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
-		auto ret = type::parse(static_cast<decltype(ctx)&&>(ctx), src, result);
+		auto ret = p.parse(static_cast<decltype(ctx)&&>(ctx), src, result);
 		auto err = search_in_ctx<ascip_details::err_handler_tag>(ctx);
-		if constexpr (!requires{ (*err)(src,src,result,ret); }) return ret;
-		else return (*err)(*search_in_ctx<seq_src_stack_tag>(ctx), src, result, ret);
-	}
-	//TODO: implement operator [] here for we can call it like
-	//  foo >> bar >> char_<'a'>["some name"]
-	// it will rise an error - same as must and with name
-	// for example
-	template<typename value_t> constexpr auto operator[](value_t&& val) const {
-		struct error_with_val : seq_error_parser<type> { value_t val; };
-		return error_with_val{ val };
+		if constexpr (!requires{ (*err)(result, src, 0, message); }) return ret;
+		else return call_err_method(*err, ctx, src, result, message);
 	}
 };
 
-/*
-*/
+/***********
+ * tests
+ ***********/
 
 constexpr static bool test_seq_simple_case() {
 	constexpr auto p_ab = char_<'a'> >> char_<'b'>;
@@ -217,11 +224,16 @@ constexpr static bool test_seq_simple_case() {
 	static_assert( test_parser_parse_r_str(any >> omit(space) >> any, "1 2", 3, '1', '2') );
 	static_assert( test_parser_parse_r_str(char_<'a'> >> 'b', "ab", 2, 'a', 'b') );
 	static_assert( ({ char r='z', l='a';
-		(char_<'a'> >> char_<'b'> >> [&](auto src_before, auto src_after, auto& result) {
-		 l = 'u' * ((src_before.ind+2 == src_after.ind) && result == 'b');
+		(char_<'a'> >> char_<'b'> >> [&](auto& result, auto src, auto line, auto msg) {
+		 src.ind /= (src.ind==2);
+		 result /= (result=='b');
+		 line /= (line==1);
+		 l = 'u' * (result == 'b');
 		 }).parse(make_test_ctx(), make_source("ab"), r);
 	l;}) == 'u');
-	static_assert( test_parser_parse_r_str(char_<'a'> >> char_<'b'> >> [](auto&&...){return 1;}, "ab", 3, 'a', 'b'), "lambda value is added to position" );
+	static_assert(
+		test_parser_parse_r_str(char_<'a'> >> char_<'b'> >> [](auto&&...){return 1;}, "ab", 3, 'a', 'b'),
+		"lambda value is added to position" );
 	return true;
 }
 
@@ -275,18 +287,27 @@ constexpr static bool test_seq_req() {
 }
 constexpr static bool test_seq_must() {
 	static_assert(
-		({char r='z';(char_<'a'> >> char_<'b'> >> must(char_<'c'>)).parse(make_test_ctx(), make_source("abd"), r);}) == -1,
+		({char r='z';(char_<'a'> >> char_<'b'> >> must<"t">(char_<'c'>)).parse(make_test_ctx(), make_source("abd"), r);}) == -1,
 		"if error and no lambda - nothing changed");
 	static_assert( ({
 		char r='z';
 		const auto err_method = [&](...){return -10;};
-		(char_<'a'> >> char_<'b'> >> must(char_<'c'>)).parse(make_test_ctx(&err_method), make_source("abe"), r);
+		(char_<'a'> >> char_<'b'> >> must<"t">(char_<'c'>)).parse(make_test_ctx(&err_method), make_source("abe"), r);
 	}) == -10, "error lambda are called");
-	static_assert( ({
-		char r=0x00;
-		const auto err_method = [&](auto before, auto after, auto& result, auto ret){ return -3 * (before.ind == 0 && after.ind==2);};
-		(char_<'a'> >> char_<'b'> > char_<'c'>).parse(make_test_ctx(&err_method), make_source("abe"), r);
+	const auto err_method = [](
+			auto& result,
+			auto src_on_start,
+			auto line_number,
+			auto message){
+		line_number /= (line_number==2);
+		return (-3 * (message=="unknown")) + (-4 * (message=="test"));
+	};
+	static_assert( ({ char r=0x00;
+		(any >> char_<'a'> >> char_<'b'> > char_<'c'>).parse(make_test_ctx(&err_method), make_source("\nabe"), r);
 	}) == -3, "on error: sources are on start sequence and on rule where the error");
+	static_assert( ({ char r=0x00;
+		(any >> char_<'a'> >> char_<'b'> >> must<"test">(char_<'c'>)).parse(make_test_ctx(&err_method), make_source("\nabe"), r);
+	}) == -4, "on error: sources are on start sequence and on rule where the error");
 	return true;
 }
 constexpr static bool test_seq_shift_pos() {

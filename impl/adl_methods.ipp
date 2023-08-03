@@ -27,8 +27,8 @@ template<auto cnt, parser type> constexpr auto finc(const type& p) {
 template<auto cnt, parser type> constexpr auto fnum(const type& p) {
 	using num_type = decltype(auto(p))::holder::template _seq_num_rfield_val<cnt,type>;
 	return typename decltype(auto(p))::holder::template seq_num_rfield_val<num_type>{ num_type{p} }; }
-template<parser type> constexpr auto must(const type& p) {
-	return typename decltype(auto(p))::holder::template seq_error_parser<type>{ p }; }
+template<string_literal msg, parser type> constexpr auto must(const type& p) {
+	return typename decltype(auto(p))::holder::template seq_error_parser<msg, type>{ p }; }
 template<parser type> constexpr auto lexeme(const type& p) {
 	return typename decltype(auto(p))::holder::template lexeme_parser<type>{ {}, p }; }
 template<parser type> constexpr auto skip(const type& p) {

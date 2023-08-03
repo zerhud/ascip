@@ -116,6 +116,23 @@ constexpr void test_expr() {
 	std::cout << "finish test" << std::endl;
 }
 
+template<typename gh, template<auto>class sup = gh::template terms>
+constexpr void test_error_handling() {
+	std::cout << "test error handling" << std::endl;
+	char r;
+	parse(gh::any >> must<"a test">(sup<'a'>::char_), +gh::space, gh::make_source("\nb"), r,
+		[](char& r, auto src, int line, auto msg){
+		gh::write_out_error_msg(std::cout, "test_file", msg, "ups", src, line);
+	});
+	std::cout << "---" << std::endl;
+	parse(gh::any >> gh::any >> +sup<'b'>::char_ >> must<"a test">(sup<'a'>::char_), +gh::space, gh::make_source("a\nbbbcuu"), r,
+		[](char& r, auto src, int line, auto msg){
+		gh::write_out_error_msg(std::cout, "test_file", msg, "ups", src, line);
+		return -1;
+	});
+	std::cout << "finish test" << std::endl;
+}
+
 template< typename gh, template<auto>class term=gh::template terms >
 constexpr auto make_test_gram() {
 	return (as(term<'a'>::char_, 'b') | term<'c'>::char_) % gh::int_;
@@ -142,6 +159,7 @@ int main(int,char**) {
 
 
 	test_expr();
+	test_error_handling<parser>();
 
 	ascip_details::tuple<int,double> tt{ 1, .5 };
 	std::cout << "tuple test (1 0.5) == (" << get<0>(tt) << " " << get<1>(tt) << ')' << std::endl;

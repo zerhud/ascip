@@ -16,6 +16,13 @@
  * seq with left seq operator - hard to implement in adl and no reason to do it, so it's a part of seq structure
  * variant_pos_tag - used for get variant position from context. there is no easy way to get it from type or by this.
  *   (lambda works as unique type only from free function, inside a template<...> struct {...}; it doesn't)
+ * error handling:
+ *   must<"name">(parser) catches semantic errors, calls lambda passed in parse method (via ctx)
+ *   check result method - semact parser checks result with user method and returns user result (user also can throw error)
+ *   check result method alternative - same method as lambda in sequence
+ *   error handler parameters: line number, result, message, current src
+ *   result checker parameters: line number, result, src on seq start
+ *   implement function enabled from adl for roll back src on line begin
  */
 
 namespace {

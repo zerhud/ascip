@@ -22,6 +22,7 @@ here is a list of avaible parsers. you can find examples below
 - `omit` method for skip value
 - `cur_pos` just stores to result current position, parse nothing
 - `>>` for sequence parser
+- `>` for sequence parser. it causes an error if the parser fails with message "unknown" (see must method).
 - `check` method checks that the parser got as result exactly required type
 - `cast` method try to `static_cast` gotten result to required type. it usefull for parse to struct with inheritance as result due for language limitations. see example below.
 
@@ -32,8 +33,8 @@ with sequence parser can be used
 - `--` same as `++` but decrease the number
 - `finc<number>` method. same as `++` or `--` but you can specify the number will be added to current position (the number can also to be negative).
 - `fnum<number>` method. setts the resulting field position independently the current one.
-- `must` method. WIP. causes an error on fail.
-- lambda in sequnce: sequence parser will call it with arguments: source on start parsing, source in current position and result. it returned value, if present, will be added to the source position.
+- `must` method. causes an error on fail. accepts message as template parameter, it will be passed to error function, passed in parse method. parameters: result, source on start parser position, current line number, message.
+- lambda in sequnce: sequence parser will call it with same arguments as must method. it returned value, if present, will be added to the source position (or causes error if less then 0).
 
 # examples
 
@@ -137,7 +138,6 @@ please note:
 
 # roadmap
 - test, writing few parsers
-- implement error handler
 - alfa release
 - implement double parser
 - beta release

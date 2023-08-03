@@ -98,6 +98,12 @@ constexpr void test_context() {
 	static_cast<const decltype(ctx_not_found)&>(by_ind_from_ctx<0,t2_t>(make_ctx<t1_t>(v2_t{}, make_ctx<t1_t>(v1_t{}))));
 }
 
+#include "static_string.ipp"
+
+/************
+ * utils
+ ************/
+
 template<typename type, template<typename...>class tmpl> constexpr const bool is_specialization_of = false;
 template<template<typename...>class type, typename... args> constexpr const bool is_specialization_of<type<args...>, type> = true;
 
