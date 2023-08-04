@@ -69,8 +69,8 @@ constexpr auto& by_ind_from_ctx(auto&& ctx) {
 constexpr void test_context() {
 	struct v1_t{int v=1;}; struct v2_t{int v=2;}; struct v3_t{int v=4;}; struct v4_t{int v=8;};
 	struct t1_t{}; struct t2_t{}; struct t3_t{}; struct t4_t{};
-	static_assert( ({ v1_t v1;
-		auto ctx = make_ctx<t1_t>(v1);
+	static_assert( ({ constexpr v1_t v1;
+		constexpr auto ctx = make_ctx<t1_t>(v1);
 		search_in_ctx<t1_t>(ctx).v;
 	})==1, "can find in single context" );
 	static_assert( ({ v1_t v1; v2_t v2;
