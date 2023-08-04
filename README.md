@@ -1,5 +1,9 @@
 # ascip
-c++ ascii not poisonous parser. requires c++23.
+c++ ascii not poisonous parser. requires c++23. for examples see a sectoin "examples" below.
+
+the parser was created as struct template, so you can parametrize your method for create grammar by it, instead of include ascip file and depend on it. the ascip needs in tuple for inner use and you can prametrize the structure with any tuple wich have get method in adl. the second template parameter, factory, can to be the void type if you don't want to run the test method.
+
+below i've tried using examples for quick start. all of them leavs in the examples directory in aclual state. also i've tried to use the godbolt, but sometimes it can fail, unfortunatly.
 ## parser list
 here is a list of avaible parsers. you can find examples below
 - `int_` an integer if it can to be stored to result

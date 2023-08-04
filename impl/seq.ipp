@@ -129,7 +129,8 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 	template<auto find, auto pind, typename cur_t, typename... tail> constexpr auto parse_seq(auto&& ctx, auto src, auto& result) const {
 		//TODO: use -1 as last struct field, -2 as the field before last one and so on...
 		constexpr const auto cur_field =
-			((find + is_inc_field_before<cur_t> + (-1*is_dec_field_before<cur_t>) + inc_field_val<cur_t>()) * !is_num_field_val<cur_t>) + num_field_val<cur_t>();
+			( (find + is_inc_field_before<cur_t> + (-1*is_dec_field_before<cur_t>) + inc_field_val<cur_t>()) * !is_num_field_val<cur_t>)
+			+ num_field_val<cur_t>();
 		constexpr const auto nxt_field = cur_field + is_inc_field_after<cur_t> + (-1*is_dec_field_after<cur_t>) + is_field_separator<cur_t>;
 
 		auto& cur = get<pind>(seq);

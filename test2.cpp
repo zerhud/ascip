@@ -5,7 +5,7 @@
 #include <variant>
 #include <sstream>
 #include <iostream>
-#include "ascip2.hpp"
+#include "ascip.hpp"
 
 struct factory {
 	template<typename... types> using variant = std::variant<types...>;
@@ -116,7 +116,7 @@ constexpr void test_expr() {
 	std::cout << "finish test" << std::endl;
 }
 
-template<typename gh, template<auto>class sup = gh::template terms>
+template<typename gh, template<auto>class sup = gh::template term>
 constexpr void test_error_handling() {
 	std::cout << "test error handling" << std::endl;
 	char r;
@@ -133,7 +133,7 @@ constexpr void test_error_handling() {
 	std::cout << "finish test" << std::endl;
 }
 
-template< typename gh, template<auto>class term=gh::template terms >
+template< typename gh, template<auto>class term=gh::template term >
 constexpr auto make_test_gram() {
 	return (as(term<'a'>::char_, 'b') | term<'c'>::char_) % gh::int_;
 }
