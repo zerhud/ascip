@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# wait for clang17
+#clang++ -std=c++23 -fwhole-program -I. examples/vec_list.cpp -o /tmp/ascip_vec_list_clang &
+
 g++ -std=c++23 -fwhole-program -march=native -fdiagnostics-color=always -I. examples/vec_list.cpp -o /tmp/ascip_vec_list &
 
 g++ -std=c++23 -fwhole-program -march=native -fdiagnostics-color=always -I. examples/version.cpp -o /tmp/version &
