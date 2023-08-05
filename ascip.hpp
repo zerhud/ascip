@@ -95,7 +95,7 @@ constexpr static void test() {
 	static_assert( integrated_tests() );
 }
 
-template<auto sym> struct term {
+template<auto sym> struct tmpl {
 	constexpr static auto& char_ = holder::char_<sym>;
 	constexpr static auto& _char = holder::_char<sym>;
 	constexpr static auto& space = holder::space;
@@ -110,11 +110,14 @@ template<auto sym> struct term {
 	constexpr static auto& cur_pos = holder::cur_pos;
 	constexpr static auto& cur_shift = holder::cur_shift;
 	constexpr static auto& req = holder::req<sym>;
+	constexpr static auto& lreq = holder::lreq;
+	constexpr static auto& lrreq = holder::lrreq;
 	constexpr static auto& nl = holder::nl;
 	constexpr static auto& quoted_string = holder::quoted_string;
 	constexpr static auto& dquoted_string = holder::dquoted_string;
 	constexpr static auto& squoted_string = holder::squoted_string;
 };
+template<auto sym> struct term : tmpl<sym> {};
 
 }; // struct ascip (context)
 

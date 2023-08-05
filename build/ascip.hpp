@@ -1704,15 +1704,16 @@ constexpr static bool test_seq() {
 template<auto pos> struct lreq_parser_req_need_count {};
 template<auto pos> struct lreq_parser_org_src {};
 
+template<auto jump=1>
 constexpr static auto parse_next_variant(auto&& ctx, auto src, auto& result) {
 	auto* next_variant = search_in_ctx<variant_stack_tag>(ctx);
-	return next_variant->template parse_from<decltype(search_in_ctx_constexpr<variant_pos_tag>(decltype(auto(ctx)){}))::pos+1>(ctx, src, result);
+	return next_variant->template parse_from<decltype(search_in_ctx_constexpr<variant_pos_tag>(decltype(auto(ctx)){}))::pos+jump>(ctx, src, result);
 }
 
 //TODO: delete element_in_seq? left reqursion is a trouble only if it's a first element in sequence
 //   for reqursion we must call the sequence from start - from 0 element, so it's always must to be 0
-template<auto element_in_seq, auto unique_type>
-struct lreq_parser : base_parser<lreq_parser<element_in_seq,unique_type>> {
+template<auto element_in_seq, auto var_jump>
+struct lreq_parser : base_parser<lreq_parser<element_in_seq,var_jump>> {
 
 	constexpr auto parse(auto&& ctx,auto,auto&) const requires (
 		   ascip_details::is_in_concept_check(decltype(auto(ctx)){}) ){ return 0; }
@@ -1742,15 +1743,15 @@ struct lreq_parser : base_parser<lreq_parser<element_in_seq,unique_type>> {
 		if constexpr (exists_in_ctx<lreq_parser_req_need_count<pos>>(decltype(auto(ctx)){})) {
 			auto need_iter_count = --search_in_ctx<lreq_parser_req_need_count<pos>>(ctx);
 			auto expr_start = *search_in_ctx<lreq_parser_org_src<pos>>(ctx);
-			if(need_iter_count == 0) return parse_next_variant(ctx, expr_start, result);
+			if(need_iter_count == 0) return parse_next_variant<var_jump>(ctx, expr_start, result);
 			return parse_current_parser<0>(0, ctx, expr_start, result);
 		}
 		else {
-			auto shift_next_parser = parse_next_variant(ctx, src, result);
+			auto shift_next_parser = parse_next_variant<var_jump>(ctx, src, result);
 			if(shift_next_parser < 0) return shift_next_parser;
 
 			auto req_call_count = count_reqursion_expressions(shift_next_parser, ctx, src, result)-1;
-			if(req_call_count<=0) return parse_next_variant(ctx, src, result);
+			if(req_call_count<=0) return parse_next_variant<var_jump>(ctx, src, result);
 
 			auto nctx = make_ctx<lreq_parser_org_src<pos>>(&src,
 			  make_ctx<lreq_parser_req_need_count<pos>>(req_call_count, ctx)
@@ -1759,16 +1760,17 @@ struct lreq_parser : base_parser<lreq_parser<element_in_seq,unique_type>> {
 		}
 	}
 };
-constexpr static auto lreq = lreq_parser<0, []{}>{};
+constexpr static auto lreq = lreq_parser<0, 1>{};
 
-struct lrreq_parser : base_parser<lrreq_parser> {
+template<auto var_jump>
+struct lrreq_parser : base_parser<lrreq_parser<var_jump>> {
 	constexpr auto parse(auto&& ctx,auto,auto&) const requires (
 		   ascip_details::is_in_concept_check(decltype(auto(ctx)){}) ){ return 0; }
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
-		return parse_next_variant(ctx, src, result);
+		return parse_next_variant<var_jump>(ctx, src, result);
 	}
 };
-constexpr static auto lrreq = lrreq_parser{};
+constexpr static auto lrreq = lrreq_parser<1>{};
 
 constexpr static auto test_lreq_mk_result() {
 	using term_rt = factory_t::template variant<int,decltype(mk_str())>;
@@ -2090,7 +2092,7 @@ constexpr static void test() {
 	static_assert( integrated_tests() );
 }
 
-template<auto sym> struct term {
+template<auto sym> struct tmpl {
 	constexpr static auto& char_ = holder::char_<sym>;
 	constexpr static auto& _char = holder::_char<sym>;
 	constexpr static auto& space = holder::space;
@@ -2105,11 +2107,14 @@ template<auto sym> struct term {
 	constexpr static auto& cur_pos = holder::cur_pos;
 	constexpr static auto& cur_shift = holder::cur_shift;
 	constexpr static auto& req = holder::req<sym>;
+	constexpr static auto& lreq = holder::lreq;
+	constexpr static auto& lrreq = holder::lrreq;
 	constexpr static auto& nl = holder::nl;
 	constexpr static auto& quoted_string = holder::quoted_string;
 	constexpr static auto& dquoted_string = holder::dquoted_string;
 	constexpr static auto& squoted_string = holder::squoted_string;
 };
+template<auto sym> struct term : tmpl<sym> {};
 
 }; // struct ascip (context)
 

@@ -74,13 +74,15 @@ struct expr_grammar {
 	constexpr static auto alpha = gh::alpha;
 	constexpr static auto d10 = gh::d10;
 	constexpr static auto int_ = gh::int_;
+	constexpr static auto lreq = gh::lreq;
+	constexpr static auto lrreq = gh::lrreq;
 	constexpr static auto make() {
 		auto result_maker = [](auto& r){ r.reset(new (std::decay_t<decltype(*r)>){}); return r.get(); };
 		auto ident = gh::alpha >> *(alpha|d10|char_<'_'>);
 		auto term = int_ | ident;
 		auto expr =
-			  cast<dbl_expr>((gh::lreq(result_maker))++ >> as(_char<'+'>, 0)++ >> gh::lrreq(result_maker))
-			| cast<dbl_expr>((gh::lreq(result_maker))++ >> as(_char<'*'>, 1)++ >> gh::lrreq(result_maker))
+			  cast<dbl_expr>((lreq(result_maker))++ >> as(_char<'+'>, 0)++ >> lrreq(result_maker))
+			| cast<dbl_expr>((lreq(result_maker))++ >> as(_char<'*'>, 1)++ >> lrreq(result_maker))
 			| term;
 		return expr;
 	}
