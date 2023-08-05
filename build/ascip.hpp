@@ -899,7 +899,7 @@ constexpr static struct any_parser : base_parser<any_parser> {
 } any {};
 
 constexpr static struct int_parser : base_parser<int_parser> {
-	constexpr bool is_int(auto s) const { return '0' <= s && s <= '9'; }
+	constexpr static bool is_int(auto s) { return '0' <= s && s <= '9'; }
 	constexpr bool next(auto cur, auto& result) const {
 		const bool isint = is_int(cur);
 		result += ((int)(cur - '0')) * isint;
@@ -914,6 +914,11 @@ constexpr static struct int_parser : base_parser<int_parser> {
 		auto ret = 1;
 		while(src && next(src(), result *= 10)) ++ret;
 		result *= signer;
+		return ret;
+	}
+	constexpr auto parse_without_preparation(auto src, auto& result) const {
+		auto ret = 0;
+		while(src && next(src(), result *= 10)) ++ret;
 		return ret;
 	}
 
@@ -944,6 +949,40 @@ constexpr static struct int_parser : base_parser<int_parser> {
 	}
 
 } int_ {};
+
+constexpr static struct float_point_parser : base_parser<float_point_parser> {
+	constexpr static auto pow(auto what, auto to) { const auto m = what; for(auto i=1;i<to;++i) what*=m; return what; }
+	constexpr auto parse(auto&& ctx, auto src, auto& result)  const {
+		result = 0;
+		auto int_pos = src;
+		auto dec_pos = src;
+		while(dec_pos && int_.is_int(dec_pos()));
+		auto left_result = int_.parse_without_preparation(int_pos, result);
+		auto right_result = int_.parse_without_preparation(dec_pos, result);
+		result /= pow(10, right_result);
+		return left_result + right_result + 1;
+	}
+	constexpr bool test() const {
+		float_point_parser p; 
+		auto t = [](auto&& src, auto sym_cnt, auto answer) {
+			float_point_parser p; 
+			auto r = answer + 100;
+			auto pr = p.parse(make_test_ctx(), make_source(src), r);
+		       	pr /= (pr == sym_cnt);
+			r /= (r == answer);
+			return true;
+		};
+
+		static_assert( p.pow(10, 1) == 10 );
+		static_assert( p.pow(10, 2) == 100 );
+		static_assert( p.pow(10, 3) == 1000 );
+		static_assert( t("0.5", 3, 0.5) );
+		static_assert( t("1.5", 3, 1.5) );
+		static_assert( t("3.075", 5, 3.075) );
+
+		return true;
+	}
+} fp {};
 
 template<auto from, auto to> struct range_parser : base_parser<range_parser<from,to>> { 
 	constexpr auto parse(auto&&, auto src, auto& result) const {
@@ -2076,6 +2115,7 @@ constexpr static void test() {
 	static_assert( space.test() );
 	static_assert( any.test() );
 	static_assert( int_.test() );
+	static_assert( fp.test() );
 	static_assert( test_variant() );
 	static_assert( test_range_parser() );
 	static_assert( test_negate() );
@@ -2093,6 +2133,7 @@ constexpr static void test() {
 }
 
 template<auto sym> struct tmpl {
+	constexpr static auto& fp = holder::fp;
 	constexpr static auto& char_ = holder::char_<sym>;
 	constexpr static auto& _char = holder::_char<sym>;
 	constexpr static auto& space = holder::space;

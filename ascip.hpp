@@ -79,6 +79,7 @@ constexpr static void test() {
 	static_assert( space.test() );
 	static_assert( any.test() );
 	static_assert( int_.test() );
+	static_assert( fp.test() );
 	static_assert( test_variant() );
 	static_assert( test_range_parser() );
 	static_assert( test_negate() );
@@ -96,6 +97,7 @@ constexpr static void test() {
 }
 
 template<auto sym> struct tmpl {
+	constexpr static auto& fp = holder::fp;
 	constexpr static auto& char_ = holder::char_<sym>;
 	constexpr static auto& _char = holder::_char<sym>;
 	constexpr static auto& space = holder::space;
