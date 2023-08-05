@@ -8,7 +8,7 @@
 #ifndef INCLUDE_STD
 #include <utility>
 #endif
-#include "impl/details.hpp"
+#include "ascip/details.hpp"
 
 /* desicions:
  * each parser is a class drived from base_parser class with passing it self as template parameter for base_parser
@@ -51,7 +51,7 @@ template<typename parser> struct base_parser : ascip_details::adl_tag {
 					result);
 	}
 
-#include "impl/operators.ipp"
+#include "ascip/operators.ipp"
 };
 
 constexpr static auto make_test_ctx() { return ascip_details::make_ctx<ascip_details::new_line_count_tag>(1); }
@@ -59,17 +59,17 @@ constexpr static auto make_test_ctx(auto err_handler){ return make_ctx<ascip_det
 template<auto... i> friend constexpr auto make_test_ctx(const base_parser<auto>&) { return ascip_details::make_ctx<ascip_details::parser_concept_check_tag>(1); }
 // ^^ implemented for ascip_details::parser concept 
 
-#include "impl/test_utils.ipp"
-#include "impl/make_source.ipp"
-#include "impl/base_parsers.ipp"
-#include "impl/semact.ipp"
-#include "impl/wrappers.ipp"
-#include "impl/variant.ipp"
-#include "impl/lists.ipp"
-#include "impl/seq.ipp"
-#include "impl/lreq.ipp"
-#include "impl/injection.ipp"
-#include "impl/integrated.ipp"
+#include "ascip/test_utils.ipp"
+#include "ascip/make_source.ipp"
+#include "ascip/base_parsers.ipp"
+#include "ascip/semact.ipp"
+#include "ascip/wrappers.ipp"
+#include "ascip/variant.ipp"
+#include "ascip/lists.ipp"
+#include "ascip/seq.ipp"
+#include "ascip/lreq.ipp"
+#include "ascip/injection.ipp"
+#include "ascip/integrated.ipp"
 
 constexpr static void test() {
 	static_assert( ascip_details::parser<decltype(char_<'b'>)> );
