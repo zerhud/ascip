@@ -16,8 +16,9 @@ struct binary_expr {
 };
 struct operator_plus : binary_expr {std::ostream& print(std::ostream& o) const;};
 struct operator_minus : binary_expr {std::ostream& print(std::ostream& o) const;};
+struct operator_multi : binary_expr {std::ostream& print(std::ostream& o) const;};
 
-struct expr : std::variant<operator_plus, operator_minus, terminal>{};
+struct expr : std::variant<operator_plus, operator_minus, operator_multi, terminal>{};
 
 // let's print the resulting expression
 template<typename type> concept printable = requires(std::ostream& o, const type& obj){ o << obj; };
@@ -44,8 +45,12 @@ std::ostream& operator<<(std::ostream& o, const operator_plus& p) {
 std::ostream& operator<<(std::ostream& o, const operator_minus& p) {
 	return o << '(' << p.left << " - " << p.right << ')';
 }
+std::ostream& operator<<(std::ostream& o, const operator_multi& p) {
+	return o << '(' << p.left << " * " << p.right << ')';
+}
 std::ostream& operator_plus::print(std::ostream& o) const { return o << *this; }
 std::ostream& operator_minus::print(std::ostream& o) const { return o << *this; }
+std::ostream& operator_multi::print(std::ostream& o) const { return o << *this; }
 
 template<typename gh, template<auto>class th=gh::template term>
 auto make_grammar() {
@@ -59,6 +64,7 @@ auto make_grammar() {
 	return
 	    cast<binary_expr>(gh::lreq(result_maker) >> th<'+'>::_char >> ++gh::lrreq(result_maker))
 	  | cast<binary_expr>(gh::lreq(result_maker) >> th<'-'>::_char >> ++gh::lrreq(result_maker))
+	  | cast<binary_expr>(gh::lreq(result_maker) >> th<'*'>::_char >> ++gh::lrreq(result_maker))
 	  | term
 	  ;
 }
@@ -80,6 +86,9 @@ int main(int,char**) {
 	// let's see how we parse
 	test_expr("1 + 2", "5 (1 + 2)");
 	test_expr("1 + 2 - 3", "9 (1 + (2 - 3))");
+	// operator * has less priority
+	test_expr("1 + 2 * 3 + 4", "13 ((1 + (2 * 3)) + 4)");
+	// and the same with minus
 	test_expr("1 + 2 - 3 - 4", "13 (1 + ((2 - 3) - 4))");
 	test_expr("1 + 2 - 3 + 4", "13 ((1 + (2 - 3)) + 4)");
 
