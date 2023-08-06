@@ -958,7 +958,9 @@ constexpr static struct float_point_parser : base_parser<float_point_parser> {
 		auto dec_pos = src;
 		while(dec_pos && int_.is_int(dec_pos()));
 		auto left_result = int_.parse_without_preparation(int_pos, result);
+		if(left_result <= 0 && int_pos() != '.') return -1;
 		auto right_result = int_.parse_without_preparation(dec_pos, result);
+		if(right_result <= 0) return -1;
 		result /= pow(10, right_result);
 		return left_result + right_result + 1;
 	}
@@ -979,6 +981,10 @@ constexpr static struct float_point_parser : base_parser<float_point_parser> {
 		static_assert( t("0.5", 3, 0.5) );
 		static_assert( t("1.5", 3, 1.5) );
 		static_assert( t("3.075", 5, 3.075) );
+
+		static_assert( ({double r=100;float_point_parser{}.parse(make_test_ctx(), make_source("0"), r); }) == -1);
+		static_assert( ({double r=100;float_point_parser{}.parse(make_test_ctx(), make_source("a"), r); }) == -1);
+		static_assert( ({double r=100;float_point_parser{}.parse(make_test_ctx(), make_source("1."), r); }) == -1);
 
 		return true;
 	}
