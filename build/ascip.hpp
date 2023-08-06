@@ -115,23 +115,26 @@ constexpr void test_context() {
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          https://www.boost.org/LICENSE_1_0.txt)
 
-template<typename char_type, auto size>
+template<typename char_type, auto str_size>
 struct string_literal {
-	constexpr string_literal(const char_type (&str)[size]) {
-		for(auto i=0;i<size;++i) value[i] = str[i];
+	constexpr string_literal(const char_type (&str)[str_size]) {
+		for(auto i=0;i<str_size;++i) value[i] = str[i];
 	}
 
-	char_type value[size];
+	char_type value[str_size];
+
+	constexpr auto size() const { static_assert( 1 <= str_size ); return str_size-1; }
+	constexpr auto operator[](auto i) const { return value[i]; }
 
 	template<auto sz>
 	constexpr bool operator==(const char_type(&r)[sz]) const {
-		if(sz != size) return false;
-		for(auto i=0;i<size;++i) if(value[i]!=r[i]) return false;
+		if(sz != str_size) return false;
+		for(auto i=0;i<str_size;++i) if(value[i]!=r[i]) return false;
 		return true;
 	}
 	template<typename char_t> requires (std::is_pointer_v<char_t>)
 	constexpr bool operator==(char_t r) const {
-		for(auto i=0;i<size;++i) {
+		for(auto i=0;i<str_size;++i) {
 			if(value[i]!=r[i]) return false;
 		}
 		return true;
@@ -142,9 +145,13 @@ template<string_literal str> struct test_tmpl{ constexpr bool is_eq(const char* 
 } };
 
 constexpr void test_static_string() {
+	static_assert( string_literal("cstr")[0] == 'c' );
+	static_assert( string_literal("cstr")[4] == 0x00 );
 	static_assert( string_literal("cstr").value[4] == 0x00 );
 	static_assert( string_literal("cstr") == "cstr" );
 	static_assert( !(string_literal("cstr") == "cstr\0ups") );
+
+	static_assert( string_literal("cstr").size() == 4 );
 
 	static_assert( test_tmpl<"test">{}.is_eq("test") );
 	static_assert( !test_tmpl<"test">{}.is_eq("test_ups") );
@@ -805,6 +812,25 @@ constexpr static void test_parser_char() {
 	static_assert( ({char r;char_<'a'>.parse(make_test_ctx(), make_source("abc"), r);}) == 1 );
 	static_assert( ({char r;char_<'b'>.parse(make_test_ctx(), make_source("abc"), r);}) == -1 );
 	static_assert( ({char r;char_<'a'>.parse(make_test_ctx(), make_source("abc"), r);r;}) == 'a' );
+}
+
+template<ascip_details::string_literal val> struct literal_parser : base_parser<literal_parser<val>> {
+	constexpr auto parse(auto&&, auto src, auto& result) const {
+		//TODO: faster? add [] operator in src for direct access (operator[](auto i){return val[ind+i];})
+		auto i=-1, r=0;
+		while(++i<val.size()) r += (src() == val[i]);
+		return ((r+1)*(r==val.size())) - 1;
+	}
+};
+template<ascip_details::string_literal v> constexpr static auto lit = literal_parser<v>{};
+constexpr static bool test_literal_parser() {
+	char r;
+	static_assert( literal_parser<"abc">{}.parse(make_test_ctx(), make_source("abcd"), r) == 3 );
+	static_assert( literal_parser<"abc">{}.parse(make_test_ctx(), make_source("abcd_tail"), r) == 3 );
+	static_assert( literal_parser<"abcd">{}.parse(make_test_ctx(), make_source("abcd"), r) == 4 );
+	static_assert( literal_parser<"abcdef">{}.parse(make_test_ctx(), make_source("abcdef"), r) == 6 );
+	static_assert( literal_parser<"abcd">{}.parse(make_test_ctx(), make_source("bbcd"), r) == -1 );
+	return true;
 }
 
 template<typename t> struct value_parser : base_parser<value_parser<t>> {
@@ -2122,6 +2148,8 @@ constexpr static void test() {
 	static_assert( any.test() );
 	static_assert( int_.test() );
 	static_assert( fp.test() );
+	static_assert( fp.test() );
+	static_assert( test_literal_parser() );
 	static_assert( test_variant() );
 	static_assert( test_range_parser() );
 	static_assert( test_negate() );
@@ -2162,6 +2190,10 @@ template<auto sym> struct tmpl {
 	constexpr static auto& squoted_string = holder::squoted_string;
 };
 template<auto sym> struct term : tmpl<sym> {};
+// c++ cannot use auto as string_literal
+template<ascip_details::string_literal v> struct sterm {
+	constexpr static auto& lit = holder::lit<v>;
+};
 
 }; // struct ascip (context)
 

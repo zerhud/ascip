@@ -55,6 +55,25 @@ constexpr static void test_parser_char() {
 	static_assert( ({char r;char_<'a'>.parse(make_test_ctx(), make_source("abc"), r);r;}) == 'a' );
 }
 
+template<ascip_details::string_literal val> struct literal_parser : base_parser<literal_parser<val>> {
+	constexpr auto parse(auto&&, auto src, auto& result) const {
+		//TODO: faster? add [] operator in src for direct access (operator[](auto i){return val[ind+i];})
+		auto i=-1, r=0;
+		while(++i<val.size()) r += (src() == val[i]);
+		return ((r+1)*(r==val.size())) - 1;
+	}
+};
+template<ascip_details::string_literal v> constexpr static auto lit = literal_parser<v>{};
+constexpr static bool test_literal_parser() {
+	char r;
+	static_assert( literal_parser<"abc">{}.parse(make_test_ctx(), make_source("abcd"), r) == 3 );
+	static_assert( literal_parser<"abc">{}.parse(make_test_ctx(), make_source("abcd_tail"), r) == 3 );
+	static_assert( literal_parser<"abcd">{}.parse(make_test_ctx(), make_source("abcd"), r) == 4 );
+	static_assert( literal_parser<"abcdef">{}.parse(make_test_ctx(), make_source("abcdef"), r) == 6 );
+	static_assert( literal_parser<"abcd">{}.parse(make_test_ctx(), make_source("bbcd"), r) == -1 );
+	return true;
+}
+
 template<typename t> struct value_parser : base_parser<value_parser<t>> {
 	t val;
 	constexpr value_parser(t v) : val(v) {}

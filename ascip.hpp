@@ -80,6 +80,8 @@ constexpr static void test() {
 	static_assert( any.test() );
 	static_assert( int_.test() );
 	static_assert( fp.test() );
+	static_assert( fp.test() );
+	static_assert( test_literal_parser() );
 	static_assert( test_variant() );
 	static_assert( test_range_parser() );
 	static_assert( test_negate() );
@@ -120,6 +122,10 @@ template<auto sym> struct tmpl {
 	constexpr static auto& squoted_string = holder::squoted_string;
 };
 template<auto sym> struct term : tmpl<sym> {};
+// c++ cannot use auto as string_literal
+template<ascip_details::string_literal v> struct sterm {
+	constexpr static auto& lit = holder::lit<v>;
+};
 
 }; // struct ascip (context)
 
