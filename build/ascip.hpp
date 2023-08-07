@@ -818,6 +818,11 @@ template<ascip_details::string_literal val> struct literal_parser : base_parser<
 	constexpr auto parse(auto&&, auto src, auto& result) const {
 		//TODO: faster? add [] operator in src for direct access (operator[](auto i){return val[ind+i];})
 		auto i=-1, r=0;
+		{
+			auto tsrc = src;
+			tsrc += val.size()-1;
+			if(!tsrc) return -1;
+		}
 		while(++i<val.size()) r += (src() == val[i]);
 		return ((r+1)*(r==val.size())) - 1;
 	}
@@ -830,6 +835,7 @@ constexpr static bool test_literal_parser() {
 	static_assert( literal_parser<"abcd">{}.parse(make_test_ctx(), make_source("abcd"), r) == 4 );
 	static_assert( literal_parser<"abcdef">{}.parse(make_test_ctx(), make_source("abcdef"), r) == 6 );
 	static_assert( literal_parser<"abcd">{}.parse(make_test_ctx(), make_source("bbcd"), r) == -1 );
+	static_assert( literal_parser<"abcd">{}.parse(make_test_ctx(), make_source("ab"), r) == -1 );
 	return true;
 }
 
