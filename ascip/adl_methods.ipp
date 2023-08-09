@@ -34,6 +34,9 @@ template<parser type> constexpr auto lexeme(const type& p) {
 template<parser type> constexpr auto skip(const type& p) {
 	return typename decltype(auto(p))::holder::template skip_parser<type>{ {}, p }; }
 
+template<parser type> constexpr auto use_variant_result(const type& p) {
+	return typename decltype(auto(p))::holder::template use_variant_result_parser<type>{ {}, p }; }
+
 
 // ===============================
 //          parse part

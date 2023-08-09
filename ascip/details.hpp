@@ -37,7 +37,8 @@ constexpr auto make_ctx(value&& val, auto&& ctx) {
 }
 template<typename tag>
 constexpr bool exists_in_ctx(auto&& ctx) {
-	if constexpr (std::is_same_v<typename decltype(auto(ctx))::tag_t, tag>) return true;
+	using ctx_type = std::decay_t<std::remove_pointer_t<decltype(ctx)>>;
+	if constexpr (std::is_same_v<typename ctx_type::tag_t, tag>) return true;
 	else if constexpr (requires{ ctx.next(); }) {
 		if(ctx.has_next()) return exists_in_ctx<tag>(ctx.next());
 		return exists_in_ctx<tag>(typename decltype(auto(ctx))::next_t{});

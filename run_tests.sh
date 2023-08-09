@@ -11,8 +11,6 @@ g++ -std=c++23 -ftemplate-backtrace-limit=0 -fwhole-program -march=native -fdiag
 
 g++ -std=c++23 -ftemplate-backtrace-limit=0 -fwhole-program -march=native -fdiagnostics-color=always -I. examples/inheritance.cpp -o /tmp/inheritance &
 
-g++ -std=c++23 -ftemplate-backtrace-limit=0 -fwhole-program -march=native -fdiagnostics-color=always -I. examples/inheritance.cpp -o /tmp/inheritance &
-
 g++ -std=c++23 -ftemplate-backtrace-limit=0 -fwhole-program -march=native -fdiagnostics-color=always -I. examples/left_reqursion.cpp -o /tmp/left_reqursion &
 
 wait $(jobs -rp)

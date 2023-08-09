@@ -8,19 +8,37 @@
 struct variant_pos_tag{};
 struct variant_stack_tag{};
 struct variant_stack_result_tag{};
+template<ascip_details::parser parser> struct use_variant_result_parser : base_parser<use_variant_result_parser<parser>> {
+	parser p;
+	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+		return p.parse(std::forward<decltype(ctx)>(ctx), std::move(src), result);
+	}
+};
 template<auto val> struct variant_pos_value{ constexpr static auto pos = val; };
 template<ascip_details::parser... parsers> struct variant_parser : base_parser<variant_parser<parsers...>> {
 	using self_type = variant_parser<parsers...>;
 	tuple<parsers...> seq;
 	constexpr variant_parser( parsers... l ) : seq( std::forward<parsers>(l)... ) {}
 
+	template<auto ind, auto cnt, auto cur, typename cur_parser, typename... tail>
+	constexpr static auto _cur_ind() {
+		constexpr const bool skip = ascip_details::is_specialization_of<cur_parser, use_variant_result_parser>;
+		if constexpr (ind == cnt) {
+			if constexpr (skip) return -1;
+			else return cur;
+		}
+		else return _cur_ind<ind,cnt+1,cur+(!skip),tail...>();
+	}
+	template<auto ind> consteval static auto cur_ind() { return _cur_ind<ind,0,0,parsers...>(); }
 	template<auto ind> constexpr auto& current_result(auto& result) const
-	requires requires{ create<ind>(result); } {
-		return create<ind>(result);
+	requires requires{ create<1>(result); } {
+		if constexpr (cur_ind<ind>()<0) return result;
+		else return create<cur_ind<ind>()>(result);
 	}
 	template<auto ind> constexpr auto& current_result(auto& result) const
-	requires (requires{ result.template emplace<ind>(); } && !requires{ create<ind>(result); }) {
-		return result.template emplace<ind>();
+	requires (requires{ result.template emplace<1>(); } && !requires{ create<1>(result); }) {
+		if constexpr (cur_ind<ind>()<0) return result;
+		else return result.template emplace<cur_ind<ind>()>();
 	}
 	template<auto ind> constexpr auto& current_result(auto& result) const {
 		return result;
@@ -42,13 +60,20 @@ template<ascip_details::parser... parsers> struct variant_parser : base_parser<v
 	template<auto ind>
 	constexpr auto parse_from(auto&& ctx, auto src, auto& result) const {
 		static_assert( exists_in_ctx<self_type>(decltype(auto(ctx)){}), "this method must to be called from reqursion parser" );
-		return parse_ind<ind>(static_cast<decltype(ctx)&&>(ctx), src, result);
+		auto* orig_ctx = search_in_ctx<self_type>(ctx);
+		auto nctx = make_ctx<self_type>(orig_ctx, *orig_ctx);
+		return parse_ind<ind>(nctx, src, result);
 	}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr (exists_in_ctx<self_type>(decltype(auto(ctx)){})) 
-			return parse_ind<0>(ctx, src, result);
+			return parse_from<0>(ctx, src, result);
 		else {
-			auto nctx = make_ctx<variant_stack_result_tag>(&result, make_ctx<variant_stack_tag>(this, make_ctx<self_type>(this,ctx)));
+			auto variant_ctx =
+				make_ctx<variant_stack_result_tag>(&result,
+					make_ctx<variant_stack_tag>(this, ctx)
+				)
+			;
+			auto nctx = make_ctx<self_type>(&variant_ctx, variant_ctx);
 			return parse_ind<0>(nctx, src, result);
 		}
 	}

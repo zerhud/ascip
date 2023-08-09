@@ -11,11 +11,12 @@
 #include "ascip/details.hpp"
 
 /* desicions:
+ *
  * each parser is a class drived from base_parser class with passing it self as template parameter for base_parser
  * wrapping parser contains wrapped parser with [[no_unique_address]] attribute (most parsers are empty)
  * seq parser stores parsed part even if parser fails: the object must to be deleted and we cannot clean everithing
  * use seq operators in adl instead on base parser - we cannot use it on all parsers (+(++p) for example)
- * seq with left seq operator - hard to implement in adl and no reason to do it, so it's a part of seq structure
+ * seq with left seq operator - it was hard to implement in adl at the time and there was no reason to do so, so it's a part of seq structure
  * variant_pos_tag - used for get variant position from context. there is no easy way to get it from type or by this.
  *   (lambda works as unique type only from free function, inside a template<...> struct {...}; it doesn't)
  * error handling:
@@ -25,6 +26,11 @@
  *   error handler parameters: line number, result, message, current src
  *   result checker parameters: line number, result, src on seq start
  *   implement function enabled from adl for roll back src on line begin
+ * left reqursion implementation:
+ *   lreq count needed reqursion calls and count shift from left, then start reqrusion
+ *   lrreq just start next variant
+ *   lvreq starts to parse whole variant reqursively
+ *   use_variant_result used for get correct index in result
  */
 
 namespace {

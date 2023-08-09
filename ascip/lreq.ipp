@@ -11,7 +11,8 @@ template<auto pos> struct lreq_parser_org_src {};
 template<auto jump=1>
 constexpr static auto parse_next_variant(auto&& ctx, auto src, auto& result) {
 	auto* next_variant = search_in_ctx<variant_stack_tag>(ctx);
-	return next_variant->template parse_from<decltype(search_in_ctx_constexpr<variant_pos_tag>(decltype(auto(ctx)){}))::pos+jump>(ctx, src, result);
+	constexpr const auto pos = decltype(search_in_ctx_constexpr<variant_pos_tag>(decltype(auto(ctx)){}))::pos+jump;
+	return next_variant->template parse_from<pos>(ctx, src, result);
 }
 
 //TODO: delete element_in_seq? left reqursion is a trouble only if it's a first element in sequence
@@ -76,6 +77,22 @@ struct lrreq_parser : base_parser<lrreq_parser<var_jump>> {
 };
 constexpr static auto lrreq = lrreq_parser<1>{};
 
+template<auto ind>
+struct lvreq_parser : base_parser< lvreq_parser<ind> > {
+	constexpr auto parse(auto&& ctx,auto,auto&) const requires (
+		   ascip_details::is_in_concept_check(decltype(auto(ctx)){}) ){ return 0; }
+	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+		auto* next_variant = by_ind_from_ctx<ind,variant_stack_tag>(ctx);
+		if constexpr (ascip_details::is_in_reqursion_check(decltype(auto(ctx)){})) {
+			return !!src ? next_variant->parse(ctx, static_cast<decltype(src)&&>(src), result) : -1;
+		} else {
+			auto new_ctx = make_ctx<ascip_details::in_req_flag>(true, ctx);
+			return !!src ? next_variant->parse(new_ctx, static_cast<decltype(src)&&>(src), result) : -1;
+		}
+	}
+};
+constexpr static auto lvreq = lvreq_parser<0>{};
+
 constexpr static auto test_lreq_mk_result() {
 	using term_rt = factory_t::template variant<int,decltype(mk_str())>;
 	struct expr_rt;
@@ -132,6 +149,7 @@ constexpr static bool test_lreq_wm(auto&& src, auto rw, auto rs, auto checker) {
 	auto expr =
 		  ((lreq(result_maker))++ >> as(_char<'+'>, 0)++ >> lrreq(result_maker))
 		| ((lreq(result_maker))++ >> as(_char<'*'>, 1)++ >> lrreq(result_maker))
+		| use_variant_result(_char<'('> >> lvreq >> _char<')'>)
 		| term
 		;
 
@@ -177,6 +195,13 @@ constexpr static bool test_lreq() {
 	static_assert( test_lreq_wm("11+1*4+2", 8,  8, [](const auto& r){
 		get<0>( get<2>(*get<0>(*get<0>(r).left).left) ) / (get<0>( get<2>(*get<0>(*get<0>(r).left).left) )==11);
 		get<0>( get<2>(*get<1>(*get<0>(*get<0>(r).left).right).right) ) / (get<0>( get<2>(*get<1>(*get<0>(*get<0>(r).left).right).right) ) == 4);
+	}) );
+	static_assert( test_lreq_wm("(11+1)*(4+2)", 12,  12, [](const auto& r){
+		const auto& mul = get<1>(r);
+		mul.opcode / (mul.opcode==1);
+		const auto& lpl = get<0>(*mul.left);
+		lpl.opcode / (lpl.opcode==0);
+		get<0>(get<2>(*lpl.left)) / (get<0>(get<2>(*lpl.left))==11);
 	}) );
 
 	return true;

@@ -47,7 +47,8 @@ constexpr auto make_ctx(value&& val, auto&& ctx) {
 }
 template<typename tag>
 constexpr bool exists_in_ctx(auto&& ctx) {
-	if constexpr (std::is_same_v<typename decltype(auto(ctx))::tag_t, tag>) return true;
+	using ctx_type = std::decay_t<std::remove_pointer_t<decltype(ctx)>>;
+	if constexpr (std::is_same_v<typename ctx_type::tag_t, tag>) return true;
 	else if constexpr (requires{ ctx.next(); }) {
 		if(ctx.has_next()) return exists_in_ctx<tag>(ctx.next());
 		return exists_in_ctx<tag>(typename decltype(auto(ctx))::next_t{});
@@ -312,6 +313,9 @@ template<parser type> constexpr auto lexeme(const type& p) {
 template<parser type> constexpr auto skip(const type& p) {
 	return typename decltype(auto(p))::holder::template skip_parser<type>{ {}, p }; }
 
+template<parser type> constexpr auto use_variant_result(const type& p) {
+	return typename decltype(auto(p))::holder::template use_variant_result_parser<type>{ {}, p }; }
+
 
 // ===============================
 //          parse part
@@ -515,11 +519,12 @@ template<auto ind> constexpr auto& get(ascip_details::type_result_for_parser_con
 } // namespace ascip_reflection
 
 /* desicions:
+ *
  * each parser is a class drived from base_parser class with passing it self as template parameter for base_parser
  * wrapping parser contains wrapped parser with [[no_unique_address]] attribute (most parsers are empty)
  * seq parser stores parsed part even if parser fails: the object must to be deleted and we cannot clean everithing
  * use seq operators in adl instead on base parser - we cannot use it on all parsers (+(++p) for example)
- * seq with left seq operator - hard to implement in adl and no reason to do it, so it's a part of seq structure
+ * seq with left seq operator - it was hard to implement in adl at the time and there was no reason to do so, so it's a part of seq structure
  * variant_pos_tag - used for get variant position from context. there is no easy way to get it from type or by this.
  *   (lambda works as unique type only from free function, inside a template<...> struct {...}; it doesn't)
  * error handling:
@@ -529,6 +534,11 @@ template<auto ind> constexpr auto& get(ascip_details::type_result_for_parser_con
  *   error handler parameters: line number, result, message, current src
  *   result checker parameters: line number, result, src on seq start
  *   implement function enabled from adl for roll back src on line begin
+ * left reqursion implementation:
+ *   lreq count needed reqursion calls and count shift from left, then start reqrusion
+ *   lrreq just start next variant
+ *   lvreq starts to parse whole variant reqursively
+ *   use_variant_result used for get correct index in result
  */
 
 namespace {
@@ -1273,19 +1283,37 @@ constexpr static bool test_different() {
 struct variant_pos_tag{};
 struct variant_stack_tag{};
 struct variant_stack_result_tag{};
+template<ascip_details::parser parser> struct use_variant_result_parser : base_parser<use_variant_result_parser<parser>> {
+	parser p;
+	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+		return p.parse(std::forward<decltype(ctx)>(ctx), std::move(src), result);
+	}
+};
 template<auto val> struct variant_pos_value{ constexpr static auto pos = val; };
 template<ascip_details::parser... parsers> struct variant_parser : base_parser<variant_parser<parsers...>> {
 	using self_type = variant_parser<parsers...>;
 	tuple<parsers...> seq;
 	constexpr variant_parser( parsers... l ) : seq( std::forward<parsers>(l)... ) {}
 
+	template<auto ind, auto cnt, auto cur, typename cur_parser, typename... tail>
+	constexpr static auto _cur_ind() {
+		constexpr const bool skip = ascip_details::is_specialization_of<cur_parser, use_variant_result_parser>;
+		if constexpr (ind == cnt) {
+			if constexpr (skip) return -1;
+			else return cur;
+		}
+		else return _cur_ind<ind,cnt+1,cur+(!skip),tail...>();
+	}
+	template<auto ind> consteval static auto cur_ind() { return _cur_ind<ind,0,0,parsers...>(); }
 	template<auto ind> constexpr auto& current_result(auto& result) const
-	requires requires{ create<ind>(result); } {
-		return create<ind>(result);
+	requires requires{ create<1>(result); } {
+		if constexpr (cur_ind<ind>()<0) return result;
+		else return create<cur_ind<ind>()>(result);
 	}
 	template<auto ind> constexpr auto& current_result(auto& result) const
-	requires (requires{ result.template emplace<ind>(); } && !requires{ create<ind>(result); }) {
-		return result.template emplace<ind>();
+	requires (requires{ result.template emplace<1>(); } && !requires{ create<1>(result); }) {
+		if constexpr (cur_ind<ind>()<0) return result;
+		else return result.template emplace<cur_ind<ind>()>();
 	}
 	template<auto ind> constexpr auto& current_result(auto& result) const {
 		return result;
@@ -1307,13 +1335,20 @@ template<ascip_details::parser... parsers> struct variant_parser : base_parser<v
 	template<auto ind>
 	constexpr auto parse_from(auto&& ctx, auto src, auto& result) const {
 		static_assert( exists_in_ctx<self_type>(decltype(auto(ctx)){}), "this method must to be called from reqursion parser" );
-		return parse_ind<ind>(static_cast<decltype(ctx)&&>(ctx), src, result);
+		auto* orig_ctx = search_in_ctx<self_type>(ctx);
+		auto nctx = make_ctx<self_type>(orig_ctx, *orig_ctx);
+		return parse_ind<ind>(nctx, src, result);
 	}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr (exists_in_ctx<self_type>(decltype(auto(ctx)){})) 
-			return parse_ind<0>(ctx, src, result);
+			return parse_from<0>(ctx, src, result);
 		else {
-			auto nctx = make_ctx<variant_stack_result_tag>(&result, make_ctx<variant_stack_tag>(this, make_ctx<self_type>(this,ctx)));
+			auto variant_ctx =
+				make_ctx<variant_stack_result_tag>(&result,
+					make_ctx<variant_stack_tag>(this, ctx)
+				)
+			;
+			auto nctx = make_ctx<self_type>(&variant_ctx, variant_ctx);
 			return parse_ind<0>(nctx, src, result);
 		}
 	}
@@ -1784,7 +1819,8 @@ template<auto pos> struct lreq_parser_org_src {};
 template<auto jump=1>
 constexpr static auto parse_next_variant(auto&& ctx, auto src, auto& result) {
 	auto* next_variant = search_in_ctx<variant_stack_tag>(ctx);
-	return next_variant->template parse_from<decltype(search_in_ctx_constexpr<variant_pos_tag>(decltype(auto(ctx)){}))::pos+jump>(ctx, src, result);
+	constexpr const auto pos = decltype(search_in_ctx_constexpr<variant_pos_tag>(decltype(auto(ctx)){}))::pos+jump;
+	return next_variant->template parse_from<pos>(ctx, src, result);
 }
 
 //TODO: delete element_in_seq? left reqursion is a trouble only if it's a first element in sequence
@@ -1849,6 +1885,22 @@ struct lrreq_parser : base_parser<lrreq_parser<var_jump>> {
 };
 constexpr static auto lrreq = lrreq_parser<1>{};
 
+template<auto ind>
+struct lvreq_parser : base_parser< lvreq_parser<ind> > {
+	constexpr auto parse(auto&& ctx,auto,auto&) const requires (
+		   ascip_details::is_in_concept_check(decltype(auto(ctx)){}) ){ return 0; }
+	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+		auto* next_variant = by_ind_from_ctx<ind,variant_stack_tag>(ctx);
+		if constexpr (ascip_details::is_in_reqursion_check(decltype(auto(ctx)){})) {
+			return !!src ? next_variant->parse(ctx, static_cast<decltype(src)&&>(src), result) : -1;
+		} else {
+			auto new_ctx = make_ctx<ascip_details::in_req_flag>(true, ctx);
+			return !!src ? next_variant->parse(new_ctx, static_cast<decltype(src)&&>(src), result) : -1;
+		}
+	}
+};
+constexpr static auto lvreq = lvreq_parser<0>{};
+
 constexpr static auto test_lreq_mk_result() {
 	using term_rt = factory_t::template variant<int,decltype(mk_str())>;
 	struct expr_rt;
@@ -1905,6 +1957,7 @@ constexpr static bool test_lreq_wm(auto&& src, auto rw, auto rs, auto checker) {
 	auto expr =
 		  ((lreq(result_maker))++ >> as(_char<'+'>, 0)++ >> lrreq(result_maker))
 		| ((lreq(result_maker))++ >> as(_char<'*'>, 1)++ >> lrreq(result_maker))
+		| use_variant_result(_char<'('> >> lvreq >> _char<')'>)
 		| term
 		;
 
@@ -1950,6 +2003,13 @@ constexpr static bool test_lreq() {
 	static_assert( test_lreq_wm("11+1*4+2", 8,  8, [](const auto& r){
 		get<0>( get<2>(*get<0>(*get<0>(r).left).left) ) / (get<0>( get<2>(*get<0>(*get<0>(r).left).left) )==11);
 		get<0>( get<2>(*get<1>(*get<0>(*get<0>(r).left).right).right) ) / (get<0>( get<2>(*get<1>(*get<0>(*get<0>(r).left).right).right) ) == 4);
+	}) );
+	static_assert( test_lreq_wm("(11+1)*(4+2)", 12,  12, [](const auto& r){
+		const auto& mul = get<1>(r);
+		mul.opcode / (mul.opcode==1);
+		const auto& lpl = get<0>(*mul.left);
+		lpl.opcode / (lpl.opcode==0);
+		get<0>(get<2>(*lpl.left)) / (get<0>(get<2>(*lpl.left))==11);
 	}) );
 
 	return true;

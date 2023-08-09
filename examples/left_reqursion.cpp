@@ -17,8 +17,10 @@ struct binary_expr {
 struct operator_plus : binary_expr {std::ostream& print(std::ostream& o) const;};
 struct operator_minus : binary_expr {std::ostream& print(std::ostream& o) const;};
 struct operator_multi : binary_expr {std::ostream& print(std::ostream& o) const;};
+struct operator_divid : binary_expr {std::ostream& print(std::ostream& o) const;};
+struct operator_power : binary_expr {std::ostream& print(std::ostream& o) const;};
 
-struct expr : std::variant<operator_plus, operator_minus, operator_multi, terminal>{};
+struct expr : std::variant<operator_plus, operator_minus, operator_multi, operator_divid, operator_power, terminal>{};
 
 // let's print the resulting expression
 template<typename type> concept printable = requires(std::ostream& o, const type& obj){ o << obj; };
@@ -48,9 +50,18 @@ std::ostream& operator<<(std::ostream& o, const operator_minus& p) {
 std::ostream& operator<<(std::ostream& o, const operator_multi& p) {
 	return o << '(' << p.left << " * " << p.right << ')';
 }
+std::ostream& operator<<(std::ostream& o, const operator_divid& p) {
+	return o << '(' << p.left << " / " << p.right << ')';
+}
+std::ostream& operator<<(std::ostream& o, const operator_power& p) {
+	return o << '(' << p.left << " ** " << p.right << ')';
+}
+// may be your can write better, but it just an example :)
 std::ostream& operator_plus::print(std::ostream& o) const { return o << *this; }
 std::ostream& operator_minus::print(std::ostream& o) const { return o << *this; }
 std::ostream& operator_multi::print(std::ostream& o) const { return o << *this; }
+std::ostream& operator_divid::print(std::ostream& o) const { return o << *this; }
+std::ostream& operator_power::print(std::ostream& o) const { return o << *this; }
 
 template<typename gh, template<auto>class th=gh::template term>
 auto make_grammar() {
@@ -61,12 +72,19 @@ auto make_grammar() {
 	// lreq is left reqursion parser, so it stay on left field
 	// lrreq just parses next variant, we need to place it on the right
 	// ++ for store to second field (to binary_expr::right)
-	return
+	return 
 	    cast<binary_expr>(gh::lreq(result_maker) >> th<'+'>::_char >> ++gh::lrreq(result_maker))
 	  | cast<binary_expr>(gh::lreq(result_maker) >> th<'-'>::_char >> ++gh::lrreq(result_maker))
 	  | cast<binary_expr>(gh::lreq(result_maker) >> th<'*'>::_char >> ++gh::lrreq(result_maker))
+	  | cast<binary_expr>(gh::lreq(result_maker) >> th<'/'>::_char >> ++gh::lrreq(result_maker))
+	  | cast<binary_expr>(gh::lreq(result_maker) >> gh::template lit<"**"> >> ++gh::lrreq(result_maker))
+	  | use_variant_result(th<'('>::_char >> gh::lvreq >> th<')'>::_char)
 	  | term
 	  ;
+	// lvreq parser can to be replaced with req parser with hack.
+	// note also use_variant_result - in normal case (without reqursion) variant, passed as result
+	// must to have same element count as the parsers, but the function skips current index and uses
+	// the top level value as result instead.
 }
 
 constexpr void test_expr(auto&& src, auto&& correct) {
@@ -91,6 +109,8 @@ int main(int,char**) {
 	// and the same with minus
 	test_expr("1 + 2 - 3 - 4", "13 (1 + ((2 - 3) - 4))");
 	test_expr("1 + 2 - 3 + 4", "13 ((1 + (2 - 3)) + 4)");
+	test_expr("(1 + 2) * 3 + 4", "15 (((1 + 2) * 3) + 4)");
+	test_expr("(1 + 2) * (3 + 4)", "17 ((1 + 2) * (3 + 4))");
 
 	return 0;
 }
