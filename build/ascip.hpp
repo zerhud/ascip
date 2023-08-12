@@ -1853,6 +1853,7 @@ struct lreq_parser : base_parser<lreq_parser<element_in_seq,var_jump>> {
 			// cur == 0: at least one iteration, with just next parser
 			return expr_count-1;
 	}
+	//TODO: use match table (first accepted parser stored in table with src as key, we can skip terminals parsing on next time)
 	//TODO: implement for copiable result type - it will be faster, maybe
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		constexpr auto pos = decltype(search_in_ctx_constexpr<variant_pos_tag>(decltype(auto(ctx)){}))::pos;

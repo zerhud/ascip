@@ -14,13 +14,20 @@ struct binary_expr {
 	std::unique_ptr<expr> left;
 	std::unique_ptr<expr> right;
 };
+struct ternary_expr {
+	std::unique_ptr<expr> cond;
+	std::unique_ptr<expr> if_true;
+	std::unique_ptr<expr> if_false;
+	std::ostream& print(std::ostream& o) const;
+};
 struct operator_plus : binary_expr {std::ostream& print(std::ostream& o) const;};
 struct operator_minus : binary_expr {std::ostream& print(std::ostream& o) const;};
 struct operator_multi : binary_expr {std::ostream& print(std::ostream& o) const;};
 struct operator_divid : binary_expr {std::ostream& print(std::ostream& o) const;};
+struct operator_extra : binary_expr {std::ostream& print(std::ostream& o) const;};
 struct operator_power : binary_expr {std::ostream& print(std::ostream& o) const;};
 
-struct expr : std::variant<operator_plus, operator_minus, operator_multi, operator_divid, operator_power, terminal>{};
+struct expr : std::variant<ternary_expr, operator_plus, operator_minus, operator_multi, operator_divid, operator_extra, operator_power, terminal>{};
 
 // let's print the resulting expression
 template<typename type> concept printable = requires(std::ostream& o, const type& obj){ o << obj; };
@@ -56,15 +63,20 @@ std::ostream& operator<<(std::ostream& o, const operator_divid& p) {
 std::ostream& operator<<(std::ostream& o, const operator_power& p) {
 	return o << '(' << p.left << " ** " << p.right << ')';
 }
+std::ostream& operator<<(std::ostream& o, const operator_extra& p) {
+	return o << '(' << p.left << " % " << p.right << ')';
+}
 // may be your can write better, but it just an example :)
 std::ostream& operator_plus::print(std::ostream& o) const { return o << *this; }
 std::ostream& operator_minus::print(std::ostream& o) const { return o << *this; }
 std::ostream& operator_multi::print(std::ostream& o) const { return o << *this; }
 std::ostream& operator_divid::print(std::ostream& o) const { return o << *this; }
+std::ostream& operator_extra::print(std::ostream& o) const { return o << *this; }
 std::ostream& operator_power::print(std::ostream& o) const { return o << *this; }
+std::ostream& ternary_expr::print(std::ostream& o) const { return o << *cond << " ? " << *if_true << " : " << *if_false; }
 
 template<typename gh, template<auto>class th=gh::template term>
-auto make_grammar() {
+constexpr auto make_grammar() {
 	// way to create reqursive expression in result
 	// or we can create type with creates with new in ctor and skip result_maker
 	auto result_maker = [](auto& r){ r.reset(new (std::decay_t<decltype(*r)>){}); return r.get(); };
@@ -73,10 +85,12 @@ auto make_grammar() {
 	// lrreq just parses next variant, we need to place it on the right
 	// ++ for store to second field (to binary_expr::right)
 	return 
-	    cast<binary_expr>(gh::lreq(result_maker) >> th<'+'>::_char >> ++gh::lrreq(result_maker))
+	    cast<ternary_expr>(gh::lreq(result_maker) >> th<'?'>::_char >> ++gh::lrreq(result_maker) >> th<':'>::_char >> ++gh::lrreq(result_maker))
+	  | cast<binary_expr>(gh::lreq(result_maker) >> th<'+'>::_char >> ++gh::lrreq(result_maker))
 	  | cast<binary_expr>(gh::lreq(result_maker) >> th<'-'>::_char >> ++gh::lrreq(result_maker))
 	  | cast<binary_expr>(gh::lreq(result_maker) >> th<'*'>::_char >> ++gh::lrreq(result_maker))
 	  | cast<binary_expr>(gh::lreq(result_maker) >> th<'/'>::_char >> ++gh::lrreq(result_maker))
+	  | cast<binary_expr>(gh::lreq(result_maker) >> th<'%'>::_char >> ++gh::lrreq(result_maker))
 	  | cast<binary_expr>(gh::lreq(result_maker) >> gh::template lit<"**"> >> ++gh::lrreq(result_maker))
 	  | use_variant_result(th<'('>::_char >> gh::lvreq >> th<')'>::_char)
 	  | term
@@ -111,6 +125,7 @@ int main(int,char**) {
 	test_expr("1 + 2 - 3 + 4", "13 ((1 + (2 - 3)) + 4)");
 	test_expr("(1 + 2) * 3 + 4", "15 (((1 + 2) * 3) + 4)");
 	test_expr("(1 + 2) * (3 + 4)", "17 ((1 + 2) * (3 + 4))");
+	test_expr("1 ? (1 + 2) * (3 % 4) : 0", "25 1 ? ((1 + 2) * (3 % 4)) : 0");
 
 	return 0;
 }
