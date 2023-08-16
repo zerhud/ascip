@@ -99,14 +99,17 @@ struct result_checker_parser : base_parser<result_checker_parser<good_result, pa
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		static_assert(
 			   ascip_details::is_in_concept_check(decltype(auto(ctx)){})
-			|| std::is_same_v<good_result, decltype(auto(result))>,
-			"can only parser to required type" );
+			|| std::is_same_v<ascip_details::type_any_eq_allow, decltype(auto(result))>
+			|| std::is_same_v<good_result, decltype(auto(result))>
+			, "can only parser to required type" );
 		return p.parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(auto(src))&&>(src), result);
 	}
 	template<auto ind>
 	constexpr auto parse_from(auto&& ctx, auto src, auto& result) const {
-		static_assert( std::is_same_v<good_result, decltype(auto(result))>,
-			"can only parser to required type" );
+		static_assert(
+			   std::is_same_v<good_result, decltype(auto(result))>
+			|| std::is_same_v<ascip_details::type_any_eq_allow, decltype(auto(result))>
+			, "can only parser to required type" );
 		return p.template parse_from<ind>(
 				static_cast<decltype(ctx)&&>(ctx),
 				static_cast<decltype(auto(src))&&>(src),
@@ -115,21 +118,23 @@ struct result_checker_parser : base_parser<result_checker_parser<good_result, pa
 };
 template<typename needed, ascip_details::parser type> struct cast_parser : base_parser<cast_parser<needed,type>> {
 	type p;
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
-		if constexpr ( ascip_details::is_in_concept_check(decltype(auto(ctx)){}) )
-			return 0;
+	constexpr static auto& check_result(auto& result) {
+		if constexpr( std::is_same_v<std::decay_t<decltype(result)>, ascip_details::type_any_eq_allow> ) return result;
 		else {
-		static_assert(requires{ static_cast<needed&>(result); }, "the result must to be castable to needed type" );
-		return p.parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(auto(src))&&>(src), static_cast<needed&>(result));
+			static_assert(requires{ static_cast<needed&>(result); }, "the result must to be castable to needed type" );
+			return static_cast<needed&>(result);
 		}
+	}
+	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+		if constexpr ( ascip_details::is_in_concept_check(decltype(auto(ctx)){}) ) return 0;
+		else return p.parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(auto(src))&&>(src), check_result(result));
 	}
 	template<auto ind>
 	constexpr auto parse_from(auto&& ctx, auto src, auto& result) const {
-		static_assert(requires{ static_cast<needed&>(result); }, "the result must to be castable to needed type" );
 		return p.template parse_from<ind>(
 				static_cast<decltype(ctx)&&>(ctx),
 				static_cast<decltype(auto(src))&&>(src),
-				static_cast<needed&>(result));
+				check_result(result));
 	}
 };
 constexpr static bool test_checkers() {
@@ -138,6 +143,12 @@ constexpr static bool test_checkers() {
 		check<char>(char_<'a'>).parse(make_test_ctx(),make_source('a'),r);
 		});
 	static_assert( requires(char& r) {
+		cast<char>(char_<'a'>).parse(make_test_ctx(),make_source('a'),r);
+		});
+	static_assert( requires(ascip_details::type_any_eq_allow& r) {
+		check<char>(char_<'a'>).parse(make_test_ctx(),make_source('a'),r);
+		});
+	static_assert( requires(ascip_details::type_any_eq_allow& r) {
 		cast<char>(char_<'a'>).parse(make_test_ctx(),make_source('a'),r);
 		});
 	return true;
