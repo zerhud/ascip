@@ -115,6 +115,8 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 
 	template<auto find> constexpr auto call_parse(ascip_details::parser auto& p, auto&& ctx, auto src, auto& result) const requires is_struct_requires<parsers...> {
 		if constexpr (is_field_separator<decltype(auto(p))>) return p.parse(ctx, src, result);
+		else if constexpr ( std::is_same_v<std::decay_t<decltype(result)>, ascip_details::type_any_eq_allow> )
+			return p.parse(ctx, src, result);
 		else {
 			return p.parse(ctx, src, ascip_reflection::get<find>(result));
 		}

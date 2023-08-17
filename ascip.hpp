@@ -48,6 +48,11 @@ template<typename parser> struct base_parser : ascip_details::adl_tag {
 	constexpr static int start_context_arg = 1;
 	constexpr static const char* source_symbol = "ab";
 
+	constexpr auto parse(auto&& ctx, auto src, auto& result) const requires requires(const parser& p){ p.p; } {
+		return static_cast<const parser&>(*this)
+			.p.parse(std::forward<decltype(ctx)>(ctx), std::move(src), result);
+	}
+
 	template<auto ind>
 	constexpr auto parse_from(auto&& ctx, auto src, auto& result) const {
 		return static_cast<const parser&>(*this)
@@ -71,6 +76,7 @@ template<auto... i> friend constexpr auto make_test_ctx(const base_parser<auto>&
 #include "ascip/semact.ipp"
 #include "ascip/wrappers.ipp"
 #include "ascip/variant.ipp"
+#include "ascip/rvariant.ipp"
 #include "ascip/lists.ipp"
 #include "ascip/seq.ipp"
 #include "ascip/lreq.ipp"
@@ -89,6 +95,7 @@ constexpr static void test() {
 	static_assert( fp.test() );
 	static_assert( test_literal_parser() );
 	static_assert( test_variant() );
+	static_assert( test_rvariant() );
 	static_assert( test_range_parser() );
 	static_assert( test_negate() );
 	static_assert( test_optional() );

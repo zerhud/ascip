@@ -36,7 +36,15 @@ template<parser type> constexpr auto skip(const type& p) {
 
 template<parser type> constexpr auto use_variant_result(const type& p) {
 	return typename decltype(auto(p))::holder::template use_variant_result_parser<type>{ {}, p }; }
-
+template<parser type, parser... types> constexpr auto lrexpr(auto&& maker, type&& first, types&&... list) {
+	return typename std::decay_t<type>::holder::rvariant_parser(
+		std::forward<decltype(maker)>(maker),
+		std::forward<decltype(first)>(first),
+		std::forward<decltype(list)>(list)...
+	); }
+template<parser type> constexpr auto lrterm(type&& p) { 
+	using ptype = std::decay_t<decltype(p)>;
+	return typename ptype::holder::template rvariant_term_parser<ptype>{ {}, std::forward<decltype(p)>(p) }; }
 
 // ===============================
 //          parse part
