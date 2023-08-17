@@ -13,11 +13,19 @@ template<typename parser, typename act_t> struct semact_parser : base_parser<sem
 	//constexpr const bool test_act() const {
 		//return requires{ requires std::is_lvalue_reference_v<decltype(act(result))>; };
 	//}
-	constexpr const auto parse(auto&& ctx, auto src, auto& result) const
-		requires requires{ static_cast<const ascip_details::type_result_for_parser_concept&>(result); }
+	constexpr const auto parse(auto&& ctx, auto src, auto& result) const requires
+		std::is_same_v<ascip_details::type_any_eq_allow&, decltype(result)>
+	{
+		return p.parse(std::forward<decltype(ctx)>(ctx), std::move(src), result);
+	}
+	constexpr const auto parse(auto&& ctx, auto src, auto& result) const requires (
+		   requires{ static_cast<const ascip_details::type_result_for_parser_concept&>(result); }
+		&& !std::is_same_v<ascip_details::type_any_eq_allow&, decltype(result)>
+	)
 	{ return 0; }
 	constexpr const auto parse(auto&& ctx, auto src, auto& result) const requires (
 		   !ascip_details::is_in_concept_check(decltype(auto(ctx)){})
+		&& !std::is_same_v<ascip_details::type_any_eq_allow&, decltype(result)>
 		&& !requires{ static_cast<const ascip_details::type_result_for_parser_concept&>(result); }
 		&& requires{ requires std::is_lvalue_reference_v<decltype(act(result))>; }
 		&& !requires{ act(); /* check if ... pattern */ }
@@ -29,6 +37,7 @@ template<typename parser, typename act_t> struct semact_parser : base_parser<sem
 	}
 	constexpr const auto parse(auto&& ctx, auto src, auto& result) const requires (
 		   !ascip_details::is_in_concept_check(decltype(auto(ctx)){})
+		&& !std::is_same_v<ascip_details::type_any_eq_allow&, decltype(result)>
 		&& requires{ requires std::is_pointer_v<decltype(act(result))>; }
 		&& !requires{ act(); /* check if ... pattern */ }
 	) {
