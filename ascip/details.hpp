@@ -7,6 +7,28 @@
 
 namespace ascip_details {
 
+template<typename type>
+struct val_resetter {
+	type* val;
+	type old;
+	constexpr val_resetter(type* val, type nv) : val(val), old(*val) {
+		*val = nv;
+	}
+	constexpr ~val_resetter() {
+		*val = old;
+	}
+};
+
+constexpr void test_val_resetter() {
+	static_assert( []{
+		int val = 10;
+		{
+			val_resetter vr(&val, 20);
+			val /= (val==20);
+		}
+		return val; }() == 10 );
+}
+
 template<typename tag, typename val, typename next_ctx> struct context {
 	using tag_t = tag;
 	using next_t = next_ctx;
@@ -67,6 +89,22 @@ constexpr auto& by_ind_from_ctx(auto&& ctx) {
 	else return ctx_not_found;
 }
 
+template<typename tag>
+constexpr auto remove_from_ctx(auto&& ctx) {
+	using cur_t = decltype(auto(ctx));
+	constexpr const bool last = !requires{ ctx.next(); };
+	constexpr const bool match = std::is_same_v<typename decltype(auto(ctx))::tag_t, tag>;
+	if constexpr (match) {
+		//NOTE: cannot yet remove the last one
+		auto next_ctx = ctx.next();
+		return make_ctx<typename decltype(auto(next_ctx))::tag_t>(next_ctx.v, next_ctx.next());
+	}
+	else {
+		if constexpr (last) return make_ctx<cur_t::tag_t>(ctx.v);
+		else return make_ctx<typename cur_t::tag_t>(ctx.v, ctx.next());
+	}
+}
+
 constexpr void test_context() {
 	struct v1_t{int v=1;}; struct v2_t{int v=2;}; struct v3_t{int v=4;}; struct v4_t{int v=8;};
 	struct t1_t{}; struct t2_t{}; struct t3_t{}; struct t4_t{};
@@ -97,6 +135,11 @@ constexpr void test_context() {
 	static_assert(  exists_in_ctx<t1_t>(make_ctx<t1_t>(v1_t{})) );
 	static_assert( !exists_in_ctx<t2_t>(make_ctx<t1_t>(v1_t{})) );
 	static_cast<const decltype(ctx_not_found)&>(by_ind_from_ctx<0,t2_t>(make_ctx<t1_t>(v2_t{}, make_ctx<t1_t>(v1_t{}))));
+	static_assert( []{
+		auto ctx1 = make_ctx<t1_t>(1, make_ctx<t1_t>(2, make_ctx<t2_t>(3)));
+		auto ctx2 = remove_from_ctx<t1_t>(ctx1);
+		1 / (search_in_ctx<t1_t>(ctx1)==1);
+		return search_in_ctx<t1_t>(ctx2); }() == 2 );
 }
 
 #include "static_string.ipp"

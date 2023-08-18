@@ -7,7 +7,9 @@
 
 
 struct rvariant_stack_tag {};
+struct rvariant_crop_ctx_tag {};
 struct rvariant_copied_result_tag {};
+template<auto ind> struct rvariant_stop_val { constexpr static auto val = ind; };
 constexpr static struct rvariant_lreq_parser : base_parser<rvariant_lreq_parser> {
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		constexpr const bool need_in_result =
@@ -20,15 +22,42 @@ constexpr static struct rvariant_lreq_parser : base_parser<rvariant_lreq_parser>
 		}
 		return 0;
 	}
-} rlreq{};
-constexpr static struct rvariant_rreq_parser : base_parser<rvariant_rreq_parser> {
+} rv_lreq{};
+template<auto stop_ind>
+struct rvariant_rreq_parser : base_parser<rvariant_rreq_parser<stop_ind>> {
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		auto* var = search_in_ctx<rvariant_stack_tag>(ctx);
-		return var->parse(ctx, src, result);
+		auto* croped_ctx = search_in_ctx<rvariant_crop_ctx_tag>(ctx);
+		auto nctx = make_ctx<rvariant_crop_ctx_tag>(croped_ctx, *croped_ctx);
+		return var->template parse_without_prep<stop_ind>(nctx, src, result);
 	}
-} rrreq{};
+};
+template<auto stop_ind> constexpr static rvariant_rreq_parser<stop_ind> rv_rreq{};
+constexpr static struct rvariant_req_parser : base_parser<rvariant_req_parser> {
+	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+		if constexpr (is_in_concept_check(decltype(auto(ctx)){})) return 0;
+		else {
+			auto* var = search_in_ctx<rvariant_stack_tag>(ctx);
+			auto* croped_ctx = search_in_ctx<rvariant_crop_ctx_tag>(ctx);
+			auto nctx = make_ctx<rvariant_crop_ctx_tag>(croped_ctx, *croped_ctx);
+			return var->parse(nctx, src, result);
+		}
+	}
+} rv_req{};
 template<ascip_details::parser parser>
 struct rvariant_term_parser : base_parser<rvariant_term_parser<parser>> { parser p; };
+template<ascip_details::parser parser>
+struct rvariant_top_result_parser : base_parser<rvariant_top_result_parser<parser>> { parser p; };
+
+template<template<class>class wrapper, ascip_details::parser parser> constexpr static auto is_top_result_parser_helper(const wrapper<parser>& p) -> decltype(p.p);
+template<typename parser>
+constexpr static bool is_top_result_parser() {
+	if constexpr (requires{ is_top_result_parser_helper(std::declval<parser>()); })
+		return
+			   is_top_result_parser<decltype(is_top_result_parser_helper(std::declval<parser>()))>()
+			|| ascip_details::is_specialization_of<parser, rvariant_top_result_parser>;
+	else return ascip_details::is_specialization_of<parser, rvariant_top_result_parser>;
+}
 
 template<typename maker_type, ascip_details::parser... parsers>
 struct rvariant_parser : base_parser<rvariant_parser<parsers...>> {
@@ -43,9 +72,20 @@ struct rvariant_parser : base_parser<rvariant_parser<parsers...>> {
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const requires ( ascip_details::is_in_concept_check(decltype(ctx){}) ) {
 		return 0;
 	}
+	template<auto ind, auto cnt, auto cur, typename cur_parser, typename... tail>
+	constexpr static auto _cur_ind() {
+		constexpr const bool skip = is_top_result_parser<cur_parser>();
+		if constexpr (ind == cnt) {
+			if constexpr (skip) return -1;
+			else return cur;
+		}
+		else return _cur_ind<ind,cnt+1,cur+(!skip),tail...>();
+	}
+	template<auto ind> consteval static auto cur_ind() { return _cur_ind<ind,0,0,parsers...>(); }
 	template<auto ind> constexpr static auto& cur_result(auto& result) {
-		if constexpr (requires{ create<1>(result); } ) return create<ind>(result);
-		else if constexpr (requires{ result.template emplace<1>(); } ) return result.template emplace<ind>();
+		if constexpr (cur_ind<ind>() == -1) return result;
+		else if constexpr (requires{ create<1>(result); } ) return create<cur_ind<ind>()>(result);
+		else if constexpr (requires{ result.template emplace<1>(); } ) return result.template emplace<cur_ind<ind>()>();
 		else return result;
 	}
 	constexpr auto copy_result(auto& result) const {
@@ -61,11 +101,12 @@ struct rvariant_parser : base_parser<rvariant_parser<parsers...>> {
 			else return parse_term<ind-1>(ctx, src, result);
 		}
 	}
-	template<auto ind>
-	constexpr auto parse_nonterm(auto&& ctx, auto src, auto& result) const {
-		if constexpr (is_term<ind>()) {
+	template<auto ind, auto stop_pos>
+	constexpr auto parse_nonterm(auto&& ctx, auto src, auto& result, auto shift) const {
+		if constexpr (ind < stop_pos) return shift;
+		else if constexpr (is_term<ind>()) {
 			if constexpr (ind == 0) return 0;
-			else return parse_nonterm<ind-1>(ctx, src, result);
+			else return parse_nonterm<ind-1, stop_pos>(ctx, src, result, shift);
 		}
 		else {
 			ascip_details::type_any_eq_allow result_for_check;
@@ -79,27 +120,28 @@ struct rvariant_parser : base_parser<rvariant_parser<parsers...>> {
 				src += get<ind>(seq).parse(ctx, src, cur_result<ind>(result));
 				pr = get<ind>(seq).parse(ctx, src, result_for_check);
 			}
-			if constexpr (ind==0) return prev_pr;
-			else {
-				if(0 <= pr) return pr;
-				else return parse_nonterm<ind-1>(ctx, src, result);
-			}	
+			auto total_shift = shift + (prev_pr*(prev_pr>0));
+			if constexpr (ind==0) return total_shift;
+			else return parse_nonterm<ind-1, stop_pos>(ctx, src, result, total_shift);
 		}
 	}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	template<auto stop_pos>
+	constexpr auto parse_without_prep(auto&& ctx, auto src, auto& result) const {
 		auto term_r = parse_term<sizeof...(parsers)-1>(ctx, src, result);
 		if(term_r < 0) return term_r;
-		auto nonterm_r = term_r;
-		if constexpr (exists_in_ctx<rvariant_stack_tag>(decltype(auto(ctx)){}))
-			nonterm_r = parse_nonterm<sizeof...(parsers)-1>(ctx, src += term_r, result);
-		else  {
-			using copied_result_type = decltype(copy_result(result));
-			auto nctx = make_ctx<rvariant_copied_result_tag>(
-					(copied_result_type*)nullptr,
-					make_ctx<rvariant_stack_tag>(this, ctx));
-			nonterm_r = parse_nonterm<sizeof...(parsers)-1>(nctx, src += term_r, result);
-		}
+		auto nonterm_r = parse_nonterm<sizeof...(parsers)-1, stop_pos>(ctx, src += term_r, result, 0);
 		return term_r + (nonterm_r*(nonterm_r>0));
+	}
+	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+		if constexpr (exists_in_ctx<rvariant_stack_tag>(decltype(auto(ctx)){}))
+			return parse_without_prep<0>(ctx, src, result);
+		else {
+			using copied_result_type = decltype(copy_result(result));
+			auto nctx =
+				make_ctx<rvariant_copied_result_tag>((copied_result_type*)nullptr,
+				make_ctx<rvariant_stack_tag>(this, ctx));
+			return parse_without_prep<0>(make_ctx<rvariant_crop_ctx_tag>(&nctx, nctx), src, result);
+		}
 	}
 };
 
@@ -112,13 +154,17 @@ constexpr static auto test_rvariant_simple(auto r, auto&& src, auto&&... parsers
 }
 template<typename dbl_expr>
 constexpr static auto test_rvariant_val(auto r, auto&& maker, auto pr, auto&& src) {
+	static_assert( is_top_result_parser<decltype(rv_term(rv_result(_char<'*'>)))>() );
 	constexpr auto rmaker = [](auto& r){ r.reset(new (std::decay_t<decltype(*r)>){}); return r.get(); };
 	auto cr = lrexpr(std::forward<decltype(maker)>(maker)
-		, cast<dbl_expr>(rlreq++ >> _char<'+'> >> rrreq(rmaker))
-		, cast<dbl_expr>(rlreq++ >> _char<'*'> >> rrreq(rmaker))
-		, lrterm(int_)
-		, lrterm(fp)
-		, lrterm(quoted_string)
+		, cast<dbl_expr>(rv_lreq++ >> _char<'+'> >> rv_rreq<0>(rmaker))
+		, cast<dbl_expr>(rv_lreq++ >> _char<'-'> >> rv_rreq<1>(rmaker))
+		, cast<dbl_expr>(rv_lreq++ >> _char<'*'> >> rv_rreq<2>(rmaker))
+		, cast<dbl_expr>(rv_lreq++ >> _char<'/'> >> rv_rreq<3>(rmaker))
+		, rv_term(int_)
+		, rv_term(fp)
+		, rv_term(quoted_string)
+		, rv_term(rv_result(_char<'('> >> rv_req >> _char<')'>))
 		).parse(make_test_ctx(), make_source(src), r);
 	cr /= (cr == pr);
 	return r;
@@ -132,25 +178,33 @@ constexpr static bool test_rvariant_dexpr() {
 		factory_t::template unique_ptr<expr_rt> right;
 	};
 	struct mul_expr : dbl_expr {} ;
+	struct min_expr : dbl_expr {} ;
 	struct pls_expr : dbl_expr {} ;
-	struct expr_rt : factory_t::variant<pls_expr, mul_expr, int, double, decltype(mk_str())> {};
+	struct div_expr : dbl_expr {} ;
+	struct expr_rt : factory_t::variant<pls_expr, min_expr, mul_expr, div_expr, int, double, decltype(mk_str())> {};
 	constexpr auto pls_ind = 0;
-	constexpr auto mul_ind = 1;
-	constexpr auto int_ind = 2;
-	constexpr auto fp_ind = 3;
+	constexpr auto mul_ind = 2;
+	constexpr auto int_ind = 4;
+	constexpr auto fp_ind = int_ind+1;
 
 	constexpr auto maker = [](auto& r){ return typename factory_t::template unique_ptr<expr_rt>( new expr_rt{std::move(r)} ); };
 	static_assert( get<int_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 3, "123")) == 123 );
 	static_assert( get<fp_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 3, "0.5")) == 0.5 );
-	static_assert( get<mul_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 3, "1*5")).left.get() != nullptr );
-	static_assert( get<mul_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 3, "1*5")).right.get() != nullptr );
+	static_assert( get<int_ind>(*get<mul_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 3, "1*5")).left) == 1 );
+	static_assert( get<int_ind>(*get<mul_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 3, "1*5")).right) == 5 );
+	static_assert( get<int_ind>(*get<pls_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 5, "1*5+7")).right) == 7 );
+	static_assert( get<int_ind>(*get<mul_ind>(*get<pls_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 5, "1*5+7")).left).left) == 1 );
+	static_assert( get<int_ind>(*get<mul_ind>(*get<pls_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 5, "1*5+7")).left).right) == 5 );
+	static_assert( get<int_ind>(*get<mul_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 7, "1*(5+7)")).left) == 1 );
+	static_assert( get<int_ind>(*get<pls_ind>(*get<mul_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 7, "1*(5+7)")).right).left) == 5 );
+	static_assert( get<int_ind>(*get<pls_ind>(*get<mul_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 7, "1*(5+7)")).right).right) == 7 );
 
 	return true;
 }
 
 constexpr static bool test_rvariant() {
-	static_assert( test_rvariant_simple(int{}, "123", lrterm(int_), lrterm(fp)) == 123 );
-	static_assert( test_rvariant_simple(double{}, "1.2", lrterm(int_), lrterm(fp)) == 1.2 );
+	static_assert( test_rvariant_simple(int{}, "123", rv_term(int_), rv_term(fp)) == 123 );
+	static_assert( test_rvariant_simple(double{}, "1.2", rv_term(int_), rv_term(fp)) == 1.2 );
 	return test_rvariant_dexpr();
 	return true;
 }

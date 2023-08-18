@@ -42,9 +42,12 @@ template<parser type, parser... types> constexpr auto lrexpr(auto&& maker, type&
 		std::forward<decltype(first)>(first),
 		std::forward<decltype(list)>(list)...
 	); }
-template<parser type> constexpr auto lrterm(type&& p) { 
+template<parser type> constexpr auto rv_term(type&& p) { 
 	using ptype = std::decay_t<decltype(p)>;
 	return typename ptype::holder::template rvariant_term_parser<ptype>{ {}, std::forward<decltype(p)>(p) }; }
+template<parser type> constexpr auto rv_result(type&& p) { 
+	using ptype = std::decay_t<decltype(p)>;
+	return typename ptype::holder::template rvariant_top_result_parser<ptype>{ {}, std::forward<decltype(p)>(p) }; }
 
 // ===============================
 //          parse part
