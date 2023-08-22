@@ -70,13 +70,13 @@ constexpr auto parse(const auto& parser, auto src, auto& result) {
 constexpr auto parse(const auto& parser, const auto& skip, auto src, auto& result) {
 	auto ctx = decltype(auto(parser))::holder::make_test_ctx();
 	return decltype(auto(parser))::holder::template
-		inject_skipping<true>(std::decay_t<decltype(parser)>(parser), std::decay_t<decltype(skip)>(skip)).parse(ctx, src, result);
+		inject_skipping(std::decay_t<decltype(parser)>(parser), std::decay_t<decltype(skip)>(skip)).parse(ctx, src, result);
 }
 
 constexpr auto parse(auto&& parser, auto&& skip, auto src, auto& result, const auto& err) {
 	auto ctx = decltype(auto(parser))::holder::make_test_ctx(&err);
 	return decltype(auto(parser))::holder::template
-		inject_skipping<true>(std::move(parser), std::move(skip)).parse(ctx, src, result);
+		inject_skipping(std::move(parser), std::move(skip)).parse(ctx, src, result);
 }
 
 

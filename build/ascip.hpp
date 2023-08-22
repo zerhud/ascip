@@ -392,13 +392,13 @@ constexpr auto parse(const auto& parser, auto src, auto& result) {
 constexpr auto parse(const auto& parser, const auto& skip, auto src, auto& result) {
 	auto ctx = decltype(auto(parser))::holder::make_test_ctx();
 	return decltype(auto(parser))::holder::template
-		inject_skipping<true>(std::decay_t<decltype(parser)>(parser), std::decay_t<decltype(skip)>(skip)).parse(ctx, src, result);
+		inject_skipping(std::decay_t<decltype(parser)>(parser), std::decay_t<decltype(skip)>(skip)).parse(ctx, src, result);
 }
 
 constexpr auto parse(auto&& parser, auto&& skip, auto src, auto& result, const auto& err) {
 	auto ctx = decltype(auto(parser))::holder::make_test_ctx(&err);
 	return decltype(auto(parser))::holder::template
-		inject_skipping<true>(std::move(parser), std::move(skip)).parse(ctx, src, result);
+		inject_skipping(std::move(parser), std::move(skip)).parse(ctx, src, result);
 }
 
 
@@ -2657,62 +2657,13 @@ struct injection_mutator {
 	}
 };
 
-template<auto unused, ascip_details::parser parser, ascip_details::parser skipper>
+template<ascip_details::parser parser, ascip_details::parser skipper>
 constexpr static auto inject_skipping(parser&& to, skipper&& what) {
 	using mutator = injection_mutator<std::decay_t<skipper>>;
 	return transform<mutator>(std::move(to));
 }
 template<ascip_details::parser p1, ascip_details::parser p2> constexpr static auto make_injected(const p1& l, const p2& r) {
 	return typename p1::holder::template injected_parser<p1, p2>{ {}, l, r }; }
-/*
-
-template<ascip_details::parser p1, ascip_details::parser p2> constexpr static auto make_injected(const p1& l, const p2& r) {
-	return typename decltype(auto(l))::holder::template injected_parser<p1, p2>{ {}, l, r }; }
-
-template<bool apply, auto... inds, template<typename...>class result_t, ascip_details::parser... parsers>
-constexpr static auto inject_skipping_seq(const result_t<parsers...>& to, const auto& what, auto&&... args) {
-	if constexpr (sizeof...(inds) == sizeof...(parsers))
-		return result_t<decltype(auto(args))...>( std::forward<decltype(args)>(args)... );
-	else return inject_skipping_seq<apply, inds..., sizeof...(inds)>(
-			to, what, std::forward<decltype(args)>(args)...,
-			inject_skipping<apply>(get<sizeof...(inds)>( to.seq ), what)
-	);
-}
-
-template<bool apply> constexpr static auto inject_skipping(const auto& to, const auto& what) {
-	if constexpr (apply) return make_injected(what, to);
-	else return to; };
-template<bool apply, ascip_details::parser... parsers> constexpr static auto
-inject_skipping(const opt_seq_parser<parsers...>& to, const auto& what) { return inject_skipping_seq<apply>(to, what); }
-template<bool apply, auto val, ascip_details::parser type> constexpr static auto
-inject_skipping(const _seq_inc_rfield_val<val, type>& p, const auto& s) {
-	return  finc<val>(inject_skipping<apply>(static_cast<const type&>(p), s)); }
-template<bool apply, ascip_details::parser type> constexpr static auto
-inject_skipping(const lexeme_parser<type>& to, const auto& what) {
-	return injected_parser{ {}, what, inject_skipping<false>(to.p, what) }; }
-template<bool apply, ascip_details::parser type> constexpr static auto
-inject_skipping(const skip_parser<type>& to, const auto& what) { return inject_skipping<true>(to.p, what); }
-template<bool apply, ascip_details::parser... parsers> constexpr static auto
-inject_skipping(const variant_parser<parsers...>& to, const auto& what) { return inject_skipping_seq<apply>(to, what); }
-template<bool apply, typename tag, ascip_details::parser type> constexpr static auto
-inject_skipping(const result_checker_parser<tag, type>& p, const auto& s) {
-	return check<tag>( inject_skipping<apply>(p.p, s) ); }
-template<bool apply, typename tag, ascip_details::parser type> constexpr static auto inject_skipping(const cast_parser<tag, type>& p, const auto& s) {
-	return cast<tag>( inject_skipping<apply>(p.p, s) ); }
-template<bool apply, template<typename>class wrapper_type, ascip_details::parser wrapped_type> constexpr static auto
-inject_skipping(const wrapper_type<wrapped_type>& to, const auto& what) {
-	if constexpr (requires{ wrapper_type{ {}, inject_skipping<apply>(to.p, what) }; })
-		return wrapper_type{ {}, inject_skipping<apply>(to.p, what) };
-	else
-		return wrapper_type{ inject_skipping<apply>(static_cast<const wrapped_type&>(to), what) };
-}
-template<bool apply, template<typename,typename>class wrapper_type, ascip_details::parser wrapped_type1, ascip_details::parser wrapped_type2> constexpr static auto
-inject_skipping(const wrapper_type<wrapped_type1, wrapped_type2>& to, const auto& what)
-requires (
-  !requires{ static_cast<const opt_seq_parser<wrapped_type1,wrapped_type2>&>(to); } &&
-  !requires{ static_cast<const variant_parser<wrapped_type1,wrapped_type2>&>(to); }) {
-	return wrapper_type{ inject_skipping<apply>(ascip_reflection::get<0>(to), what), inject_skipping<apply>(ascip_reflection::get<1>(to), what) }; }
-	*/
 
 constexpr static bool test_injection_parser() {
 	static_assert( ({ char r='z'; make_injected(char_<' '>, char_<'a'>).parse(make_test_ctx(), make_source(" a"), r);
@@ -2739,36 +2690,34 @@ constexpr static bool test_seq_injection() {
 	using p2_t = decltype(auto(p2));
 	using inj_t = injected_parser<p2_t,p1_t>;
 
-	//static_cast<const decltype(p1)&>(inject_skipping<false>(p1, p2));
-	static_cast<const inj_t&>(inject_skipping<true>(p1, p2));
-	//static_cast<const opt_seq_parser<p1_t, p1_t>&>(inject_skipping<false>(p1 >> p1, p2));
-	static_cast<const opt_seq_parser<inj_t, inj_t>&>(inject_skipping<true>(p1 >> p1, p2));
+	static_cast<const inj_t&>(inject_skipping(p1, p2));
+	static_cast<const opt_seq_parser<inj_t, inj_t>&>(inject_skipping(p1 >> p1, p2));
 
-	static_cast<const injected_parser<p2_t,opt_seq_parser<p1_t, p1_t, p1_t>>&>(inject_skipping<true>(lexeme(p1 >> p1 >> p1), p2));
+	static_cast<const injected_parser<p2_t,opt_seq_parser<p1_t, p1_t, p1_t>>&>(inject_skipping(lexeme(p1 >> p1 >> p1), p2));
 	static_cast<const injected_parser<p2_t,opt_seq_parser<p1_t, opt_seq_parser<inj_t, inj_t>>>&>(
-			inject_skipping<true>(lexeme(p1 >> skip(p1 >> p1)), p2));
+			inject_skipping(lexeme(p1 >> skip(p1 >> p1)), p2));
 
-	static_cast<const variant_parser<inj_t,inj_t>&>(inject_skipping<true>( p1|p1, p2 ));
-	static_cast<const variant_parser<inj_t,inj_t,inj_t>&>(inject_skipping<true>( p1|p1|p1, p2 ));
+	static_cast<const variant_parser<inj_t,inj_t>&>(inject_skipping( p1|p1, p2 ));
+	static_cast<const variant_parser<inj_t,inj_t,inj_t>&>(inject_skipping( p1|p1|p1, p2 ));
 	static_cast<const variant_parser<
 		result_checker_parser<char,inj_t>,
 		cast_parser<char,inj_t>
-		>&>(inject_skipping<true>( check<char>(p1)|cast<char>(p1), p2 ));
+		>&>(inject_skipping( check<char>(p1)|cast<char>(p1), p2 ));
 
-	static_cast<const unary_list_parser<inj_t>&>(inject_skipping<true>( +p1, p2 ));
-	static_cast<const unary_list_parser<opt_seq_parser<inj_t,inj_t>>&>(inject_skipping<true>( +(p1>>p1), p2 ));
+	static_cast<const unary_list_parser<inj_t>&>(inject_skipping( +p1, p2 ));
+	static_cast<const unary_list_parser<opt_seq_parser<inj_t,inj_t>>&>(inject_skipping( +(p1>>p1), p2 ));
 
-	static_cast<const opt_parser<inj_t>&>(inject_skipping<true>( -p1, p2 ));
-	static_cast<const opt_parser<opt_seq_parser<inj_t,inj_t>>&>(inject_skipping<true>( -(p1>>p1), p2 ));
+	static_cast<const opt_parser<inj_t>&>(inject_skipping( -p1, p2 ));
+	static_cast<const opt_parser<opt_seq_parser<inj_t,inj_t>>&>(inject_skipping( -(p1>>p1), p2 ));
 
-	static_cast<const different_parser<inj_t, inj_t>&>(inject_skipping<true>( p1 - p1, p2 ));
+	static_cast<const different_parser<inj_t, inj_t>&>(inject_skipping( p1 - p1, p2 ));
 	static_cast<const opt_seq_parser<
 		inj_t,
 		different_parser<
 		  opt_seq_parser<inj_t,inj_t>,
 		  inj_t
 		>
-		>&>(inject_skipping<true>( p1 >> (p1>>p1) - p1, p2 ));
+		>&>(inject_skipping( p1 >> (p1>>p1) - p1, p2 ));
 
 	static_assert( ({ char r='z'; int t=0;
 		auto p = char_<'a'> >> char_<'b'> >> [&t](...){++t;return 0;};
@@ -2779,27 +2728,27 @@ constexpr static bool test_seq_injection() {
 		p.parse(make_test_ctx(), make_source(mk_str("ab")), r);
 	t; }) == 1, "injection works with semact" );
 	static_assert( ({ char r='z'; int t=0;
-		auto p = inject_skipping<true>(char_<'a'> >> char_<'b'>([&t](...){++t;}), +space);
+		auto p = inject_skipping(char_<'a'> >> char_<'b'>([&t](...){++t;}), +space);
 		p.parse(make_test_ctx(), make_source(mk_str("ab")), r);
 	t; }) == 1, "injection works with semact" );
 	static_assert( ({ char r='z'; int t=0;
-		auto p = inject_skipping<true>(char_<'a'> >> cast<char>(char_<'b'>([&t](...){++t;})), +space);
+		auto p = inject_skipping(char_<'a'> >> cast<char>(char_<'b'>([&t](...){++t;})), +space);
 		p.parse(make_test_ctx(), make_source(mk_str("abc")), r);
 	t; }) == 1, "injection works with semact" );
 
-	static_cast<const variant_parser<inj_t,inj_t>&>(inject_skipping<true>( p1|p1, p2 ));
-	static_cast<const variant_parser<inj_t,inj_t,inj_t>&>(inject_skipping<true>( p1|p1|p1, p2 ));
+	static_cast<const variant_parser<inj_t,inj_t>&>(inject_skipping( p1|p1, p2 ));
+	static_cast<const variant_parser<inj_t,inj_t,inj_t>&>(inject_skipping( p1|p1|p1, p2 ));
 	static_cast<const variant_parser<
 		result_checker_parser<char,inj_t>,
 		result_checker_parser<char,inj_t>
-		>&>(inject_skipping<true>( check<char>(p1)|check<char>(p1), p2 ));
+		>&>(inject_skipping( check<char>(p1)|check<char>(p1), p2 ));
 
-	static_cast<const result_checker_parser<int, inj_t>&>(inject_skipping<true>( check<int>(p1), p2 ));
-	static_cast<const result_checker_parser<int, opt_seq_parser<inj_t,inj_t>>&>(inject_skipping<true>( check<int>(p1 >> p1), p2 ));
+	static_cast<const result_checker_parser<int, inj_t>&>(inject_skipping( check<int>(p1), p2 ));
+	static_cast<const result_checker_parser<int, opt_seq_parser<inj_t,inj_t>>&>(inject_skipping( check<int>(p1 >> p1), p2 ));
 
 	static_assert( ({ char r; const auto parser = +alpha; const auto skipper = +space;
-		inject_skipping<true>(parser, skipper).parse(make_test_ctx(), make_source(" a b c "), r); }) == -1 );
-	static_cast<const binary_list_parser<inj_t, inj_t>&>(inject_skipping<true>( p1 % p1, p2 ));
+		inject_skipping(parser, skipper).parse(make_test_ctx(), make_source(" a b c "), r); }) == -1 );
+	static_cast<const binary_list_parser<inj_t, inj_t>&>(inject_skipping( p1 % p1, p2 ));
 
 	return true;
 }
