@@ -25,14 +25,19 @@ constexpr static struct rvariant_lreq_parser : base_parser<rvariant_lreq_parser>
 } rv_lreq{};
 template<auto stop_ind>
 struct rvariant_rreq_parser : base_parser<rvariant_rreq_parser<stop_ind>> {
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr auto parse(auto&& ctx, auto, auto&) const requires (is_in_concept_check(decltype(auto(ctx)){})) { return 0; }
+	constexpr auto parse(auto&& ctx, auto src, auto& result) const requires (!is_in_concept_check(decltype(auto(ctx)){})) {
+		if(!src) return 0;
 		auto* var = search_in_ctx<rvariant_stack_tag>(ctx);
 		auto* croped_ctx = search_in_ctx<rvariant_crop_ctx_tag>(ctx);
 		auto nctx = make_ctx<rvariant_crop_ctx_tag>(croped_ctx, *croped_ctx);
-		return var->template parse_without_prep<stop_ind>(nctx, src, result);
+		return var->template parse_without_prep<stop_ind+1>(nctx, src, result);
 	}
 };
-template<auto stop_ind> constexpr static rvariant_rreq_parser<stop_ind> rv_rreq{};
+template<auto stop_ind> constexpr static rvariant_rreq_parser<stop_ind> _rv_rreq{};
+constexpr static
+	struct rvariant_rreq_pl_parser : base_parser<rvariant_rreq_pl_parser> { constexpr auto parse(auto&& ctx, auto src, auto& result) const { return 0; } }
+	rv_rreq{};
 constexpr static struct rvariant_req_parser : base_parser<rvariant_req_parser> {
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr (is_in_concept_check(decltype(auto(ctx)){})) return 0;
@@ -44,8 +49,6 @@ constexpr static struct rvariant_req_parser : base_parser<rvariant_req_parser> {
 		}
 	}
 } rv_req{};
-template<ascip_details::parser parser>
-struct rvariant_term_parser : base_parser<rvariant_term_parser<parser>> { parser p; };
 template<ascip_details::parser parser>
 struct rvariant_top_result_parser : base_parser<rvariant_top_result_parser<parser>> { parser p; };
 
@@ -67,7 +70,8 @@ struct rvariant_parser : base_parser<rvariant_parser<parsers...>> {
 
 	template<auto ind> constexpr static bool is_term() {
 		using cur_parser_t = std::decay_t<decltype(get<ind>(seq))>;
-		return ascip_details::is_specialization_of<cur_parser_t, rvariant_term_parser>;
+		auto checker = [](const auto* p){return std::is_same_v<std::decay_t<decltype(*p)>, std::decay_t<decltype(rv_lreq)>>;};
+		return !exists_in((cur_parser_t*)nullptr, checker);
 	}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const requires ( ascip_details::is_in_concept_check(decltype(ctx){}) ) {
 		return 0;
@@ -103,6 +107,7 @@ struct rvariant_parser : base_parser<rvariant_parser<parsers...>> {
 	}
 	template<auto ind, auto stop_pos>
 	constexpr auto parse_nonterm(auto&& ctx, auto src, auto& result, auto shift) const {
+		if(!src) return shift;
 		if constexpr (ind < stop_pos) return shift;
 		else if constexpr (is_term<ind>()) {
 			if constexpr (ind == 0) return 0;
@@ -111,10 +116,10 @@ struct rvariant_parser : base_parser<rvariant_parser<parsers...>> {
 		else {
 			ascip_details::type_any_eq_allow result_for_check;
 			auto pr = get<ind>(seq).parse(ctx, src, result_for_check);
-			auto prev_pr = pr;
+			decltype(pr) prev_pr = 0;
 			while(0 < pr) {
+				prev_pr += pr;
 				auto cur = copy_result(result);
-				auto prev_pr = pr;
 				if constexpr (!std::is_same_v<decltype(result), ascip_details::type_any_eq_allow&>)
 					search_in_ctx<rvariant_copied_result_tag>(ctx) = &cur;
 				src += get<ind>(seq).parse(ctx, src, cur_result<ind>(result));
@@ -145,8 +150,19 @@ struct rvariant_parser : base_parser<rvariant_parser<parsers...>> {
 	}
 };
 
+template<auto ind>
+struct rvariant_mutator {
+	struct context{};
+	constexpr static auto create_ctx() { return context{}; }
+	constexpr static auto create_ctx(auto&&,auto&&) { return context{}; }
+	template<typename type>
+	constexpr static auto apply(rvariant_rreq_pl_parser&&,auto&&) {
+		return rvariant_rreq_parser<ind>{};
+	}
+};
+
 constexpr static auto test_rvariant_simple(auto r, auto&& src, auto&&... parsers) {
-	auto var = lrexpr([](auto& r){return &r;}, parsers...);
+	auto var = rv([](auto& r){return &r;}, parsers...);
 	var.parse(make_test_ctx(), make_source(src), r);
 	static_assert( var.template is_term<0>() );
 	static_assert( var.template is_term<1>() );
@@ -154,17 +170,16 @@ constexpr static auto test_rvariant_simple(auto r, auto&& src, auto&&... parsers
 }
 template<typename dbl_expr>
 constexpr static auto test_rvariant_val(auto r, auto&& maker, auto pr, auto&& src) {
-	static_assert( is_top_result_parser<decltype(rv_term(rv_result(_char<'*'>)))>() );
 	constexpr auto rmaker = [](auto& r){ r.reset(new (std::decay_t<decltype(*r)>){}); return r.get(); };
-	auto cr = lrexpr(std::forward<decltype(maker)>(maker)
-		, cast<dbl_expr>(rv_lreq++ >> _char<'+'> >> rv_rreq<0>(rmaker))
-		, cast<dbl_expr>(rv_lreq++ >> _char<'-'> >> rv_rreq<1>(rmaker))
-		, cast<dbl_expr>(rv_lreq++ >> _char<'*'> >> rv_rreq<2>(rmaker))
-		, cast<dbl_expr>(rv_lreq++ >> _char<'/'> >> rv_rreq<3>(rmaker))
-		, rv_term(int_)
-		, rv_term(fp)
-		, rv_term(quoted_string)
-		, rv_term(rv_result(_char<'('> >> rv_req >> _char<')'>))
+	auto cr = rv(std::forward<decltype(maker)>(maker)
+		, cast<dbl_expr>(rv_lreq++ >> _char<'+'> >> rv_rreq(rmaker))
+		, cast<dbl_expr>(rv_lreq++ >> _char<'-'> >> rv_rreq(rmaker))
+		, cast<dbl_expr>(rv_lreq++ >> _char<'*'> >> rv_rreq(rmaker))
+		, cast<dbl_expr>(rv_lreq++ >> _char<'/'> >> rv_rreq(rmaker))
+		, int_
+		, fp
+		, quoted_string
+		, rv_result(_char<'('> >> rv_req >> _char<')'>)
 		).parse(make_test_ctx(), make_source(src), r);
 	cr /= (cr == pr);
 	return r;
@@ -203,8 +218,8 @@ constexpr static bool test_rvariant_dexpr() {
 }
 
 constexpr static bool test_rvariant() {
-	static_assert( test_rvariant_simple(int{}, "123", rv_term(int_), rv_term(fp)) == 123 );
-	static_assert( test_rvariant_simple(double{}, "1.2", rv_term(int_), rv_term(fp)) == 1.2 );
+	static_assert( test_rvariant_simple(int{}, "123", int_, fp) == 123 );
+	static_assert( test_rvariant_simple(double{}, "1.2", int_, fp) == 1.2 );
 	return test_rvariant_dexpr();
 	return true;
 }

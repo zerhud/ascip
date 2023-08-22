@@ -87,10 +87,10 @@ template<typename type> constexpr static auto num_field_val() {
 }
 
 struct seq_inc_rfield : base_parser<seq_inc_rfield> {constexpr auto parse(auto&&,auto,auto&)const {return 0;} } sfs ;
-template<ascip_details::parser p> struct seq_inc_rfield_after : p {};
-template<ascip_details::parser p> struct seq_inc_rfield_before : p {};
-template<ascip_details::parser p> struct seq_dec_rfield_after : p {};
-template<ascip_details::parser p> struct seq_dec_rfield_before : p {};
+template<ascip_details::parser parser> struct seq_inc_rfield_after : base_parser<seq_inc_rfield_after<parser>> { parser p; };
+template<ascip_details::parser parser> struct seq_inc_rfield_before : base_parser<seq_inc_rfield_before<parser>> { parser p; };
+template<ascip_details::parser parser> struct seq_dec_rfield_after : base_parser<seq_dec_rfield_after<parser>> { parser p; };
+template<ascip_details::parser parser> struct seq_dec_rfield_before : base_parser<seq_dec_rfield_before<parser>> { parser p; };
 template<typename concrete, typename... parsers> struct com_seq_parser : base_parser<concrete>, ascip_details::seq_tag {
 	tuple<parsers...> seq;
 
@@ -102,6 +102,8 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 	template<typename type> constexpr static bool is_inc_field_val = ascip_details::is_specialization_of<type, seq_inc_rfield_val>;
 	template<typename type> constexpr static bool is_num_field_val = ascip_details::is_specialization_of<type, seq_num_rfield_val>;
 	template<typename type> constexpr static bool is_inc_field_after = ascip_details::is_specialization_of<type, seq_inc_rfield_after>;
+	//template<typename type> constexpr static bool is_inc_field_after = exists_in((type*)nullptr, [](const auto* p){return
+			//ascip_details::is_specialization_of<std::decay_t<decltype(*p)>, seq_inc_rfield_after>; });
 	template<typename type> constexpr static bool is_inc_field_before = ascip_details::is_specialization_of<type, seq_inc_rfield_before>;
 	template<typename type> constexpr static bool is_dec_field_after = ascip_details::is_specialization_of<type, seq_dec_rfield_after>;
 	template<typename type> constexpr static bool is_dec_field_before = ascip_details::is_specialization_of<type, seq_dec_rfield_before>;
@@ -138,6 +140,7 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 		auto& cur = get<pind>(seq);
 		auto ret = call_parse<cur_field>(cur, ctx, src, result);
 		src += ret * (0 <= ret);
+		//NOTE: check src and return  ret if no more data exists?
 		*search_in_ctx<seq_shift_stack_tag>(ctx) += ret * (0 <= ret);
 		if constexpr (pind+1 == sizeof...(parsers)) return ret; 
 		else {

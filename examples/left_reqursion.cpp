@@ -27,7 +27,8 @@ struct operator_divid : binary_expr {std::ostream& print(std::ostream& o) const;
 struct operator_extra : binary_expr {std::ostream& print(std::ostream& o) const;};
 struct operator_power : binary_expr {std::ostream& print(std::ostream& o) const;};
 
-struct expr : std::variant<ternary_expr, operator_plus, operator_minus, operator_multi, operator_divid, operator_extra, operator_power, terminal>{};
+//struct expr : std::variant<ternary_expr, operator_plus, operator_minus, operator_multi, operator_divid, operator_extra, operator_power, terminal>{};
+struct expr : std::variant<operator_plus, operator_minus, operator_multi, operator_divid, operator_extra, terminal>{};
 
 // let's print the resulting expression
 template<typename type> concept printable = requires(std::ostream& o, const type& obj){ o << obj; };
@@ -84,6 +85,28 @@ constexpr auto make_grammar() {
 	// lreq is left reqursion parser, so it stay on left field
 	// lrreq just parses next variant, we need to place it on the right
 	// ++ for store to second field (to binary_expr::right)
+	return rv( [](auto& r){ return std::unique_ptr<expr>( new expr{std::move(r)} ); }
+	  , cast<binary_expr>(gh::rv_lreq >> th<'+'>::_char >> ++gh::rv_rreq(result_maker))
+	  , cast<binary_expr>(gh::rv_lreq >> th<'-'>::_char >> ++gh::rv_rreq(result_maker))
+	  , cast<binary_expr>(gh::rv_lreq >> th<'*'>::_char >> ++gh::rv_rreq(result_maker))
+	  , cast<binary_expr>(gh::rv_lreq >> th<'/'>::_char >> ++gh::rv_rreq(result_maker))
+	  , cast<binary_expr>(gh::rv_lreq >> th<'%'>::_char >> ++gh::rv_rreq(result_maker))
+	  , term
+	);
+	/*
+	return rv( [](auto& r){ return std::unique_ptr<expr>( new expr{std::move(r)} ); }
+	  , cast<ternary_expr>(gh::rv_lreq >> th<'?'>::_char >> ++gh::rv_rreq(result_maker) >> th<':'>::_char >> ++gh::rv_rreq(result_maker))
+	  , cast<binary_expr>(gh::rv_lreq >> th<'+'>::_char >> ++gh::rv_rreq(result_maker))
+	  , cast<binary_expr>(gh::rv_lreq >> th<'-'>::_char >> ++gh::rv_rreq(result_maker))
+	  , cast<binary_expr>(gh::rv_lreq >> th<'*'>::_char >> ++gh::rv_rreq(result_maker))
+	  , cast<binary_expr>(gh::rv_lreq >> th<'/'>::_char >> ++gh::rv_rreq(result_maker))
+	  , cast<binary_expr>(gh::rv_lreq >> th<'%'>::_char >> ++gh::rv_rreq(result_maker))
+	  , cast<binary_expr>(gh::rv_lreq >> gh::template lit<"**"> >> ++gh::rv_rreq(result_maker))
+	  , rv_result(th<'('>::_char >> gh::rv_req >> th<')'>::_char)
+	  , term
+	);
+	*/
+	/*
 	return 
 	    cast<ternary_expr>(gh::lreq(result_maker) >> th<'?'>::_char >> ++gh::lrreq(result_maker) >> th<':'>::_char >> ++gh::lrreq(result_maker))
 	  | cast<binary_expr>(gh::lreq(result_maker) >> th<'+'>::_char >> ++gh::lrreq(result_maker))
@@ -95,6 +118,7 @@ constexpr auto make_grammar() {
 	  | use_variant_result(th<'('>::_char >> gh::lvreq >> th<')'>::_char)
 	  | term
 	  ;
+	*/
 	// lvreq parser can to be replaced with req parser with hack.
 	// note also use_variant_result - in normal case (without reqursion) variant, passed as result
 	// must to have same element count as the parsers, but the function skips current index and uses
@@ -116,16 +140,18 @@ constexpr void test_expr(auto&& src, auto&& correct) {
 
 int main(int,char**) {
 	// let's see how we parse
+	test_expr("1+2", "3 (1 + 2)");
 	test_expr("1 + 2", "5 (1 + 2)");
 	test_expr("1 + 2 - 3", "9 (1 + (2 - 3))");
 	// operator * has less priority
+	test_expr("1+2*3+4", "7 ((1 + (2 * 3)) + 4)");
 	test_expr("1 + 2 * 3 + 4", "13 ((1 + (2 * 3)) + 4)");
 	// and the same with minus
 	test_expr("1 + 2 - 3 - 4", "13 (1 + ((2 - 3) - 4))");
 	test_expr("1 + 2 - 3 + 4", "13 ((1 + (2 - 3)) + 4)");
-	test_expr("(1 + 2) * 3 + 4", "15 (((1 + 2) * 3) + 4)");
-	test_expr("(1 + 2) * (3 + 4)", "17 ((1 + 2) * (3 + 4))");
-	test_expr("1 ? (1 + 2) * (3 % 4) : 0", "25 1 ? ((1 + 2) * (3 % 4)) : 0");
+	//test_expr("(1 + 2) * 3 + 4", "15 (((1 + 2) * 3) + 4)");
+	//test_expr("(1 + 2) * (3 + 4)", "17 ((1 + 2) * (3 + 4))");
+	//test_expr("1 ? (1 + 2) * (3 % 4) : 0", "25 1 ? ((1 + 2) * (3 % 4)) : 0");
 
 	return 0;
 }

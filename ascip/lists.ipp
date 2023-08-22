@@ -25,20 +25,20 @@ template<ascip_details::parser parser> struct unary_list_parser : base_parser<un
 
 template<ascip_details::parser left, ascip_details::parser right>
 struct binary_list_parser : base_parser<binary_list_parser<left, right>> {
-	left l;
-	right r;
-	constexpr binary_list_parser(left l, right r) : l(l), r(r) {}
+	left lp;
+	right rp;
+	constexpr binary_list_parser(left l, right r) : lp(l), rp(r) {}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		ascip_details::type_any_eq_allow fake_result;
-		auto ret = l.parse(ctx, src, ascip_details::empback(result));
+		auto ret = lp.parse(ctx, src, ascip_details::empback(result));
 		if(ret<0) ascip_details::pop(result);
 		auto cur = ret;
 		while(cur > 0) {
 			src += cur;
-			auto r_res = r.parse(ctx, src, fake_result);
+			auto r_res = rp.parse(ctx, src, fake_result);
 			if( r_res <= 0 ) break;
 			src += r_res;
-			cur = l.parse(ctx, src, ascip_details::empback(result));
+			cur = lp.parse(ctx, src, ascip_details::empback(result));
 			if( cur <= 0 ) {
 				ascip_details::pop(result);
 				break;
@@ -66,12 +66,10 @@ constexpr static bool test_unary_list() {
 }
 
 constexpr static bool test_binary_list() {
-	/*
 	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), lower % ',', "a,b,c", 5), 'a', 'b', 'c' ));
 	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), lower % d10, "a1b2c", 5), 'a', 'b', 'c' ));
 	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), lower % d10, "a", 1), 'a' ));
 	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), lower % d10, "a1", 1), 'a' ));
-	*/
 	return true;
 }
 

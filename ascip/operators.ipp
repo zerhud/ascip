@@ -6,9 +6,9 @@
 //          https://www.boost.org/LICENSE_1_0.txt)
 
 constexpr auto operator()(auto act) const {
-	return semact_parser<parser, decltype(auto(act))>{ {},
+	return semact_parser<type_in_base, decltype(auto(act))>{ {},
 		static_cast<decltype(act)&&>(act),
-		static_cast<const parser&>(*this)
+		static_cast<const type_in_base&>(*this)
 	};
 }
 

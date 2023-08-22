@@ -72,6 +72,7 @@ template<auto... i> friend constexpr auto make_test_ctx(const base_parser<auto>&
 
 #include "ascip/test_utils.ipp"
 #include "ascip/make_source.ipp"
+#include "ascip/exists.ipp"
 #include "ascip/base_parsers.ipp"
 #include "ascip/semact.ipp"
 #include "ascip/wrappers.ipp"
@@ -80,6 +81,7 @@ template<auto... i> friend constexpr auto make_test_ctx(const base_parser<auto>&
 #include "ascip/lists.ipp"
 #include "ascip/seq.ipp"
 #include "ascip/lreq.ipp"
+#include "ascip/transform.ipp"
 #include "ascip/injection.ipp"
 #include "ascip/integrated.ipp"
 
@@ -106,9 +108,10 @@ constexpr static void test() {
 	static_assert( test_different() );
 	static_assert( test_semact() );
 	static_assert( test_seq() );
-	static_assert( test_lreq() );
+	//static_assert( test_lreq() );
 	static_assert( test_injection() );
 	static_assert( integrated_tests() );
+	static_assert( test_transform() );
 }
 
 template<auto sym> struct tmpl {

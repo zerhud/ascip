@@ -36,15 +36,20 @@ template<parser type> constexpr auto skip(const type& p) {
 
 template<parser type> constexpr auto use_variant_result(const type& p) {
 	return typename decltype(auto(p))::holder::template use_variant_result_parser<type>{ {}, p }; }
-template<parser type, parser... types> constexpr auto lrexpr(auto&& maker, type&& first, types&&... list) {
-	return typename std::decay_t<type>::holder::rvariant_parser(
-		std::forward<decltype(maker)>(maker),
-		std::forward<decltype(first)>(first),
-		std::forward<decltype(list)>(list)...
-	); }
-template<parser type> constexpr auto rv_term(type&& p) { 
-	using ptype = std::decay_t<decltype(p)>;
-	return typename ptype::holder::template rvariant_term_parser<ptype>{ {}, std::forward<decltype(p)>(p) }; }
+template<parser type, parser... types> constexpr auto rv(auto&& maker, type&& first, types&&... list) {
+	return [&maker]<auto... inds>(std::index_sequence<inds...>, auto&&... parsers) {
+		return typename std::decay_t<type>::holder::rvariant_parser(
+				std::move(maker),
+				std::decay_t<type>::holder::template transform<
+					typename std::decay_t<type>::holder::rvariant_mutator<inds>
+					>(std::move(parsers))...
+				);
+	}(
+		  std::make_index_sequence<sizeof...(list)+1>{}
+		, std::forward<decltype(first)>(first)
+		, std::forward<decltype(list)>(list)...
+	);
+}
 template<parser type> constexpr auto rv_result(type&& p) { 
 	using ptype = std::decay_t<decltype(p)>;
 	return typename ptype::holder::template rvariant_top_result_parser<ptype>{ {}, std::forward<decltype(p)>(p) }; }
@@ -53,9 +58,9 @@ template<parser type> constexpr auto rv_result(type&& p) {
 //          parse part
 // ===============================
 
-constexpr auto parse(const auto& parser, auto src) {
+constexpr auto parse(auto&& parser, auto src) {
 	type_any_eq_allow r;
-	return parse(parser, src, r);
+	return parse(std::move(parser), src, r);
 }
 
 constexpr auto parse(const auto& parser, auto src, auto& result) {
@@ -65,13 +70,13 @@ constexpr auto parse(const auto& parser, auto src, auto& result) {
 constexpr auto parse(const auto& parser, const auto& skip, auto src, auto& result) {
 	auto ctx = decltype(auto(parser))::holder::make_test_ctx();
 	return decltype(auto(parser))::holder::template
-		inject_skipping<true>(parser, skip).parse(ctx, src, result);
+		inject_skipping<true>(std::decay_t<decltype(parser)>(parser), std::decay_t<decltype(skip)>(skip)).parse(ctx, src, result);
 }
 
-constexpr auto parse(const auto& parser, const auto& skip, auto src, auto& result, const auto& err) {
+constexpr auto parse(auto&& parser, auto&& skip, auto src, auto& result, const auto& err) {
 	auto ctx = decltype(auto(parser))::holder::make_test_ctx(&err);
 	return decltype(auto(parser))::holder::template
-		inject_skipping<true>(parser, skip).parse(ctx, src, result);
+		inject_skipping<true>(std::move(parser), std::move(skip)).parse(ctx, src, result);
 }
 
 
@@ -87,11 +92,11 @@ template<parser left, typename right> constexpr auto operator>>(const left& l, c
 template<parser left> constexpr auto operator>>(const left& l, char r) {
 	return l >> typename decltype(auto(l))::holder::template value_parser<decltype(auto(r))>( r ); }
 template<parser p> constexpr auto operator++(const p& l) {
-	return typename decltype(auto(l))::holder::template seq_inc_rfield_before<p>{ l }; }
+	return typename decltype(auto(l))::holder::template seq_inc_rfield_before<p>{ {}, l }; }
 template<parser p> constexpr auto operator++(const p& l,int) {
-	return typename decltype(auto(l))::holder::template seq_inc_rfield_after<p>{ l }; }
+	return typename decltype(auto(l))::holder::template seq_inc_rfield_after<p>{ {}, l }; }
 template<parser p> constexpr auto operator--(const p& l) {
-	return typename decltype(auto(l))::holder::template seq_dec_rfield_before<p>{ l }; }
+	return typename decltype(auto(l))::holder::template seq_dec_rfield_before<p>{ {}, l }; }
 template<parser p> constexpr auto operator--(const p& l,int) {
-	return typename decltype(auto(l))::holder::template seq_dec_rfield_after<p>{ l }; }
+	return typename decltype(auto(l))::holder::template seq_dec_rfield_after<p>{ {}, l }; }
 

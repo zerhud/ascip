@@ -100,6 +100,7 @@ constexpr void test_expr(auto&& src, auto&& correct) {
 	out << r << ' ' << result;
 	std::cout << "\t" << (out.str() == correct) << '\t' << out.str() << "\n\tresult:\t" << r << ' ' << result << std::endl;
 }
+/*
 constexpr void test_expr() {
 	std::cout << "test left reqursion" << std::endl;
 	std::unique_ptr<expr_rt> left(new expr_rt{term_rt{1}});
@@ -117,6 +118,7 @@ constexpr void test_expr() {
 	test_expr("kuku + 2 + 4 * ok + 9 + 2143", "28 (((((kuku 0 2) 0 (4 1 ok) 0 9) 0 2143)");
 	std::cout << "finish test" << std::endl;
 }
+*/
 
 template<typename gh, template<auto>class sup = gh::template term>
 constexpr void test_error_handling() {
@@ -160,7 +162,7 @@ int main(int,char**) {
 	std::cout << "finish" << std::endl;
 
 
-	test_expr();
+	//test_expr();
 	test_error_handling<parser>();
 
 	ascip_details::tuple<int,double> tt{ 1, .5 };

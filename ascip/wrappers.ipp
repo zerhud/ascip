@@ -127,7 +127,7 @@ template<typename needed, ascip_details::parser type> struct cast_parser : base_
 	}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr ( ascip_details::is_in_concept_check(decltype(auto(ctx)){}) ) return 0;
-		else return p.parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(auto(src))&&>(src), check_result(result));
+		else return p.parse(static_cast<decltype(ctx)&&>(ctx), src, check_result(result));
 	}
 	template<auto ind>
 	constexpr auto parse_from(auto&& ctx, auto src, auto& result) const {
