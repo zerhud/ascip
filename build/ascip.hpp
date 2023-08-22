@@ -1812,12 +1812,10 @@ constexpr static bool test_unary_list() {
 }
 
 constexpr static bool test_binary_list() {
-	/*
 	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), lower % ',', "a,b,c", 5), 'a', 'b', 'c' ));
 	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), lower % d10, "a1b2c", 5), 'a', 'b', 'c' ));
 	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), lower % d10, "a", 1), 'a' ));
 	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), lower % d10, "a1", 1), 'a' ));
-	*/
 	return true;
 }
 
@@ -2421,16 +2419,28 @@ constexpr static auto transform_apply_to_each(i_tuple<tail...>&& src, auto& ctx,
 	else return  transform_apply_to_each<mutator, result_t, ind..., sizeof...(ind)>(std::move(src), ctx, std::forward<decltype(args)>(args)...);
 }
 template<typename mutator, auto val, typename type>
-constexpr static auto  transform_special(_seq_inc_rfield_val<val,type>&& src, auto& ctx) {
+constexpr static auto transform_special(_seq_inc_rfield_val<val,type>&& src, auto& ctx) {
 	return transform_apply<mutator>(finc<val>(transform<mutator>(static_cast<type&&>(src), ctx)), ctx);
 }
 template<typename mutator, typename type, typename parser>
-constexpr static auto  transform_special(cast_parser<type,parser>&& src, auto& ctx) {
+constexpr static auto transform_special(cast_parser<type,parser>&& src, auto& ctx) {
 	return transform_apply<mutator>(cast<type>(transform<mutator>(std::move(src.p), ctx)), ctx);
 }
 template<typename mutator, typename type, typename parser>
-constexpr static auto  transform_special(result_checker_parser<type,parser>&& src, auto& ctx) {
+constexpr static auto transform_special(result_checker_parser<type,parser>&& src, auto& ctx) {
 	return transform_apply<mutator>(check<type>(transform<mutator>(std::move(src.p), ctx)), ctx);
+}
+template<typename mutator, typename parser, typename value_type>
+constexpr static auto transform_special(as_parser<value_type, parser>&& src, auto&& ctx) {
+	auto nctx = mutator::create_ctx(src, ctx);
+	auto np = transform_apply<mutator>( std::move(src.p), nctx );
+	return transform_apply<mutator>( as_parser{ {}, src.val, std::move(np) }, nctx );
+}
+template<typename mutator, typename parser, auto value>
+constexpr static auto transform_special(tmpl_as_parser<value, parser>&& src, auto&& ctx) {
+	auto nctx = mutator::create_ctx(src, ctx);
+	auto np = transform_apply<mutator>( std::move(src.p), nctx );
+	return transform_apply<mutator>( tmpl_as_parser<value, std::decay_t<decltype(np)>>{ {}, std::move(np) }, nctx );
 }
 
 template<typename mutator>
@@ -2485,6 +2495,7 @@ constexpr static auto transform(semact_parser<parser, act_t>&& src, auto& ctx) {
 	auto np = transform_apply<mutator>( std::move(src.p), nctx );
 	return semact_parser<std::decay_t<decltype(np)>, std::decay_t<decltype(src.act)>>{ {}, std::move(src.act), std::move(np) };
 }
+
 
 /********
  * transform tests
@@ -2821,6 +2832,7 @@ constexpr static bool integrated_tests() {
 	static_assert( ({ auto r = mk_str(); parse(+alpha, +space, make_source("a b c "), r); }) == 5);
 	static_assert( ({ auto r = mk_str(); parse(+alpha, +space, make_source(" a b c "), r); }) == 6);
 	static_assert( ({ auto r = mk_str(); parse((as(char_<'a'>, 'b')|char_<'c'>) % int_, +space, make_source("c1  a2 a  3 a 3a"), r); }) == 16);
+	static_assert( ({ auto r = mk_str(); parse((as<'b'>(char_<'a'>)|char_<'c'>) % int_, +space, make_source("c1  a2 a  3 a 3a"), r); }) == 16);
 
 	static_assert( ({ auto r = mk_str(); auto ctx = make_test_ctx();
 		quoted_string.parse(ctx, make_source("'1\n2\n'"), r);

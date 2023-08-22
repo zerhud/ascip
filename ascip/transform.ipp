@@ -31,16 +31,28 @@ constexpr static auto transform_apply_to_each(i_tuple<tail...>&& src, auto& ctx,
 	else return  transform_apply_to_each<mutator, result_t, ind..., sizeof...(ind)>(std::move(src), ctx, std::forward<decltype(args)>(args)...);
 }
 template<typename mutator, auto val, typename type>
-constexpr static auto  transform_special(_seq_inc_rfield_val<val,type>&& src, auto& ctx) {
+constexpr static auto transform_special(_seq_inc_rfield_val<val,type>&& src, auto& ctx) {
 	return transform_apply<mutator>(finc<val>(transform<mutator>(static_cast<type&&>(src), ctx)), ctx);
 }
 template<typename mutator, typename type, typename parser>
-constexpr static auto  transform_special(cast_parser<type,parser>&& src, auto& ctx) {
+constexpr static auto transform_special(cast_parser<type,parser>&& src, auto& ctx) {
 	return transform_apply<mutator>(cast<type>(transform<mutator>(std::move(src.p), ctx)), ctx);
 }
 template<typename mutator, typename type, typename parser>
-constexpr static auto  transform_special(result_checker_parser<type,parser>&& src, auto& ctx) {
+constexpr static auto transform_special(result_checker_parser<type,parser>&& src, auto& ctx) {
 	return transform_apply<mutator>(check<type>(transform<mutator>(std::move(src.p), ctx)), ctx);
+}
+template<typename mutator, typename parser, typename value_type>
+constexpr static auto transform_special(as_parser<value_type, parser>&& src, auto&& ctx) {
+	auto nctx = mutator::create_ctx(src, ctx);
+	auto np = transform_apply<mutator>( std::move(src.p), nctx );
+	return transform_apply<mutator>( as_parser{ {}, src.val, std::move(np) }, nctx );
+}
+template<typename mutator, typename parser, auto value>
+constexpr static auto transform_special(tmpl_as_parser<value, parser>&& src, auto&& ctx) {
+	auto nctx = mutator::create_ctx(src, ctx);
+	auto np = transform_apply<mutator>( std::move(src.p), nctx );
+	return transform_apply<mutator>( tmpl_as_parser<value, std::decay_t<decltype(np)>>{ {}, std::move(np) }, nctx );
 }
 
 template<typename mutator>
@@ -95,6 +107,7 @@ constexpr static auto transform(semact_parser<parser, act_t>&& src, auto& ctx) {
 	auto np = transform_apply<mutator>( std::move(src.p), nctx );
 	return semact_parser<std::decay_t<decltype(np)>, std::decay_t<decltype(src.act)>>{ {}, std::move(src.act), std::move(np) };
 }
+
 
 /********
  * transform tests
