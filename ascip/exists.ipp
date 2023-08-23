@@ -37,6 +37,9 @@ constexpr static bool exists_in(auto* src, const auto& checker) requires require
 constexpr static bool exists_in(auto* src, const auto& checker) requires requires{ src->seq; } {
 	using seq_t = decltype(src->seq);
 	return checker(src) || exists_in_get((seq_t*)nullptr, checker); }
+constexpr static bool exists_in(auto* src, const auto& checker) requires requires{ src->s; src->b; } {
+	//NOTE: it's for injected_parser, but without forward declaration
+	return exists_in((std::decay_t<decltype(src->b)>*)nullptr, checker) ; }
 
 constexpr static bool test_exists_in() {
 	auto checker = [](const auto* s){ return std::is_same_v<std::decay_t<decltype(*s)>, std::decay_t<decltype(char_<'a'>)>>; };

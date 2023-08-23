@@ -166,12 +166,15 @@ constexpr static auto test_rvariant_simple(auto r, auto&& src, auto&&... parsers
 	var.parse(make_test_ctx(), make_source(src), r);
 	static_assert( var.template is_term<0>() );
 	static_assert( var.template is_term<1>() );
+	auto var_with_skip = inject_skipping(var, +space);
+	static_assert( var_with_skip.b.template is_term<0>() );
+	static_assert( var_with_skip.b.template is_term<1>() );
 	return r;
 }
 template<typename dbl_expr>
 constexpr static auto test_rvariant_val(auto r, auto&& maker, auto pr, auto&& src) {
 	constexpr auto rmaker = [](auto& r){ r.reset(new (std::decay_t<decltype(*r)>){}); return r.get(); };
-	auto cr = rv(std::forward<decltype(maker)>(maker)
+	auto var = rv(std::forward<decltype(maker)>(maker)
 		, cast<dbl_expr>(rv_lreq++ >> _char<'+'> >> rv_rreq(rmaker))
 		, cast<dbl_expr>(rv_lreq++ >> _char<'-'> >> rv_rreq(rmaker))
 		, cast<dbl_expr>(rv_lreq++ >> _char<'*'> >> rv_rreq(rmaker))
@@ -180,8 +183,20 @@ constexpr static auto test_rvariant_val(auto r, auto&& maker, auto pr, auto&& sr
 		, fp
 		, quoted_string
 		, rv_result(_char<'('> >> rv_req >> _char<')'>)
-		).parse(make_test_ctx(), make_source(src), r);
+		) ;
+	auto cr = var.parse(make_test_ctx(), make_source(src), r);
 	cr /= (cr == pr);
+
+	auto var_with_skip = inject_skipping(var, +space);
+	static_assert( !var_with_skip.b.template is_term<0>() );
+	static_assert( !var_with_skip.b.template is_term<1>() );
+	static_assert( !var_with_skip.b.template is_term<2>() );
+	static_assert( !var_with_skip.b.template is_term<3>() );
+	static_assert( var_with_skip.b.template is_term<4>() );
+	static_assert( var_with_skip.b.template is_term<5>() );
+	static_assert( var_with_skip.b.template is_term<6>() );
+	static_assert( var_with_skip.b.template is_term<7>() );
+
 	return r;
 }
 

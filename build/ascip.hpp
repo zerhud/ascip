@@ -870,6 +870,9 @@ constexpr static bool exists_in(auto* src, const auto& checker) requires require
 constexpr static bool exists_in(auto* src, const auto& checker) requires requires{ src->seq; } {
 	using seq_t = decltype(src->seq);
 	return checker(src) || exists_in_get((seq_t*)nullptr, checker); }
+constexpr static bool exists_in(auto* src, const auto& checker) requires requires{ src->s; src->b; } {
+	//NOTE: it's for injected_parser, but without forward declaration
+	return exists_in((std::decay_t<decltype(src->b)>*)nullptr, checker) ; }
 
 constexpr static bool test_exists_in() {
 	auto checker = [](const auto* s){ return std::is_same_v<std::decay_t<decltype(*s)>, std::decay_t<decltype(char_<'a'>)>>; };
@@ -1687,12 +1690,15 @@ constexpr static auto test_rvariant_simple(auto r, auto&& src, auto&&... parsers
 	var.parse(make_test_ctx(), make_source(src), r);
 	static_assert( var.template is_term<0>() );
 	static_assert( var.template is_term<1>() );
+	auto var_with_skip = inject_skipping(var, +space);
+	static_assert( var_with_skip.b.template is_term<0>() );
+	static_assert( var_with_skip.b.template is_term<1>() );
 	return r;
 }
 template<typename dbl_expr>
 constexpr static auto test_rvariant_val(auto r, auto&& maker, auto pr, auto&& src) {
 	constexpr auto rmaker = [](auto& r){ r.reset(new (std::decay_t<decltype(*r)>){}); return r.get(); };
-	auto cr = rv(std::forward<decltype(maker)>(maker)
+	auto var = rv(std::forward<decltype(maker)>(maker)
 		, cast<dbl_expr>(rv_lreq++ >> _char<'+'> >> rv_rreq(rmaker))
 		, cast<dbl_expr>(rv_lreq++ >> _char<'-'> >> rv_rreq(rmaker))
 		, cast<dbl_expr>(rv_lreq++ >> _char<'*'> >> rv_rreq(rmaker))
@@ -1701,8 +1707,20 @@ constexpr static auto test_rvariant_val(auto r, auto&& maker, auto pr, auto&& sr
 		, fp
 		, quoted_string
 		, rv_result(_char<'('> >> rv_req >> _char<')'>)
-		).parse(make_test_ctx(), make_source(src), r);
+		) ;
+	auto cr = var.parse(make_test_ctx(), make_source(src), r);
 	cr /= (cr == pr);
+
+	auto var_with_skip = inject_skipping(var, +space);
+	static_assert( !var_with_skip.b.template is_term<0>() );
+	static_assert( !var_with_skip.b.template is_term<1>() );
+	static_assert( !var_with_skip.b.template is_term<2>() );
+	static_assert( !var_with_skip.b.template is_term<3>() );
+	static_assert( var_with_skip.b.template is_term<4>() );
+	static_assert( var_with_skip.b.template is_term<5>() );
+	static_assert( var_with_skip.b.template is_term<6>() );
+	static_assert( var_with_skip.b.template is_term<7>() );
+
 	return r;
 }
 
@@ -2640,7 +2658,7 @@ struct injection_mutator {
 		constexpr const bool is_parser_blist = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, binary_list_parser>;
 		constexpr const bool is_parser_diff = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, different_parser>;
 		constexpr const bool is_opt_seq_parser = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, opt_seq_parser>;
- 
+
 		constexpr const bool is_parser_for_skip =
 			   is_opt_seq_parser
 			|| is_parser_variant
