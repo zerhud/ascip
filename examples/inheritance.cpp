@@ -12,7 +12,6 @@ constexpr void example() {
     //   - () operator and return reference or pointer to what we want
     constexpr auto parser = cast<base>(th<'a'>::char_++ >> th<'b'>::char_) >> th<'c'>::char_([](auto&r)->char&{return r.c;});
     constexpr auto skip = +gh::space;
-    //gh::template inject_skipping(std::decay_t<decltype(parser)>(parser), std::decay_t<decltype(skip)>(skip)).foo();
     static_assert( ({ child r;
         parse(parser, +gh::space, gh::make_source("a b c"), r);
         (r.a=='a') + (2*(r.b=='b')) + (4*(r.c=='c'));

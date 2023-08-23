@@ -27,8 +27,7 @@ struct operator_divid : binary_expr {std::ostream& print(std::ostream& o) const;
 struct operator_extra : binary_expr {std::ostream& print(std::ostream& o) const;};
 struct operator_power : binary_expr {std::ostream& print(std::ostream& o) const;};
 
-//struct expr : std::variant<ternary_expr, operator_plus, operator_minus, operator_multi, operator_divid, operator_extra, operator_power, terminal>{};
-struct expr : std::variant<operator_plus, operator_minus, operator_multi, operator_divid, operator_extra, terminal>{};
+struct expr : std::variant<ternary_expr, operator_plus, operator_minus, operator_multi, operator_divid, operator_extra, operator_power, terminal>{};
 
 // let's print the resulting expression
 template<typename type> concept printable = requires(std::ostream& o, const type& obj){ o << obj; };
@@ -86,11 +85,14 @@ constexpr auto make_grammar() {
 	// lrreq just parses next variant, we need to place it on the right
 	// ++ for store to second field (to binary_expr::right)
 	return rv( [](auto& r){ return std::unique_ptr<expr>( new expr{std::move(r)} ); }
+	  , cast<ternary_expr>(gh::rv_lreq >> th<'?'>::_char >> ++gh::rv_rreq(result_maker) >> th<':'>::_char >> ++gh::rv_rreq(result_maker))
 	  , cast<binary_expr>(gh::rv_lreq >> th<'+'>::_char >> ++gh::rv_rreq(result_maker))
 	  , cast<binary_expr>(gh::rv_lreq >> th<'-'>::_char >> ++gh::rv_rreq(result_maker))
 	  , cast<binary_expr>(gh::rv_lreq >> th<'*'>::_char >> ++gh::rv_rreq(result_maker))
 	  , cast<binary_expr>(gh::rv_lreq >> th<'/'>::_char >> ++gh::rv_rreq(result_maker))
 	  , cast<binary_expr>(gh::rv_lreq >> th<'%'>::_char >> ++gh::rv_rreq(result_maker))
+	  , cast<binary_expr>(gh::rv_lreq >> gh::template lit<"**"> >> ++gh::rv_rreq(result_maker))
+	  , rv_result(th<'('>::_char >> gh::rv_req >> th<')'>::_char)
 	  , term
 	);
 	/*
@@ -128,6 +130,7 @@ constexpr auto make_grammar() {
 constexpr void test_expr(auto&& src, auto&& correct) {
 	expr result;
 	std::cout << "parse: " << src << std::endl;
+	//	parser_without_tests::inject_skipping(make_grammar<parser_without_tests>(), +parser_without_tests::space).foo();
 	auto r = parse(
 		make_grammar<parser_without_tests>(),
 		+parser_without_tests::space,
@@ -149,7 +152,7 @@ int main(int,char**) {
 	// and the same with minus
 	test_expr("1 + 2 - 3 - 4", "13 (1 + ((2 - 3) - 4))");
 	test_expr("1 + 2 - 3 + 4", "13 ((1 + (2 - 3)) + 4)");
-	//test_expr("(1 + 2) * 3 + 4", "15 (((1 + 2) * 3) + 4)");
+	test_expr("(1 + 2) * 3 + 4", "15 (((1 + 2) * 3) + 4)");
 	//test_expr("(1 + 2) * (3 + 4)", "17 ((1 + 2) * (3 + 4))");
 	//test_expr("1 ? (1 + 2) * (3 % 4) : 0", "25 1 ? ((1 + 2) * (3 % 4)) : 0");
 

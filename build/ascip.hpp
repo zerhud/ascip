@@ -2640,7 +2640,7 @@ struct injection_mutator {
 		constexpr const bool is_parser_blist = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, binary_list_parser>;
 		constexpr const bool is_parser_diff = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, different_parser>;
 		constexpr const bool is_opt_seq_parser = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, opt_seq_parser>;
-
+ 
 		constexpr const bool is_parser_for_skip =
 			   is_opt_seq_parser
 			|| is_parser_variant
