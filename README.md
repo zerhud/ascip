@@ -16,13 +16,12 @@ here is a list of avaible parsers. you can find examples below
 - `char_<'a'>` char with concreate value (it can to be wide char and so on). and `_char<'a'>` is same with omitted value.
 - `lit<"string">` is a string literal. please note the string literal right inside the template parameter. unfortunatly it can to be called only with template keyword, or, with same way as terms parsers, but using `sterm` insead of `term` or `tmpl`.
 - `operator |` for parse variant
-- `lreq<num>` for parse variant with left reqursion (num is position in variant). for other parser for left reqursion see the example below.
 - `operator !` for negate parser
 - `unary -` for parse optional value. if tere is no value the default constructor will be used.
 - `binary -` for parse one value except other
 - `*` and `+` for lists
 - `%` for parse separated values
-- `()` with lambda for semact
+- `()` with lambda for semact or for create the result. if the functor inside `()` receaves reference to the parser result and returns reference or pointer it's a result maker. in other case it's a semact. the semact can to receave nothing, or the returned value by parser and the result, or the returned value by parser, the parsing context, the source and the result.
 - `as` method for treat some parser as value
 - `omit` method for skip value
 - `cur_pos` just stores to result current position, parse nothing
@@ -30,6 +29,7 @@ here is a list of avaible parsers. you can find examples below
 - `>` for sequence parser. it causes an error if the parser fails with message "unknown" (see must method).
 - `check` method checks that the parser got as result exactly required type
 - `cast` method try to `static_cast` gotten result to required type. it usefull for parse to struct with inheritance as result due for language limitations. see example below.
+- `rv` method for parse reverse variant with left reqursion. see example below.
 
 with sequence parser can be used
 - `cur_shift` for store to result current shift position from sequence start
