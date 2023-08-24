@@ -53,15 +53,6 @@ template<typename parser> struct base_parser : ascip_details::adl_tag {
 			.p.parse(std::forward<decltype(ctx)>(ctx), std::move(src), result);
 	}
 
-	template<auto ind>
-	constexpr auto parse_from(auto&& ctx, auto src, auto& result) const {
-		return static_cast<const parser&>(*this)
-			.p.template parse_from<ind>(
-					static_cast<decltype(ctx)&&>(ctx),
-					static_cast<decltype(src)&&>(src),
-					result);
-	}
-
 #include "ascip/operators.ipp"
 };
 

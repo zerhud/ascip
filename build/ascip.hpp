@@ -620,15 +620,6 @@ template<typename parser> struct base_parser : ascip_details::adl_tag {
 			.p.parse(std::forward<decltype(ctx)>(ctx), std::move(src), result);
 	}
 
-	template<auto ind>
-	constexpr auto parse_from(auto&& ctx, auto src, auto& result) const {
-		return static_cast<const parser&>(*this)
-			.p.template parse_from<ind>(
-					static_cast<decltype(ctx)&&>(ctx),
-					static_cast<decltype(src)&&>(src),
-					result);
-	}
-
        
 
 //          Copyright Hudyaev Alexey 2023.
@@ -1354,17 +1345,6 @@ struct result_checker_parser : base_parser<result_checker_parser<good_result, pa
 			, "can only parser to required type" );
 		return p.parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(auto(src))&&>(src), result);
 	}
-	template<auto ind>
-	constexpr auto parse_from(auto&& ctx, auto src, auto& result) const {
-		static_assert(
-			   std::is_same_v<good_result, decltype(auto(result))>
-			|| std::is_same_v<ascip_details::type_any_eq_allow, decltype(auto(result))>
-			, "can only parser to required type" );
-		return p.template parse_from<ind>(
-				static_cast<decltype(ctx)&&>(ctx),
-				static_cast<decltype(auto(src))&&>(src),
-				result);
-	}
 };
 template<typename needed, ascip_details::parser type> struct cast_parser : base_parser<cast_parser<needed,type>> {
 	type p;
@@ -1378,13 +1358,6 @@ template<typename needed, ascip_details::parser type> struct cast_parser : base_
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr ( ascip_details::is_in_concept_check(decltype(auto(ctx)){}) ) return 0;
 		else return p.parse(static_cast<decltype(ctx)&&>(ctx), src, check_result(result));
-	}
-	template<auto ind>
-	constexpr auto parse_from(auto&& ctx, auto src, auto& result) const {
-		return p.template parse_from<ind>(
-				static_cast<decltype(ctx)&&>(ctx),
-				static_cast<decltype(auto(src))&&>(src),
-				check_result(result));
 	}
 };
 constexpr static bool test_checkers() {
@@ -1472,21 +1445,9 @@ template<ascip_details::parser... parsers> struct variant_parser : base_parser<v
 			return parse_ind<ind+1>(ctx, src, result);
 		}
 	}
-	template<auto item, auto pos>
-	constexpr auto parse_parse_from_only(auto&& ctx, auto src, auto& result) const {
-		if(!src) return -1;
-		return get<item>(seq).template parse_from<pos>(ctx, src, current_result<item>(result));
-	}
-	template<auto ind>
-	constexpr auto parse_from(auto&& ctx, auto src, auto& result) const {
-		static_assert( exists_in_ctx<self_type>(decltype(auto(ctx)){}), "this method must to be called from reqursion parser" );
-		auto* orig_ctx = search_in_ctx<self_type>(ctx);
-		auto nctx = make_ctx<self_type>(orig_ctx, *orig_ctx);
-		return parse_ind<ind>(nctx, src, result);
-	}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr (exists_in_ctx<self_type>(decltype(auto(ctx)){})) 
-			return parse_from<0>(ctx, src, result);
+			return parse_ind<0>(ctx, src, result);
 		else {
 			auto variant_ctx =
 				make_ctx<variant_stack_result_tag>(&result,
@@ -2025,15 +1986,6 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 			else return parse_with_modified_ctx(static_cast<decltype(ctx)&&>(ctx), src, result);
 		}
 	}
-	template<auto ind>
-	constexpr auto parse_from(auto&& ctx, auto src, auto& result) const {
-		static_assert(
-			exists_in_ctx<seq_shift_stack_tag>(decltype(auto(ctx)){}),
-			"parse_from must be called with preallocated shift store"
-		);
-		if(!src) return -1;
-		return parse_and_store_shift<ind,ind>(ctx, src, result);
-	}
 
 	template<typename right> constexpr auto operator>>(const right& r)const{
 		return ascip_details::init_with_get<opt_seq_parser<parsers..., right>>(seq, r); }
@@ -2090,10 +2042,6 @@ constexpr static bool test_seq_result_fields() {
 	static_cast<const opt_seq_parser<char_parser<'a'>, char_parser<'b'>, char_parser<'c'>>&>(char_<'a'> >> char_<'b'> >> char_<'c'>);
 	static_cast<const opt_seq_parser<char_parser<'a'>, int_parser, char_parser<'c'>, int_parser>&>(char_<'a'> >> int_ >> char_<'c'> >> int_);
 	static_assert( test_cmp_struct( test_parser_parse(with_2_chars{}, char_<'a'>++ >> char_<'b'>-- >> char_<'c'>, "abc", 3), 'c', 'b' ) );
-	static_assert( ({ with_2_chars r; auto shift_store = 0;
-		(char_<'a'>++ >> char_<'b'>).template parse_from<1>(
-				make_ctx<seq_shift_stack_tag>(&shift_store, make_test_ctx()), make_source("b"), r);
-	r.b; }) == 'b' );
 	return true;
 }
 constexpr static bool test_seq_finc() {

@@ -52,21 +52,9 @@ template<ascip_details::parser... parsers> struct variant_parser : base_parser<v
 			return parse_ind<ind+1>(ctx, src, result);
 		}
 	}
-	template<auto item, auto pos>
-	constexpr auto parse_parse_from_only(auto&& ctx, auto src, auto& result) const {
-		if(!src) return -1;
-		return get<item>(seq).template parse_from<pos>(ctx, src, current_result<item>(result));
-	}
-	template<auto ind>
-	constexpr auto parse_from(auto&& ctx, auto src, auto& result) const {
-		static_assert( exists_in_ctx<self_type>(decltype(auto(ctx)){}), "this method must to be called from reqursion parser" );
-		auto* orig_ctx = search_in_ctx<self_type>(ctx);
-		auto nctx = make_ctx<self_type>(orig_ctx, *orig_ctx);
-		return parse_ind<ind>(nctx, src, result);
-	}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr (exists_in_ctx<self_type>(decltype(auto(ctx)){})) 
-			return parse_from<0>(ctx, src, result);
+			return parse_ind<0>(ctx, src, result);
 		else {
 			auto variant_ctx =
 				make_ctx<variant_stack_result_tag>(&result,

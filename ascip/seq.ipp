@@ -183,15 +183,6 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 			else return parse_with_modified_ctx(static_cast<decltype(ctx)&&>(ctx), src, result);
 		}
 	}
-	template<auto ind>
-	constexpr auto parse_from(auto&& ctx, auto src, auto& result) const {
-		static_assert(
-			exists_in_ctx<seq_shift_stack_tag>(decltype(auto(ctx)){}),
-			"parse_from must be called with preallocated shift store"
-		);
-		if(!src) return -1;
-		return parse_and_store_shift<ind,ind>(ctx, src, result);
-	}
 
 	template<typename right> constexpr auto operator>>(const right& r)const{
 		return ascip_details::init_with_get<opt_seq_parser<parsers..., right>>(seq, r); }
@@ -248,10 +239,6 @@ constexpr static bool test_seq_result_fields() {
 	static_cast<const opt_seq_parser<char_parser<'a'>, char_parser<'b'>, char_parser<'c'>>&>(char_<'a'> >> char_<'b'> >> char_<'c'>);
 	static_cast<const opt_seq_parser<char_parser<'a'>, int_parser, char_parser<'c'>, int_parser>&>(char_<'a'> >> int_ >> char_<'c'> >> int_);
 	static_assert( test_cmp_struct( test_parser_parse(with_2_chars{}, char_<'a'>++ >> char_<'b'>-- >> char_<'c'>, "abc", 3), 'c', 'b' ) );
-	static_assert( ({ with_2_chars r; auto shift_store = 0;
-		(char_<'a'>++ >> char_<'b'>).template parse_from<1>(
-				make_ctx<seq_shift_stack_tag>(&shift_store, make_test_ctx()), make_source("b"), r);
-	r.b; }) == 'b' );
 	return true;
 }
 constexpr static bool test_seq_finc() {
