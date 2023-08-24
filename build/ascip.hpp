@@ -1580,7 +1580,11 @@ struct rvariant_parser : base_parser<rvariant_parser<parsers...>> {
 		else return maker(result);
 	}
 	template<auto ind> constexpr auto parse_term(auto&& ctx, auto src, auto& result) const {
-		if constexpr (!is_term<ind>()) return -1;
+		if constexpr (ind == 0) {
+			if constexpr (is_term<ind>()) return get<ind>(seq).parse(ctx, src, result);
+			else return -1;
+		}
+		else if constexpr (!is_term<ind>()) return parse_term<ind-1>(ctx, src, result);
 		else {
 			auto cur = get<ind>(seq).parse(ctx, src, cur_result<ind>(result));
 			if(0 <= cur) return cur;
@@ -1660,9 +1664,9 @@ constexpr static auto test_rvariant_val(auto r, auto&& maker, auto pr, auto&& sr
 	auto var = rv(std::forward<decltype(maker)>(maker)
 		, cast<dbl_expr>(rv_lreq++ >> _char<'+'> >> rv_rreq(rmaker))
 		, cast<dbl_expr>(rv_lreq++ >> _char<'-'> >> rv_rreq(rmaker))
+		, int_
 		, cast<dbl_expr>(rv_lreq++ >> _char<'*'> >> rv_rreq(rmaker))
 		, cast<dbl_expr>(rv_lreq++ >> _char<'/'> >> rv_rreq(rmaker))
-		, int_
 		, fp
 		, quoted_string
 		, rv_result(_char<'('> >> rv_req >> _char<')'>)
@@ -1673,12 +1677,12 @@ constexpr static auto test_rvariant_val(auto r, auto&& maker, auto pr, auto&& sr
 	auto var_with_skip = inject_skipping(var, +space);
 	static_assert( !var_with_skip.b.template is_term<0>() );
 	static_assert( !var_with_skip.b.template is_term<1>() );
-	static_assert( !var_with_skip.b.template is_term<2>() );
+	static_assert(  var_with_skip.b.template is_term<2>() );
 	static_assert( !var_with_skip.b.template is_term<3>() );
-	static_assert( var_with_skip.b.template is_term<4>() );
-	static_assert( var_with_skip.b.template is_term<5>() );
-	static_assert( var_with_skip.b.template is_term<6>() );
-	static_assert( var_with_skip.b.template is_term<7>() );
+	static_assert( !var_with_skip.b.template is_term<4>() );
+	static_assert(  var_with_skip.b.template is_term<5>() );
+	static_assert(  var_with_skip.b.template is_term<6>() );
+	static_assert(  var_with_skip.b.template is_term<7>() );
 
 	return r;
 }
@@ -1694,13 +1698,14 @@ constexpr static bool test_rvariant_dexpr() {
 	struct min_expr : dbl_expr {} ;
 	struct pls_expr : dbl_expr {} ;
 	struct div_expr : dbl_expr {} ;
-	struct expr_rt : factory_t::variant<pls_expr, min_expr, mul_expr, div_expr, int, double, decltype(mk_str())> {};
+	struct expr_rt : factory_t::variant<pls_expr, min_expr, int, mul_expr, div_expr, double, decltype(mk_str())> {};
 	constexpr auto pls_ind = 0;
-	constexpr auto mul_ind = 2;
-	constexpr auto int_ind = 4;
-	constexpr auto fp_ind = int_ind+1;
+	constexpr auto mul_ind = 3;
+	constexpr auto int_ind = 2;
+	constexpr auto fp_ind = 5;
 
 	constexpr auto maker = [](auto& r){ return typename factory_t::template unique_ptr<expr_rt>( new expr_rt{std::move(r)} ); };
+	static_assert( test_rvariant_val<dbl_expr>(expr_rt{}, maker, -1, "").index() == int_ind, "if parser fails the variant have the last terminal index" );
 	static_assert( get<int_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 3, "123")) == 123 );
 	static_assert( get<fp_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 3, "0.5")) == 0.5 );
 	static_assert( get<int_ind>(*get<mul_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 3, "1*5")).left) == 1 );
