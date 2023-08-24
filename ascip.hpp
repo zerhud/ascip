@@ -80,7 +80,6 @@ template<auto... i> friend constexpr auto make_test_ctx(const base_parser<auto>&
 #include "ascip/rvariant.ipp"
 #include "ascip/lists.ipp"
 #include "ascip/seq.ipp"
-#include "ascip/lreq.ipp"
 #include "ascip/transform.ipp"
 #include "ascip/injection.ipp"
 #include "ascip/integrated.ipp"
@@ -108,7 +107,6 @@ constexpr static void test() {
 	static_assert( test_different() );
 	static_assert( test_semact() );
 	static_assert( test_seq() );
-	//static_assert( test_lreq() );
 	static_assert( test_injection() );
 	static_assert( integrated_tests() );
 	static_assert( test_transform() );
@@ -130,8 +128,8 @@ template<auto sym> struct tmpl {
 	constexpr static auto& cur_pos = holder::cur_pos;
 	constexpr static auto& cur_shift = holder::cur_shift;
 	constexpr static auto& req = holder::req<sym>;
-	constexpr static auto& lreq = holder::lreq;
-	constexpr static auto& lrreq = holder::lrreq;
+	constexpr static auto& rv_lreq = holder::rv_lreq;
+	constexpr static auto& rv_rreq = holder::rv_rreq;
 	constexpr static auto& nl = holder::nl;
 	constexpr static auto& quoted_string = holder::quoted_string;
 	constexpr static auto& dquoted_string = holder::dquoted_string;

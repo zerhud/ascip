@@ -102,8 +102,6 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 	template<typename type> constexpr static bool is_inc_field_val = ascip_details::is_specialization_of<type, seq_inc_rfield_val>;
 	template<typename type> constexpr static bool is_num_field_val = ascip_details::is_specialization_of<type, seq_num_rfield_val>;
 	template<typename type> constexpr static bool is_inc_field_after = ascip_details::is_specialization_of<type, seq_inc_rfield_after>;
-	//template<typename type> constexpr static bool is_inc_field_after = exists_in((type*)nullptr, [](const auto* p){return
-			//ascip_details::is_specialization_of<std::decay_t<decltype(*p)>, seq_inc_rfield_after>; });
 	template<typename type> constexpr static bool is_inc_field_before = ascip_details::is_specialization_of<type, seq_inc_rfield_before>;
 	template<typename type> constexpr static bool is_dec_field_after = ascip_details::is_specialization_of<type, seq_dec_rfield_after>;
 	template<typename type> constexpr static bool is_dec_field_before = ascip_details::is_specialization_of<type, seq_dec_rfield_before>;
