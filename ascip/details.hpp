@@ -270,4 +270,11 @@ constexpr auto init_with_get_inv(const src_t<src_args_t...>& src, args_t&&... ar
 namespace ascip_reflection {
 #include "get_field_from_struct.ipp"
 template<auto ind> constexpr auto& get(ascip_details::type_result_for_parser_concept& r){ return r; }
+constexpr void test () {
+	struct tf1{ char f1; };
+	struct tf2{ char f1, f2; };
+	static_assert( []{ tf1 t{ 'a' }; return get<0>(t); }() == 'a' );
+	static_assert( []{ tf2 t{ 'a', 'b' }; return get<0>(t); }() == 'a' );
+	static_assert( []{ tf2 t{ 'a', 'b' }; return get<1>(t); }() == 'b' );
+}
 } // namespace ascip_reflection
