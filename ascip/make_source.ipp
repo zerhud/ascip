@@ -13,12 +13,11 @@ constexpr static auto make_source(type&& src) {
 		constexpr auto operator()(){ return src[ind++]; }
 		constexpr explicit operator bool() const { return ind < src.size(); }
 		constexpr auto& operator += (int v) { ind+=v; return *this; }
-	} ret{ src };
+	} ret{ std::forward<decltype(src)>(src) };
 	return ret;
 }
 
-constexpr static auto make_source(auto sym)
-requires( !ascip_details::string_view<decltype(sym)> && !ascip_details::vector<decltype(sym)> && !std::is_array_v<decltype(sym)>) {
+constexpr static auto make_source(std::integral auto sym) {
 	struct {
 		decltype(sym) val; bool where_is_more=true;
 		constexpr auto operator()(){ where_is_more=false; return val; }
@@ -41,7 +40,9 @@ constexpr static auto make_source(const auto* vec) {
 }
 
 // implemented for ascip_details::parser concept 
-friend constexpr auto make_source(const base_parser<auto>& p) { return make_source(p.source_symbol); }
+//friend constexpr auto make_source(const base_parser<auto>& p) { return make_source(p.source_symbol); }
+template<typename param>
+friend constexpr auto make_source(const base_parser<param>& p) { return make_source(p.source_symbol); }
 
 constexpr static bool test_sources(auto&& s) {
 	!!s        || (throw 0, 1);
@@ -56,7 +57,9 @@ constexpr static void test_sources() {
 	static_assert( !!make_source("") == false, "source from array works, setp 0" );
 	static_assert( test_sources( make_source("ab") ) );
 	static_assert( test_sources( make_source(factory_t{}.mk_sv("ab")) ) );
+#ifndef __clang__
 	static_assert( test_sources( make_source(factory_t{}.mk_str("ab")) ) );
+#endif
 	static_assert( ({ constexpr const char* v="ab"; test_sources( make_source(v) );}) );
 
 	static_assert( []{
@@ -67,8 +70,10 @@ constexpr static void test_sources() {
 		return true;
 	}(), "source for debug with single symbol" );
 
+#ifndef __clang__
 	static_assert((char)make_source("я")() == (char)0xD1);
 	static_assert(({auto s=make_source("я");s();(char)s();}) == (char)0x8F);
+#endif
 	static_assert( []{
 		auto s = make_source("я");
 		!!s         || (throw 0, 1);

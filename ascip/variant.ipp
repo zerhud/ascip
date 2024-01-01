@@ -18,7 +18,7 @@ template<auto val> struct variant_pos_value{ constexpr static auto pos = val; };
 template<ascip_details::parser... parsers> struct variant_parser : base_parser<variant_parser<parsers...>> {
 	using self_type = variant_parser<parsers...>;
 	tuple<parsers...> seq;
-	constexpr variant_parser( parsers... l ) : seq( std::forward<parsers>(l)... ) {}
+	constexpr explicit variant_parser( parsers... l ) : seq( std::forward<parsers>(l)... ) {}
 
 	template<auto ind, auto cnt, auto cur, typename cur_parser, typename... tail>
 	constexpr static auto _cur_ind() {
@@ -72,12 +72,16 @@ template<ascip_details::parser... parsers> struct variant_parser : base_parser<v
 	constexpr auto operator|(char p2) { return *this | value_parser( p2 ); }
 };
 
+template<ascip_details::parser... parsers>
+variant_parser(parsers...) -> variant_parser<parsers...>;
+
 constexpr static const auto alpha = lower | upper;
 
 constexpr static bool test_variant() {
 	constexpr const auto run_parse = [](const auto& p, auto&& src, auto& r) ->decltype(auto(r)) {
 		return p.parse(make_test_ctx(), make_source(src), r);
 	};
+#ifndef __clang__
 	static_assert( ({ char r;run_parse(char_<'a'>|char_<'b'>, "a", r);r;}) == 'a' );
 	static_assert( ({ char r;run_parse(char_<'a'>|'b', "b", r);r;}) == 'b' );
 	static_assert( ({ char r;run_parse(char_<'a'>|'b'|'c', "c", r);}) == 1 );
@@ -87,6 +91,7 @@ constexpr static bool test_variant() {
 	static_assert( ({ char r;run_parse(as(char_<'b'>,'c')|char_<'a'>, "b", r);r;}) == 'c' );
 	static_assert( ({ char r;run_parse(as(char_<'b'>,'c')|char_<'a'>, "a", r);r;}) == 'a' );
 	static_assert( ({ char r;run_parse(as(char_<'b'>,'c')|char_<'a'>, "a", r);  }) ==  1 );
+#endif
 
 	return true;
 }

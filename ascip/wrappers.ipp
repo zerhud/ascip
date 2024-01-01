@@ -54,6 +54,9 @@ template<ascip_details::parser parser> struct omit_parser : base_parser<omit_par
 		return p.parse(ctx, src, r);
 	}
 };
+#ifdef __clang__
+template<typename t> omit_parser(t) -> omit_parser<t>;
+#endif
 template<auto val> constexpr static const auto _char = omit(char_<val>);
 constexpr static const auto nl = _char<'\n'>;
 
@@ -146,6 +149,8 @@ template<ascip_details::parser left, ascip_details::parser right> struct differe
 		return lp.parse(ctx, src, result);
 	}
 };
+template<ascip_details::parser left, ascip_details::parser right>
+different_parser(left, right) -> different_parser<left, right>;
 constexpr static bool test_different() {
 	static_assert( ({char r='z';(*(any - char_<'a'>)).parse(make_test_ctx(), make_source("#$%a"), r);}) == 3, "different parser: stops on it's excluding parser" );
 	static_assert( ({char r='z';(*(any - char_<'a'>)).parse(make_test_ctx(), make_source("#$%a"), r);r;}) == '%', "different parser: excluded left result as is" );

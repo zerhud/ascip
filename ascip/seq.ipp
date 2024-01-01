@@ -91,11 +91,19 @@ template<ascip_details::parser parser> struct seq_inc_rfield_after : base_parser
 template<ascip_details::parser parser> struct seq_inc_rfield_before : base_parser<seq_inc_rfield_before<parser>> { parser p; };
 template<ascip_details::parser parser> struct seq_dec_rfield_after : base_parser<seq_dec_rfield_after<parser>> { parser p; };
 template<ascip_details::parser parser> struct seq_dec_rfield_before : base_parser<seq_dec_rfield_before<parser>> { parser p; };
+#ifdef __clang__
+template<typename p> seq_inc_rfield_after(p) -> seq_inc_rfield_after<p>;
+template<typename p> seq_inc_rfield_before(p) ->  seq_inc_rfield_before<p>;
+template<typename p> seq_dec_rfield_after(p) ->  seq_dec_rfield_after<p>;
+template<typename p> seq_dec_rfield_before(p) -> seq_dec_rfield_before<p>;
+#endif
 template<typename concrete, typename... parsers> struct com_seq_parser : base_parser<concrete>, ascip_details::seq_tag {
 	tuple<parsers...> seq;
 
+	constexpr com_seq_parser() =default ;
 	constexpr com_seq_parser(tuple<parsers...> t) : seq(std::move(t)) {}
 	constexpr com_seq_parser(auto&&... args) requires (sizeof...(parsers) == sizeof...(args)) : seq( static_cast<decltype(args)&&>(args)... ) {}
+	constexpr com_seq_parser(const com_seq_parser&) =default ;
 
 	//TODO: make construction like --parser++ works as expected (decriment result field now and increment after this parser)
 	template<typename type> constexpr static bool is_field_separator = requires(type&p){ static_cast<const seq_inc_rfield&>(p); };
@@ -191,9 +199,13 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 };
 template<typename... parsers> struct opt_seq_parser : com_seq_parser<opt_seq_parser<parsers...>, parsers...> {
 	using base_t = com_seq_parser<opt_seq_parser<parsers...>, parsers...>;
-	constexpr opt_seq_parser(auto&&... args) requires (sizeof...(parsers)==sizeof...(args)): base_t(static_cast<decltype(args)&&>(args)...) {}
+	constexpr opt_seq_parser() =default ;
+	constexpr opt_seq_parser(opt_seq_parser&&) =default ;
+	constexpr opt_seq_parser(const opt_seq_parser&) =default ;
+	constexpr opt_seq_parser(auto&&... args) : base_t(static_cast<decltype(args)&&>(args)...) {}
 	constexpr auto on_error(auto val) const { return val; }
 };
+template<typename... p> opt_seq_parser(p...) -> opt_seq_parser<std::decay_t<p>...>;
 
 template<ascip_details::string_literal message, ascip_details::parser type>
 struct seq_error_parser : base_parser<seq_error_parser<message,type>> {

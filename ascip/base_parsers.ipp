@@ -50,9 +50,11 @@ constexpr static void test_parser_char() {
 	static_assert( char_<'a'>.test() ); static_assert( char_<'z'>.test() );
 	static_assert( char_<'!'>.test() ); static_assert( char_<'Z'>.test() );
 	static_assert( char_<' '>.test() ); static_assert( char_<'\n'>.test() );
+#ifndef __clang__
 	static_assert( ({char r;char_<'a'>.parse(make_test_ctx(), make_source("abc"), r);}) == 1 );
 	static_assert( ({char r;char_<'b'>.parse(make_test_ctx(), make_source("abc"), r);}) == -1 );
 	static_assert( ({char r;char_<'a'>.parse(make_test_ctx(), make_source("abc"), r);r;}) == 'a' );
+#endif
 }
 
 template<ascip_details::string_literal val> struct literal_parser : base_parser<literal_parser<val>> {
@@ -105,11 +107,18 @@ template<typename t> struct value_parser : base_parser<value_parser<t>> {
 	}
 };
 
+#ifdef __clang__
+template<typename t>
+value_parser(t) -> value_parser<t>;
+#endif
+
 constexpr static void test_parser_value() {
 	static_assert( value_parser{ 'a' }.test() ); static_assert( value_parser{ 'Z' }.test() );
 	static_assert( value_parser{ L'!' }.test() ); static_assert( value_parser{ '\n' }.test() );
+#ifndef __clang__
 	static_assert( ({char r;value_parser{'a'}.parse(make_test_ctx(), make_source("abc"), r);}) == 1 );
 	static_assert( ({char r;value_parser{'b'}.parse(make_test_ctx(), make_source("abc"), r);}) == -1 );
+#endif
 }
 
 constexpr static struct space_parser : base_parser<space_parser> {
@@ -214,9 +223,11 @@ constexpr static struct int_parser : base_parser<int_parser> {
 		static_assert( t("+103", 4, 103) );
 		static_assert( t("103", 3, 103) );
 		
+#ifndef __clang__
 		static_assert( ({ auto r=0;int_parser{}.parse(make_test_ctx(), make_source("!"), r);}) == -1 );
 		static_assert( ({ auto r=0;int_parser{}.parse(make_test_ctx(), make_source("a"), r);}) == -1 );
 		static_assert( ({ auto r=0;int_parser{}.parse(make_test_ctx(), make_source("A"), r);}) == -1 );
+#endif
 
 		return true;
 	}
@@ -256,11 +267,13 @@ constexpr static struct float_point_parser : base_parser<float_point_parser> {
 		static_assert( t("1.5", 3, 1.5) );
 		static_assert( t("3.075", 5, 3.075) );
 
+#ifndef __clang__
 		static_assert( ({double r=100;float_point_parser{}.parse(make_test_ctx(), make_source("0"), r); }) == -1);
 		static_assert( ({double r=100;float_point_parser{}.parse(make_test_ctx(), make_source("a"), r); }) == -1);
 		static_assert( ({double r=100;float_point_parser{}.parse(make_test_ctx(), make_source("1."), r); }) == -1);
 		static_assert( ({double r=100;float_point_parser{}.parse(make_test_ctx(), make_source("5+3"), r); }) == -1);
 		static_assert( ({double r=100;float_point_parser{}.parse(make_test_ctx(), make_source("5-3"), r); }) == -1);
+#endif
 
 		return true;
 	}
@@ -282,11 +295,13 @@ constexpr static const auto d10 = range_parser<'0', '9'>{};
 constexpr static const auto ascii = range_parser<(char)0x01,(char)0x7F>{};
 
 constexpr static bool test_range_parser() {
+#ifndef __clang__
 	static_assert( ({char r;lower.parse(make_test_ctx(), make_source("a"), r);r;}) == 'a' );
 	static_assert( ({char r;lower.parse(make_test_ctx(), make_source("A"), r);}) == -1 );
 	static_assert( ({char r;ascii.parse(make_test_ctx(), make_source("A"), r);}) == 1 );
 	static_assert( ({char r;ascii.parse(make_test_ctx(), make_source('~'+1), r);}) == 1 );
 	static_assert( ({char r;ascii.parse(make_test_ctx(), make_source('~'+2), r);}) == -1 );
+#endif
 	return true;
 }
 

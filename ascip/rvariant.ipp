@@ -51,6 +51,9 @@ constexpr static struct rvariant_req_parser : base_parser<rvariant_req_parser> {
 } rv_req{};
 template<ascip_details::parser parser>
 struct rvariant_top_result_parser : base_parser<rvariant_top_result_parser<parser>> { parser p; };
+#ifdef __clang__
+template<typename p> rvariant_top_result_parser(p) -> rvariant_top_result_parser<p>;
+#endif
 
 template<template<class>class wrapper, ascip_details::parser parser> constexpr static auto is_top_result_parser_helper(const wrapper<parser>& p) -> decltype(p.p);
 template<typename parser>
@@ -63,7 +66,7 @@ constexpr static bool is_top_result_parser() {
 }
 
 template<typename maker_type, ascip_details::parser... parsers>
-struct rvariant_parser : base_parser<rvariant_parser<parsers...>> {
+struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 	tuple<parsers...> seq;
 	std::decay_t<maker_type> maker;
 	constexpr rvariant_parser( maker_type m, parsers... l ) : seq( std::forward<parsers>(l)... ), maker(std::forward<maker_type>(m)) {}
@@ -153,6 +156,9 @@ struct rvariant_parser : base_parser<rvariant_parser<parsers...>> {
 		}
 	}
 };
+#ifdef __clang__
+template<typename... t> rvariant_parser(t...) ->  rvariant_parser<t...>;
+#endif
 
 template<auto ind>
 struct rvariant_mutator {
@@ -206,16 +212,16 @@ constexpr static auto test_rvariant_val(auto r, auto&& maker, auto pr, auto&& sr
 
 constexpr static bool test_rvariant_dexpr() {
 	struct expr_rt;
-	using term_rt = factory_t::template variant<int,decltype(mk_str())>;
+	using term_rt = typename factory_t::template variant<int,decltype(mk_str())>;
 	struct dbl_expr{
-		factory_t::template unique_ptr<expr_rt> left;
-		factory_t::template unique_ptr<expr_rt> right;
+		typename factory_t::template unique_ptr<expr_rt> left;
+		typename factory_t::template unique_ptr<expr_rt> right;
 	};
 	struct mul_expr : dbl_expr {} ;
 	struct min_expr : dbl_expr {} ;
 	struct pls_expr : dbl_expr {} ;
 	struct div_expr : dbl_expr {} ;
-	struct expr_rt : factory_t::variant<pls_expr, min_expr, int, mul_expr, div_expr, double, decltype(mk_str())> {};
+	struct expr_rt : factory_t::template variant<pls_expr, min_expr, int, mul_expr, div_expr, double, decltype(mk_str())> {};
 	constexpr auto pls_ind = 0;
 	constexpr auto mul_ind = 3;
 	constexpr auto int_ind = 2;
