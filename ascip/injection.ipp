@@ -6,9 +6,17 @@
 //          https://www.boost.org/LICENSE_1_0.txt)
 
 template<ascip_details::parser pt> struct lexeme_parser : base_parser<lexeme_parser<pt>> { [[no_unique_address]] pt p; 
+	constexpr lexeme_parser() =default ;
+	constexpr lexeme_parser(lexeme_parser&&) =default ;
+	constexpr lexeme_parser(const lexeme_parser&) =default ;
+	constexpr lexeme_parser(pt p) : p(std::move(p)) {}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const { return p.parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(src)&&>(src), result); }
 };
 template<ascip_details::parser pt> struct skip_parser : base_parser<lexeme_parser<pt>> { [[no_unique_address]] pt p; 
+	constexpr skip_parser() =default ;
+	constexpr skip_parser(skip_parser&&) =default ;
+	constexpr skip_parser(const skip_parser&) =default ;
+	constexpr skip_parser(pt p) : p(std::move(p)) {}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const { return p.parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(src)&&>(src), result); }
 };
 template<ascip_details::parser skip, ascip_details::parser base> struct injected_parser : base_parser<injected_parser<skip,base>> {
@@ -28,6 +36,11 @@ template<ascip_details::parser skip, ascip_details::parser base> struct injected
 		return b.parse_with_user_result(std::forward<decltype(ctx)>(ctx), std::move(src), result);
 	}
 };
+#ifdef __clang__
+template<typename t> lexeme_parser(t) -> lexeme_parser<t>;
+template<typename t> skip_parser(t) -> skip_parser<t>;
+template<typename s, typename b> injected_parser(s,b) -> injected_parser<s,b>;
+#endif
 
 template<typename skip_type>
 struct injection_mutator {
@@ -78,6 +91,7 @@ template<ascip_details::parser p1, ascip_details::parser p2> constexpr static au
 	return typename p1::holder::template injected_parser<p1, p2>{ {}, l, r }; }
 
 constexpr static bool test_injection_parser() {
+#ifndef __clang__
 	static_assert( ({ char r='z'; make_injected(char_<' '>, char_<'a'>).parse(make_test_ctx(), make_source(" a"), r);
 	}) == 2, "inejction parser can parse");
 	static_assert( ({ char r='z'; make_injected(char_<' '>, char_<'a'>).parse(make_test_ctx(), make_source("  b"), r);
@@ -94,6 +108,7 @@ constexpr static bool test_injection_parser() {
 	static_assert( ({ char r='z';
 		auto pr=make_injected(char_<' '>, char_<'a'>).parse(make_test_ctx(), make_source("aa"), r);
 	(pr==1) + (2*(r=='a'));}) == 3, "inejction parser parse if only first parameter fails");
+#endif
 	return true;
 }
 template<auto p1, auto p2>
@@ -131,6 +146,7 @@ constexpr static bool test_seq_injection() {
 		>
 		>&>(inject_skipping( p1 >> (p1>>p1) - p1, p2 ));
 
+#ifndef __clang__
 	static_assert( ({ char r='z'; int t=0;
 		auto p = char_<'a'> >> char_<'b'> >> [&t](...){++t;return 0;};
 		p.parse(make_test_ctx(), make_source("ab"), r);
@@ -147,6 +163,7 @@ constexpr static bool test_seq_injection() {
 		auto p = inject_skipping(char_<'a'> >> cast<char>(char_<'b'>([&t](...){++t;})), +space);
 		p.parse(make_test_ctx(), make_source(mk_str("abc")), r);
 	t; }) == 1, "injection works with semact" );
+#endif
 
 	static_cast<const variant_parser<inj_t,inj_t>&>(inject_skipping( p1|p1, p2 ));
 	static_cast<const variant_parser<inj_t,inj_t,inj_t>&>(inject_skipping( p1|p1|p1, p2 ));
@@ -158,8 +175,10 @@ constexpr static bool test_seq_injection() {
 	static_cast<const result_checker_parser<int, inj_t>&>(inject_skipping( check<int>(p1), p2 ));
 	static_cast<const result_checker_parser<int, opt_seq_parser<inj_t,inj_t>>&>(inject_skipping( check<int>(p1 >> p1), p2 ));
 
+#ifndef __clang__
 	static_assert( ({ char r; const auto parser = +alpha; const auto skipper = +space;
 		inject_skipping(parser, skipper).parse(make_test_ctx(), make_source(" a b c "), r); }) == -1 );
+#endif
 	static_cast<const binary_list_parser<inj_t, inj_t>&>(inject_skipping( p1 % p1, p2 ));
 
 	return true;

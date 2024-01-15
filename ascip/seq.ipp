@@ -230,6 +230,7 @@ constexpr static bool test_seq_simple_case() {
 	static_assert( test_parser_parse_r_str(p_ab, "cab", -1) );
 	static_assert( test_parser_parse_r_str(any >> omit(space) >> any, "1 2", 3, '1', '2') );
 	static_assert( test_parser_parse_r_str(char_<'a'> >> 'b', "ab", 2, 'a', 'b') );
+#ifndef __clang__
 	static_assert( ({ char r='z', l='a';
 		(char_<'a'> >> char_<'b'> >> [&](auto& result, auto src, auto line, auto msg) {
 		 src.ind /= (src.ind==2);
@@ -241,6 +242,7 @@ constexpr static bool test_seq_simple_case() {
 	static_assert(
 		test_parser_parse_r_str(char_<'a'> >> char_<'b'> >> [](auto&&...){return 1;}, "ab", 3, 'a', 'b'),
 		"lambda value is added to position" );
+#endif
 	return true;
 }
 
@@ -272,6 +274,7 @@ constexpr static bool test_seq_req() {
 	static_assert( test_parser_parse_r_str((char_<'a'>|'b'|'c') >> _char<'('> >> -req<0> >> _char<')'>, "a(b(c()))", 9, 'a', 'b', 'c') );
 
 	struct semact_req_tester { char n='z'; semact_req_tester* ptr=nullptr; };
+#ifndef __clang__
 	static_assert( ({
 		semact_req_tester r, r2; char ok='u';
 		auto p=((char_<'a'>|'b')++ >> -(_char<'('> >> req<1>([&r2,&ok](auto& r){ok='o';return &r2;}) >> _char<')'>));
@@ -285,10 +288,12 @@ constexpr static bool test_seq_req() {
 		delete r.ptr;
 		ret;
 	}) == 'a', "check semact for create value");
+#endif
 
 	return true;
 }
 constexpr static bool test_seq_must() {
+#ifndef __clang__
 	static_assert(
 		({char r='z';(char_<'a'> >> char_<'b'> >> must<"t">(char_<'c'>)).parse(make_test_ctx(), make_source("abd"), r);}) == -1,
 		"if error and no lambda - nothing changed");
@@ -311,9 +316,11 @@ constexpr static bool test_seq_must() {
 	static_assert( ({ char r=0x00;
 		(any >> char_<'a'> >> char_<'b'> >> must<"test">(char_<'c'>)).parse(make_test_ctx(&err_method), make_source("\nabe"), r);
 	}) == -4, "on error: sources are on start sequence and on rule where the error");
+#endif
 	return true;
 }
 constexpr static bool test_seq_shift_pos() {
+#ifndef __clang__
 	static_assert( ({
 		struct { char a='z', b='z'; int pos; } r;
 		(char_<'a'> >> ++char_<'b'> >> ++cur_pos).parse(make_test_ctx(), make_source("ab"), r); r.pos;
@@ -334,6 +341,7 @@ constexpr static bool test_seq_shift_pos() {
 		struct { char a='z'; struct { char b; int shift1;} i; int shift2; } r;
 		ab_req.parse(make_test_ctx(), make_source("a(b)"), r); r.shift2;
 	}) == 4, "can parse current shift in reqursion");
+#endif
 	return true;
 }
 

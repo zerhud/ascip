@@ -230,7 +230,7 @@ namespace { // tuple
  
 template<typename...> struct types_set{};
 template<auto sz> constexpr auto arrsize(const auto(&)[sz]){ return sz; }
-constexpr auto strlen(const auto* vec){ unsigned ret = 0; while(vec[ret++]); return ret; }
+constexpr auto strlen(const auto* vec){ unsigned ret = 0; while(vec[ret])++ret; return ++ret; }
 
 constexpr auto& pop_back(type_any_eq_allow& v){ return v; };
 constexpr auto& emplace_back(type_any_eq_allow& v){ return v; };

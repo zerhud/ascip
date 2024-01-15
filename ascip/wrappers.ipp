@@ -8,6 +8,10 @@
 
 template<ascip_details::parser parser> struct negate_parser : base_parser<negate_parser<parser>> {
 	parser p;
+	constexpr negate_parser() =default ;
+	constexpr negate_parser(negate_parser&&) =default ;
+	constexpr negate_parser(const negate_parser&) =default ;
+	constexpr negate_parser(parser p) : p(std::move(p)) {}
 	constexpr auto operator!() const { return p; }
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = p.parse(ctx, static_cast<decltype(auto(src))&&>(src), result);
@@ -16,12 +20,14 @@ template<ascip_details::parser parser> struct negate_parser : base_parser<negate
 };
 
 constexpr static bool test_negate() {
+#ifndef __clang__
 	static_assert( ({char r;(!char_<'a'>).parse(make_test_ctx(), make_source('a'), r);}) == -1 );
 	static_assert( ({char r;(!char_<'a'>).parse(make_test_ctx(), make_source('b'), r);}) ==  1 );
 	static_assert( ({char r='z';(!char_<'a'>).parse(make_test_ctx(), make_source('b'), r);r;}) ==  'z' );
 
 	static_assert( ({char r;(!!char_<'a'>).parse(make_test_ctx(), make_source('a'), r);}) == 1 );
 	static_assert( ({char r;(!!!!char_<'a'>).parse(make_test_ctx(), make_source('a'), r);r;}) == 'a' );
+#endif
 
 	static_cast<const decltype(auto(char_<'a'>))&>(!!char_<'a'>);
 	static_cast<const decltype(auto(char_<'a'>))&>(!!!!char_<'a'>);
@@ -33,7 +39,10 @@ constexpr static bool test_negate() {
 
 template<ascip_details::parser parser> struct opt_parser : base_parser<opt_parser<parser>> {
 	[[no_unique_address]] parser p;
-	//opt_parser(parser p) : p(p) {}
+	constexpr opt_parser(opt_parser&&) =default ;
+	constexpr opt_parser(const opt_parser&) =default ;
+	constexpr opt_parser() =default ;
+	constexpr opt_parser(parser p) : p(std::move(p)) {}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		if(!src) return 0;
 		auto ret = p.parse(ctx, src, result);
@@ -49,13 +58,19 @@ constexpr static bool test_optional() {
 
 template<ascip_details::parser parser> struct omit_parser : base_parser<omit_parser<parser>> {
 	[[no_unique_address]] parser p;
+	constexpr omit_parser() =default ;
+	constexpr omit_parser(omit_parser&&) =default ;
+	constexpr omit_parser(const omit_parser&) =default ;
+	constexpr omit_parser(parser p) : p(std::move(p)) {}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		ascip_details::type_any_eq_allow r;
 		return p.parse(ctx, src, r);
 	}
 };
 #ifdef __clang__
+template<typename t> negate_parser(t) -> negate_parser<t>;
 template<typename t> omit_parser(t) -> omit_parser<t>;
+template<typename t> opt_parser(t) -> opt_parser<t>;
 #endif
 template<auto val> constexpr static const auto _char = omit(char_<val>);
 constexpr static const auto nl = _char<'\n'>;
@@ -70,6 +85,10 @@ constexpr static bool test_omit() {
 
 template<auto val, ascip_details::parser parser> struct tmpl_as_parser : base_parser<tmpl_as_parser<val,parser>> {
 	[[no_unique_address]] parser p;
+	constexpr tmpl_as_parser() =default ;
+	constexpr tmpl_as_parser(tmpl_as_parser&&) =default ;
+	constexpr tmpl_as_parser(const tmpl_as_parser&) =default ;
+	constexpr tmpl_as_parser(parser p) : p(std::move(p)) {}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		ascip_details::type_any_eq_allow r;
 		auto shift = p.parse(ctx, static_cast<decltype(auto(src))&&>(src), r);
@@ -80,6 +99,10 @@ template<auto val, ascip_details::parser parser> struct tmpl_as_parser : base_pa
 template<typename value_t, ascip_details::parser parser> struct as_parser : base_parser<as_parser<value_t, parser>> {
 	value_t val;
 	[[no_unique_address]] parser p;
+	constexpr as_parser() =default ;
+	constexpr as_parser(as_parser&&) =default ;
+	constexpr as_parser(const as_parser&) =default ;
+	constexpr as_parser(value_t val, parser p) : val(std::move(val)), p(std::move(p)) {}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		ascip_details::type_any_eq_allow r;
 		auto shift = p.parse(ctx, static_cast<decltype(auto(src))&&>(src), r);
@@ -149,11 +172,16 @@ template<ascip_details::parser left, ascip_details::parser right> struct differe
 		return lp.parse(ctx, src, result);
 	}
 };
+#ifdef __clang__
 template<ascip_details::parser left, ascip_details::parser right>
 different_parser(left, right) -> different_parser<left, right>;
+template<typename v, typename p> as_parser(v,p) -> as_parser<v,p>;
+#endif
 constexpr static bool test_different() {
+#ifndef __clang__
 	static_assert( ({char r='z';(*(any - char_<'a'>)).parse(make_test_ctx(), make_source("#$%a"), r);}) == 3, "different parser: stops on it's excluding parser" );
 	static_assert( ({char r='z';(*(any - char_<'a'>)).parse(make_test_ctx(), make_source("#$%a"), r);r;}) == '%', "different parser: excluded left result as is" );
+#endif
 	return true;
 }
 

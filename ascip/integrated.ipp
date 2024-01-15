@@ -20,6 +20,7 @@ constexpr static bool integrated_tests() {
 	static_assert( test_parser_parse_r_str(quoted_string, "\" o'k\"", 6, ' ', 'o', '\'', 'k') );
 	static_assert( test_parser_parse_r_str(quoted_string, "\" o\\\"k\"", 7, ' ', 'o', '"', 'k') );
 
+#ifndef __clang__
 	static_assert( ({ auto r = mk_str(); parse(quoted_string, +space, make_source("'ok'"), r); }) == 4);
 	static_assert( ({ auto r = mk_str(); parse(+alpha, +space, make_source("a b c "), r); }) == 5);
 	static_assert( ({ auto r = mk_str(); parse(+alpha, +space, make_source(" a b c "), r); }) == 6);
@@ -29,5 +30,6 @@ constexpr static bool integrated_tests() {
 	static_assert( ({ auto r = mk_str(); auto ctx = make_test_ctx();
 		quoted_string.parse(ctx, make_source("'1\n2\n'"), r);
 		search_in_ctx<ascip_details::new_line_count_tag>(ctx);}) == 3);
+#endif
 	return true;
 }

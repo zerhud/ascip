@@ -8,7 +8,10 @@
 
 template<ascip_details::parser parser> struct unary_list_parser : base_parser<unary_list_parser<parser>> {
 	[[no_unique_address]] parser p;
-	//unary_list_parser(parser p) : p(p) {}
+	constexpr unary_list_parser(unary_list_parser&&) =default ;
+	constexpr unary_list_parser(const unary_list_parser&) =default ;
+	constexpr unary_list_parser() =default ;
+	constexpr unary_list_parser(parser p) : p(std::move(p)) {}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = p.parse(ctx, src, ascip_details::empback(result));
 		src += ret * (0<=ret);
@@ -48,6 +51,10 @@ struct binary_list_parser : base_parser<binary_list_parser<left, right>> {
 		return ret;
 	}
 };
+#ifdef __clang__
+template<typename p> unary_list_parser(p) -> unary_list_parser<p>;
+template<typename l, typename r> binary_list_parser(l,r) -> binary_list_parser<l,r>;
+#endif
 
 constexpr static bool test_unary_list() {
 	test_parser_parse(mk_vec<char>(), *char_<'a'>, "", 0);
@@ -56,11 +63,13 @@ constexpr static bool test_unary_list() {
 	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), *char_<'a'>, "aa", 2), 'a', 'a' ));
 	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), +char_<'a'>, "aa", 2), 'a', 'a' ));
 
+#ifndef __clang__
 	static_assert( ({char r='z';char_<'a'>.parse(make_test_ctx(),make_source('b'),r);r;}) == 'z' );
 	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), +(!char_<'a'>), "bb", 2), 0x00, 0x00 ),
 			"!char_<'a'> parses but don't sore it's value, we have list with zeros (instead of infinit loop)");
 
 	static_assert(test_cmp_vec( test_parser_parse(mk_str(),+(char_<'a'>|char_<'b'>), "aab", 3), 'a', 'a', 'b' ));
+#endif
 
 	return true;
 }

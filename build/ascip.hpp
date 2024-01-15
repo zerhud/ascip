@@ -288,7 +288,7 @@ namespace { // tuple
  
 template<typename...> struct types_set{};
 template<auto sz> constexpr auto arrsize(const auto(&)[sz]){ return sz; }
-constexpr auto strlen(const auto* vec){ unsigned ret = 0; while(vec[ret++]); return ret; }
+constexpr auto strlen(const auto* vec){ unsigned ret = 0; while(vec[ret])++ret; return ++ret; }
 
 constexpr auto& pop_back(type_any_eq_allow& v){ return v; };
 constexpr auto& emplace_back(type_any_eq_allow& v){ return v; };
@@ -332,10 +332,10 @@ struct adl_tag {};
 struct seq_tag {};
 
 template<typename value_t, ascip_details::parser parser_t> constexpr static auto as( parser_t&& p, value_t&& val ){
-	return typename decltype(auto(p))::holder::template as_parser<decltype(auto(val)), decltype(auto(p))>{ p, val };
+	return typename decltype(auto(p))::holder::template as_parser<decltype(auto(val)), decltype(auto(p))>( val, p );
 }
 template<auto val, ascip_details::parser parser_t> constexpr static auto as( parser_t&& p) {
-	return typename decltype(auto(p))::holder::template tmpl_as_parser<val, decltype(auto(p))>{ {}, p }; }
+	return typename decltype(auto(p))::holder::template tmpl_as_parser<val, decltype(auto(p))>{ p }; }
 constexpr static auto omit(auto&& p) {
 	return typename decltype(auto(p))::holder::template omit_parser<decltype(auto(p))>{ p }; }
 template<typename result, parser type> constexpr auto check(const type& p) {
@@ -352,9 +352,9 @@ template<auto cnt, parser type> constexpr auto fnum(const type& p) {
 template<string_literal msg, parser type> constexpr auto must(const type& p) {
 	return typename decltype(auto(p))::holder::template seq_error_parser<msg, type>{ p }; }
 template<parser type> constexpr auto lexeme(const type& p) {
-	return typename decltype(auto(p))::holder::template lexeme_parser<type>{ {}, p }; }
+	return typename decltype(auto(p))::holder::template lexeme_parser<type>{ p }; }
 template<parser type> constexpr auto skip(const type& p) {
-	return typename decltype(auto(p))::holder::template skip_parser<type>{ {}, p }; }
+	return typename decltype(auto(p))::holder::template skip_parser<type>{ p }; }
 
 template<parser type> constexpr auto use_variant_result(const type& p) {
 	return typename decltype(auto(p))::holder::template use_variant_result_parser<type>{ {}, p }; }
@@ -649,8 +649,8 @@ constexpr auto operator|(const ascip_details::nonparser auto& p2) const {
 constexpr auto operator!() const {
 	return negate_parser<parser>{ static_cast<const parser&>(*this) };
 }
-constexpr auto operator-()const{ return opt_parser<parser>{{}, static_cast<const parser&>(*this)}; }
-constexpr auto operator+()const{ return unary_list_parser<parser>{ {}, static_cast<const parser&>(*this) }; }
+constexpr auto operator-()const{ return opt_parser<parser>{ static_cast<const parser&>(*this) }; }
+constexpr auto operator+()const{ return unary_list_parser<parser>{ static_cast<const parser&>(*this) }; }
 constexpr auto operator*()const{ return -( +(static_cast<const parser&>(*this)) ); }
 
 template<ascip_details::parser right> constexpr auto operator%(const right& r) const {
@@ -1211,9 +1211,34 @@ template<typename parser, typename act_t> struct semact_parser : base_parser<sem
 	act_t act;
 	[[no_unique_address]] parser p;
 
-	//constexpr const bool test_act() const {
-		//return requires{ requires std::is_lvalue_reference_v<decltype(act(result))>; };
-	//}
+	constexpr const auto parse(auto&& ctx, auto src, auto& result) const {
+		constexpr bool is_any_arg_pattern = !requires{ act(); };
+		if constexpr(ascip_details::is_in_concept_check(decltype(auto(ctx)){})) return 0;
+		else if constexpr(std::is_same_v<ascip_details::type_any_eq_allow&, decltype(result)>)
+			return p.parse(std::forward<decltype(ctx)>(ctx), std::move(src), result);
+		else if constexpr (requires{ act(result); requires std::is_lvalue_reference_v<decltype(act(result))>; } ) {
+			auto& nr = act(result);
+			if constexpr (requires{ p.parse_with_user_result(ctx,src,nr); })
+				return p.parse_with_user_result(static_cast<decltype(ctx)&&>(ctx),src,nr);
+			else return p.parse(ctx, src, nr);
+		}
+		else if constexpr(requires{ act(result); requires std::is_pointer_v<decltype(act(result))>;} ) {
+			auto* nr = act(result);
+			if constexpr (requires{ p.parse_with_user_result(ctx,src,*nr); })
+				return p.parse_with_user_result(static_cast<decltype(ctx)&&>(ctx),src,*nr);
+			else return p.parse(ctx, src, *nr);
+		}
+		else {
+			auto ret = p.parse(ctx, src, result);
+			if(ret >= 0) {
+				if constexpr (requires{ act(ret, ctx, src, result); }) act(ret, ctx, src, result);
+				else if constexpr (requires{ acct(ret, result); }) act(ret, result);
+				else act();
+			}
+			return ret;
+		}
+	}
+	/*
 	constexpr const auto parse(auto&& ctx, auto src, auto& result) const requires
 		std::is_same_v<ascip_details::type_any_eq_allow&, decltype(result)>
 	{
@@ -1229,7 +1254,7 @@ template<typename parser, typename act_t> struct semact_parser : base_parser<sem
 		&& !std::is_same_v<ascip_details::type_any_eq_allow&, decltype(result)>
 		&& !requires{ static_cast<const ascip_details::type_result_for_parser_concept&>(result); }
 		&& requires{ requires std::is_lvalue_reference_v<decltype(act(result))>; }
-		&& !requires{ act(); /* check if ... pattern */ }
+		&& !requires{ act(); /* check if ... pattern */ /*}
 	) {
 		auto& nr = act(result);
 		if constexpr (requires{ p.parse_with_user_result(ctx,src,nr); })
@@ -1240,7 +1265,7 @@ template<typename parser, typename act_t> struct semact_parser : base_parser<sem
 		   !ascip_details::is_in_concept_check(decltype(auto(ctx)){})
 		&& !std::is_same_v<ascip_details::type_any_eq_allow&, decltype(result)>
 		&& requires{ requires std::is_pointer_v<decltype(act(result))>; }
-		&& !requires{ act(); /* check if ... pattern */ }
+		&& !requires{ act(); /* check if ... pattern */ /*}
 	) {
 		auto* nr = act(result);
 		if constexpr (requires{ p.parse_with_user_result(ctx,src,*nr); })
@@ -1259,11 +1284,14 @@ template<typename parser, typename act_t> struct semact_parser : base_parser<sem
 			return ret;
 		}
 	}
+	*/
 };
 
 constexpr static bool test_semact() {
+
 	static_assert( ({char r='z',a='y';(char_<'a'> >> char_<'b'>([&a](){a='c';})).parse(make_test_ctx(),make_source("ab"),r);a;}) == 'c', "semact: calls if parsed");
 	static_assert( ({char r='z',a='y';(char_<'a'> >> char_<'b'>([&a](){a='c';})).parse(make_test_ctx(),make_source("au"),r);a;}) == 'y', "semact: silent if fails");
+
 	return true;
 }
        
@@ -1276,6 +1304,10 @@ constexpr static bool test_semact() {
 
 template<ascip_details::parser parser> struct negate_parser : base_parser<negate_parser<parser>> {
 	parser p;
+	constexpr negate_parser() =default ;
+	constexpr negate_parser(negate_parser&&) =default ;
+	constexpr negate_parser(const negate_parser&) =default ;
+	constexpr negate_parser(parser p) : p(std::move(p)) {}
 	constexpr auto operator!() const { return p; }
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = p.parse(ctx, static_cast<decltype(auto(src))&&>(src), result);
@@ -1284,12 +1316,14 @@ template<ascip_details::parser parser> struct negate_parser : base_parser<negate
 };
 
 constexpr static bool test_negate() {
+
 	static_assert( ({char r;(!char_<'a'>).parse(make_test_ctx(), make_source('a'), r);}) == -1 );
 	static_assert( ({char r;(!char_<'a'>).parse(make_test_ctx(), make_source('b'), r);}) ==  1 );
 	static_assert( ({char r='z';(!char_<'a'>).parse(make_test_ctx(), make_source('b'), r);r;}) ==  'z' );
 
 	static_assert( ({char r;(!!char_<'a'>).parse(make_test_ctx(), make_source('a'), r);}) == 1 );
 	static_assert( ({char r;(!!!!char_<'a'>).parse(make_test_ctx(), make_source('a'), r);r;}) == 'a' );
+
 
 	static_cast<const decltype(auto(char_<'a'>))&>(!!char_<'a'>);
 	static_cast<const decltype(auto(char_<'a'>))&>(!!!!char_<'a'>);
@@ -1301,7 +1335,10 @@ constexpr static bool test_negate() {
 
 template<ascip_details::parser parser> struct opt_parser : base_parser<opt_parser<parser>> {
 	[[no_unique_address]] parser p;
-	//opt_parser(parser p) : p(p) {}
+	constexpr opt_parser(opt_parser&&) =default ;
+	constexpr opt_parser(const opt_parser&) =default ;
+	constexpr opt_parser() =default ;
+	constexpr opt_parser(parser p) : p(std::move(p)) {}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		if(!src) return 0;
 		auto ret = p.parse(ctx, src, result);
@@ -1317,11 +1354,17 @@ constexpr static bool test_optional() {
 
 template<ascip_details::parser parser> struct omit_parser : base_parser<omit_parser<parser>> {
 	[[no_unique_address]] parser p;
+	constexpr omit_parser() =default ;
+	constexpr omit_parser(omit_parser&&) =default ;
+	constexpr omit_parser(const omit_parser&) =default ;
+	constexpr omit_parser(parser p) : p(std::move(p)) {}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		ascip_details::type_any_eq_allow r;
 		return p.parse(ctx, src, r);
 	}
 };
+
+
 
 
 
@@ -1338,6 +1381,10 @@ constexpr static bool test_omit() {
 
 template<auto val, ascip_details::parser parser> struct tmpl_as_parser : base_parser<tmpl_as_parser<val,parser>> {
 	[[no_unique_address]] parser p;
+	constexpr tmpl_as_parser() =default ;
+	constexpr tmpl_as_parser(tmpl_as_parser&&) =default ;
+	constexpr tmpl_as_parser(const tmpl_as_parser&) =default ;
+	constexpr tmpl_as_parser(parser p) : p(std::move(p)) {}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		ascip_details::type_any_eq_allow r;
 		auto shift = p.parse(ctx, static_cast<decltype(auto(src))&&>(src), r);
@@ -1348,6 +1395,10 @@ template<auto val, ascip_details::parser parser> struct tmpl_as_parser : base_pa
 template<typename value_t, ascip_details::parser parser> struct as_parser : base_parser<as_parser<value_t, parser>> {
 	value_t val;
 	[[no_unique_address]] parser p;
+	constexpr as_parser() =default ;
+	constexpr as_parser(as_parser&&) =default ;
+	constexpr as_parser(const as_parser&) =default ;
+	constexpr as_parser(value_t val, parser p) : val(std::move(val)), p(std::move(p)) {}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		ascip_details::type_any_eq_allow r;
 		auto shift = p.parse(ctx, static_cast<decltype(auto(src))&&>(src), r);
@@ -1417,9 +1468,14 @@ template<ascip_details::parser left, ascip_details::parser right> struct differe
 		return lp.parse(ctx, src, result);
 	}
 };
-template<ascip_details::parser left, ascip_details::parser right>
-different_parser(left, right) -> different_parser<left, right>;
+
+
+
+
+
 constexpr static bool test_different() {
+
+
 	return true;
 }
 
@@ -1443,6 +1499,8 @@ template<auto val> struct variant_pos_value{ constexpr static auto pos = val; };
 template<ascip_details::parser... parsers> struct variant_parser : base_parser<variant_parser<parsers...>> {
 	using self_type = variant_parser<parsers...>;
 	tuple<parsers...> seq;
+	constexpr variant_parser(const variant_parser& other) : seq(other.seq) {}
+	constexpr variant_parser(variant_parser&& other) : seq(std::move(other.seq)) {}
 	constexpr explicit variant_parser( parsers... l ) : seq( std::forward<parsers>(l)... ) {}
 
 	template<auto ind, auto cnt, auto cur, typename cur_parser, typename... tail>
@@ -1497,8 +1555,10 @@ template<ascip_details::parser... parsers> struct variant_parser : base_parser<v
 	constexpr auto operator|(char p2) { return *this | value_parser( p2 ); }
 };
 
-template<ascip_details::parser... parsers>
-variant_parser(parsers...) -> variant_parser<parsers...>;
+
+
+
+
 
 constexpr static const auto alpha = lower | upper;
 
@@ -1621,7 +1681,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		if constexpr (std::is_same_v<decltype(result), ascip_details::type_any_eq_allow&>) return result;
 		else return maker(result);
 	}
-	template<auto ind> constexpr auto parse_term(auto&& ctx, auto src, auto& result) const {
+	template<auto ind> constexpr decltype(-1) parse_term(auto&& ctx, auto src, auto& result) const {
 		if constexpr (ind == 0) {
 			if constexpr (is_term<ind>()) return get<ind>(seq).parse(ctx, src, result);
 			else return -1;
@@ -1750,6 +1810,7 @@ constexpr static bool test_rvariant_dexpr() {
 	constexpr auto fp_ind = 5;
 
 	constexpr auto maker = [](auto& r){ return typename factory_t::template unique_ptr<expr_rt>( new expr_rt{std::move(r)} ); };
+
 	static_assert( test_rvariant_val<dbl_expr>(expr_rt{}, maker, -1, "").index() == int_ind, "if parser fails the variant have the last terminal index" );
 	static_assert( get<int_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 3, "123")) == 123 );
 	static_assert( get<fp_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 3, "0.5")) == 0.5 );
@@ -1761,6 +1822,7 @@ constexpr static bool test_rvariant_dexpr() {
 	static_assert( get<int_ind>(*get<mul_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 7, "1*(5+7)")).left) == 1 );
 	static_assert( get<int_ind>(*get<pls_ind>(*get<mul_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 7, "1*(5+7)")).right).left) == 5 );
 	static_assert( get<int_ind>(*get<pls_ind>(*get<mul_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 7, "1*(5+7)")).right).right) == 7 );
+
 
 	return true;
 }
@@ -1781,7 +1843,10 @@ constexpr static bool test_rvariant() {
 
 template<ascip_details::parser parser> struct unary_list_parser : base_parser<unary_list_parser<parser>> {
 	[[no_unique_address]] parser p;
-	//unary_list_parser(parser p) : p(p) {}
+	constexpr unary_list_parser(unary_list_parser&&) =default ;
+	constexpr unary_list_parser(const unary_list_parser&) =default ;
+	constexpr unary_list_parser() =default ;
+	constexpr unary_list_parser(parser p) : p(std::move(p)) {}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = p.parse(ctx, src, ascip_details::empback(result));
 		src += ret * (0<=ret);
@@ -1822,6 +1887,10 @@ struct binary_list_parser : base_parser<binary_list_parser<left, right>> {
 	}
 };
 
+
+
+
+
 constexpr static bool test_unary_list() {
 	test_parser_parse(mk_vec<char>(), *char_<'a'>, "", 0);
 	static_assert(test_parser_parse(mk_vec<char>(), *char_<'a'>, "", 0).size() == 0);
@@ -1829,11 +1898,13 @@ constexpr static bool test_unary_list() {
 	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), *char_<'a'>, "aa", 2), 'a', 'a' ));
 	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), +char_<'a'>, "aa", 2), 'a', 'a' ));
 
+
 	static_assert( ({char r='z';char_<'a'>.parse(make_test_ctx(),make_source('b'),r);r;}) == 'z' );
 	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), +(!char_<'a'>), "bb", 2), 0x00, 0x00 ),
 			"!char_<'a'> parses but don't sore it's value, we have list with zeros (instead of infinit loop)");
 
 	static_assert(test_cmp_vec( test_parser_parse(mk_str(),+(char_<'a'>|char_<'b'>), "aab", 3), 'a', 'a', 'b' ));
+
 
 	return true;
 }
@@ -2081,6 +2152,7 @@ constexpr static bool test_seq_simple_case() {
 	static_assert( test_parser_parse_r_str(p_ab, "cab", -1) );
 	static_assert( test_parser_parse_r_str(any >> omit(space) >> any, "1 2", 3, '1', '2') );
 	static_assert( test_parser_parse_r_str(char_<'a'> >> 'b', "ab", 2, 'a', 'b') );
+
 	static_assert( ({ char r='z', l='a';
 		(char_<'a'> >> char_<'b'> >> [&](auto& result, auto src, auto line, auto msg) {
 		 src.ind /= (src.ind==2);
@@ -2092,6 +2164,7 @@ constexpr static bool test_seq_simple_case() {
 	static_assert(
 		test_parser_parse_r_str(char_<'a'> >> char_<'b'> >> [](auto&&...){return 1;}, "ab", 3, 'a', 'b'),
 		"lambda value is added to position" );
+
 	return true;
 }
 
@@ -2123,6 +2196,7 @@ constexpr static bool test_seq_req() {
 	static_assert( test_parser_parse_r_str((char_<'a'>|'b'|'c') >> _char<'('> >> -req<0> >> _char<')'>, "a(b(c()))", 9, 'a', 'b', 'c') );
 
 	struct semact_req_tester { char n='z'; semact_req_tester* ptr=nullptr; };
+
 	static_assert( ({
 		semact_req_tester r, r2; char ok='u';
 		auto p=((char_<'a'>|'b')++ >> -(_char<'('> >> req<1>([&r2,&ok](auto& r){ok='o';return &r2;}) >> _char<')'>));
@@ -2137,9 +2211,11 @@ constexpr static bool test_seq_req() {
 		ret;
 	}) == 'a', "check semact for create value");
 
+
 	return true;
 }
 constexpr static bool test_seq_must() {
+
 	static_assert(
 		({char r='z';(char_<'a'> >> char_<'b'> >> must<"t">(char_<'c'>)).parse(make_test_ctx(), make_source("abd"), r);}) == -1,
 		"if error and no lambda - nothing changed");
@@ -2162,9 +2238,11 @@ constexpr static bool test_seq_must() {
 	static_assert( ({ char r=0x00;
 		(any >> char_<'a'> >> char_<'b'> >> must<"test">(char_<'c'>)).parse(make_test_ctx(&err_method), make_source("\nabe"), r);
 	}) == -4, "on error: sources are on start sequence and on rule where the error");
+
 	return true;
 }
 constexpr static bool test_seq_shift_pos() {
+
 	static_assert( ({
 		struct { char a='z', b='z'; int pos; } r;
 		(char_<'a'> >> ++char_<'b'> >> ++cur_pos).parse(make_test_ctx(), make_source("ab"), r); r.pos;
@@ -2185,6 +2263,7 @@ constexpr static bool test_seq_shift_pos() {
 		struct { char a='z'; struct { char b; int shift1;} i; int shift2; } r;
 		ab_req.parse(make_test_ctx(), make_source("a(b)"), r); r.shift2;
 	}) == 4, "can parse current shift in reqursion");
+
 	return true;
 }
 
@@ -2248,13 +2327,13 @@ template<typename mutator, typename parser, typename value_type>
 constexpr static auto transform_special(as_parser<value_type, parser>&& src, auto&& ctx) {
 	auto nctx = mutator::create_ctx(src, ctx);
 	auto np = transform_apply<mutator>( std::move(src.p), nctx );
-	return transform_apply<mutator>( as_parser{ {}, src.val, std::move(np) }, nctx );
+	return transform_apply<mutator>( as_parser{ src.val, std::move(np) }, nctx );
 }
 template<typename mutator, typename parser, auto value>
 constexpr static auto transform_special(tmpl_as_parser<value, parser>&& src, auto&& ctx) {
 	auto nctx = mutator::create_ctx(src, ctx);
 	auto np = transform_apply<mutator>( std::move(src.p), nctx );
-	return transform_apply<mutator>( tmpl_as_parser<value, std::decay_t<decltype(np)>>{ {}, std::move(np) }, nctx );
+	return transform_apply<mutator>( tmpl_as_parser<value, std::decay_t<decltype(np)>>{ std::move(np) }, nctx );
 }
 
 template<typename mutator>
@@ -2351,11 +2430,12 @@ constexpr static auto test_transform_t_to_p(auto&& parser) {
 	return transform<t1_to_t2_mutator>(std::forward<decltype(parser)>(parser));
 }
 constexpr static bool test_transform_modify_leaf() {
+
 	static_assert( !requires(const transform_noncopyable& nc, transform_noncopyable& n){ n = nc; } );
 	static_assert( std::is_same_v<test_parser2, decltype(test_transform_t_to_p(test_parser{}))> );
 	static_assert( std::is_same_v<test_parser2, decltype(test_transform_t_to_p(test_parser2{}))> );
 	static_assert( std::is_same_v<skip_parser<test_parser2>, decltype(test_transform_t_to_p(skip(test_parser{})))> );
-	static_assert( std::is_same_v<skip_parser<skip_parser<test_parser2>>, decltype(test_transform_t_to_p(skip(skip(test_parser{}))))> );
+	static_assert( std::is_same_v<skip_parser<test_parser2>, decltype(test_transform_t_to_p(skip(skip(test_parser{}))))> );
 	static_assert( std::is_same_v<skip_parser<char_parser<'a'>>, decltype(test_transform_t_to_p(skip(char_<'a'>)))> );
 	static_assert( std::is_same_v<lexeme_parser<test_parser>, decltype(test_transform_t_to_p(lexeme(test_parser{})))> );
 	static_assert( std::is_same_v<lexeme_parser<skip_parser<test_parser2>>, decltype(test_transform_t_to_p(lexeme(skip(test_parser{}))))> );
@@ -2388,6 +2468,7 @@ constexpr static bool test_transform_modify_leaf() {
 			seq_inc_rfield_after<semact_parser<test_parser2, decltype(rv_maker)>>,
 			decltype( test_transform_t_to_p(test_parser{}(rv_maker)++) )
 			> );
+
 	return true;
 }
 constexpr static bool test_transform_modify_leaf_with_cond() {
@@ -2408,9 +2489,17 @@ constexpr static bool test_transform() {
 //          https://www.boost.org/LICENSE_1_0.txt)
 
 template<ascip_details::parser pt> struct lexeme_parser : base_parser<lexeme_parser<pt>> { [[no_unique_address]] pt p; 
+	constexpr lexeme_parser() =default ;
+	constexpr lexeme_parser(lexeme_parser&&) =default ;
+	constexpr lexeme_parser(const lexeme_parser&) =default ;
+	constexpr lexeme_parser(pt p) : p(std::move(p)) {}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const { return p.parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(src)&&>(src), result); }
 };
 template<ascip_details::parser pt> struct skip_parser : base_parser<lexeme_parser<pt>> { [[no_unique_address]] pt p; 
+	constexpr skip_parser() =default ;
+	constexpr skip_parser(skip_parser&&) =default ;
+	constexpr skip_parser(const skip_parser&) =default ;
+	constexpr skip_parser(pt p) : p(std::move(p)) {}
 	constexpr auto parse(auto&& ctx, auto src, auto& result) const { return p.parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(src)&&>(src), result); }
 };
 template<ascip_details::parser skip, ascip_details::parser base> struct injected_parser : base_parser<injected_parser<skip,base>> {
@@ -2430,6 +2519,11 @@ template<ascip_details::parser skip, ascip_details::parser base> struct injected
 		return b.parse_with_user_result(std::forward<decltype(ctx)>(ctx), std::move(src), result);
 	}
 };
+
+
+
+
+
 
 template<typename skip_type>
 struct injection_mutator {
@@ -2480,6 +2574,7 @@ template<ascip_details::parser p1, ascip_details::parser p2> constexpr static au
 	return typename p1::holder::template injected_parser<p1, p2>{ {}, l, r }; }
 
 constexpr static bool test_injection_parser() {
+
 	static_assert( ({ char r='z'; make_injected(char_<' '>, char_<'a'>).parse(make_test_ctx(), make_source(" a"), r);
 	}) == 2, "inejction parser can parse");
 	static_assert( ({ char r='z'; make_injected(char_<' '>, char_<'a'>).parse(make_test_ctx(), make_source("  b"), r);
@@ -2496,6 +2591,7 @@ constexpr static bool test_injection_parser() {
 	static_assert( ({ char r='z';
 		auto pr=make_injected(char_<' '>, char_<'a'>).parse(make_test_ctx(), make_source("aa"), r);
 	(pr==1) + (2*(r=='a'));}) == 3, "inejction parser parse if only first parameter fails");
+
 	return true;
 }
 template<auto p1, auto p2>
@@ -2533,6 +2629,7 @@ constexpr static bool test_seq_injection() {
 		>
 		>&>(inject_skipping( p1 >> (p1>>p1) - p1, p2 ));
 
+
 	static_assert( ({ char r='z'; int t=0;
 		auto p = char_<'a'> >> char_<'b'> >> [&t](...){++t;return 0;};
 		p.parse(make_test_ctx(), make_source("ab"), r);
@@ -2550,6 +2647,7 @@ constexpr static bool test_seq_injection() {
 		p.parse(make_test_ctx(), make_source(mk_str("abc")), r);
 	t; }) == 1, "injection works with semact" );
 
+
 	static_cast<const variant_parser<inj_t,inj_t>&>(inject_skipping( p1|p1, p2 ));
 	static_cast<const variant_parser<inj_t,inj_t,inj_t>&>(inject_skipping( p1|p1|p1, p2 ));
 	static_cast<const variant_parser<
@@ -2560,8 +2658,10 @@ constexpr static bool test_seq_injection() {
 	static_cast<const result_checker_parser<int, inj_t>&>(inject_skipping( check<int>(p1), p2 ));
 	static_cast<const result_checker_parser<int, opt_seq_parser<inj_t,inj_t>>&>(inject_skipping( check<int>(p1 >> p1), p2 ));
 
+
 	static_assert( ({ char r; const auto parser = +alpha; const auto skipper = +space;
 		inject_skipping(parser, skipper).parse(make_test_ctx(), make_source(" a b c "), r); }) == -1 );
+
 	static_cast<const binary_list_parser<inj_t, inj_t>&>(inject_skipping( p1 % p1, p2 ));
 
 	return true;
@@ -2591,6 +2691,7 @@ constexpr static bool integrated_tests() {
 	static_assert( test_parser_parse_r_str(quoted_string, "\" o'k\"", 6, ' ', 'o', '\'', 'k') );
 	static_assert( test_parser_parse_r_str(quoted_string, "\" o\\\"k\"", 7, ' ', 'o', '"', 'k') );
 
+
 	static_assert( ({ auto r = mk_str(); parse(quoted_string, +space, make_source("'ok'"), r); }) == 4);
 	static_assert( ({ auto r = mk_str(); parse(+alpha, +space, make_source("a b c "), r); }) == 5);
 	static_assert( ({ auto r = mk_str(); parse(+alpha, +space, make_source(" a b c "), r); }) == 6);
@@ -2600,6 +2701,7 @@ constexpr static bool integrated_tests() {
 	static_assert( ({ auto r = mk_str(); auto ctx = make_test_ctx();
 		quoted_string.parse(ctx, make_source("'1\n2\n'"), r);
 		search_in_ctx<ascip_details::new_line_count_tag>(ctx);}) == 3);
+
 	return true;
 }
 

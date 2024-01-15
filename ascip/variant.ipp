@@ -18,6 +18,8 @@ template<auto val> struct variant_pos_value{ constexpr static auto pos = val; };
 template<ascip_details::parser... parsers> struct variant_parser : base_parser<variant_parser<parsers...>> {
 	using self_type = variant_parser<parsers...>;
 	tuple<parsers...> seq;
+	constexpr variant_parser(const variant_parser& other) : seq(other.seq) {}
+	constexpr variant_parser(variant_parser&& other) : seq(std::move(other.seq)) {}
 	constexpr explicit variant_parser( parsers... l ) : seq( std::forward<parsers>(l)... ) {}
 
 	template<auto ind, auto cnt, auto cur, typename cur_parser, typename... tail>
@@ -72,8 +74,10 @@ template<ascip_details::parser... parsers> struct variant_parser : base_parser<v
 	constexpr auto operator|(char p2) { return *this | value_parser( p2 ); }
 };
 
+#ifdef __clang__
 template<ascip_details::parser... parsers>
 variant_parser(parsers...) -> variant_parser<parsers...>;
+#endif
 
 constexpr static const auto alpha = lower | upper;
 

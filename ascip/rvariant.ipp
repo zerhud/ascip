@@ -99,7 +99,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		if constexpr (std::is_same_v<decltype(result), ascip_details::type_any_eq_allow&>) return result;
 		else return maker(result);
 	}
-	template<auto ind> constexpr auto parse_term(auto&& ctx, auto src, auto& result) const {
+	template<auto ind> constexpr decltype(-1) parse_term(auto&& ctx, auto src, auto& result) const {
 		if constexpr (ind == 0) {
 			if constexpr (is_term<ind>()) return get<ind>(seq).parse(ctx, src, result);
 			else return -1;
@@ -228,6 +228,7 @@ constexpr static bool test_rvariant_dexpr() {
 	constexpr auto fp_ind = 5;
 
 	constexpr auto maker = [](auto& r){ return typename factory_t::template unique_ptr<expr_rt>( new expr_rt{std::move(r)} ); };
+#ifndef __clang__
 	static_assert( test_rvariant_val<dbl_expr>(expr_rt{}, maker, -1, "").index() == int_ind, "if parser fails the variant have the last terminal index" );
 	static_assert( get<int_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 3, "123")) == 123 );
 	static_assert( get<fp_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 3, "0.5")) == 0.5 );
@@ -239,6 +240,7 @@ constexpr static bool test_rvariant_dexpr() {
 	static_assert( get<int_ind>(*get<mul_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 7, "1*(5+7)")).left) == 1 );
 	static_assert( get<int_ind>(*get<pls_ind>(*get<mul_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 7, "1*(5+7)")).right).left) == 5 );
 	static_assert( get<int_ind>(*get<pls_ind>(*get<mul_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 7, "1*(5+7)")).right).right) == 7 );
+#endif
 
 	return true;
 }
