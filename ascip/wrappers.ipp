@@ -20,6 +20,8 @@ template<ascip_details::parser parser> struct negate_parser : base_parser<negate
 };
 
 constexpr static bool test_negate() {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-value"
 #ifndef __clang__
 	static_assert( ({char r;(!char_<'a'>).parse(make_test_ctx(), make_source('a'), r);}) == -1 );
 	static_assert( ({char r;(!char_<'a'>).parse(make_test_ctx(), make_source('b'), r);}) ==  1 );
@@ -35,6 +37,7 @@ constexpr static bool test_negate() {
 	static_cast<const opt_parser<char_parser<'a'>>&>(-(!!char_<'a'>));
 
 	return true;
+#pragma GCC diagnostic pop
 }
 
 template<ascip_details::parser parser> struct opt_parser : base_parser<opt_parser<parser>> {

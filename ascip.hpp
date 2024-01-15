@@ -140,6 +140,11 @@ template<ascip_details::string_literal v> struct sterm {
 
 } // namespace <anonymus>
 
+#ifdef __clang__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wgnu-string-literal-operator-template"
+#endif
+
 template<typename factory_t, template<typename...>class tuple>
 struct ascip_literals {
 template<typename char_t, char_t... chars>
@@ -147,3 +152,7 @@ friend constexpr auto operator""_lex() {
 	return lexeme( omit( (... >> ascip<tuple, factory_t>::template char_<chars>) ) );
 }
 }; // namespace ascip_literals
+
+#ifdef __clang__
+#pragma GCC diagnostic pop
+#endif

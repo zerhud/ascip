@@ -134,12 +134,11 @@ constexpr void test_context() {
 	}()==1, "can find by ind" );
 	static_assert(  exists_in_ctx<t1_t>(make_ctx<t1_t>(v1_t{})) );
 	static_assert( !exists_in_ctx<t2_t>(make_ctx<t1_t>(v1_t{})) );
-	static_cast<const decltype(ctx_not_found)&>(by_ind_from_ctx<0,t2_t>(make_ctx<t1_t>(v2_t{}, make_ctx<t1_t>(v1_t{}))));
+	(void)( static_cast<const decltype(ctx_not_found)&>(by_ind_from_ctx<0,t2_t>(make_ctx<t1_t>(v2_t{}, make_ctx<t1_t>(v1_t{})))) );
 	static_assert( []{
 		auto ctx1 = make_ctx<t1_t>(1, make_ctx<t1_t>(2, make_ctx<t2_t>(3)));
 		auto ctx2 = remove_from_ctx<t1_t>(ctx1);
-		1 / (search_in_ctx<t1_t>(ctx1)==1);
-		return search_in_ctx<t1_t>(ctx2); }() == 2 );
+		return (search_in_ctx<t1_t>(ctx1)==1) + (2*(search_in_ctx<t1_t>(ctx2)==2)); }() == 3 );
 }
 
 #include "static_string.ipp"

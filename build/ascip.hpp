@@ -144,12 +144,11 @@ constexpr void test_context() {
 	}()==1, "can find by ind" );
 	static_assert(  exists_in_ctx<t1_t>(make_ctx<t1_t>(v1_t{})) );
 	static_assert( !exists_in_ctx<t2_t>(make_ctx<t1_t>(v1_t{})) );
-	static_cast<const decltype(ctx_not_found)&>(by_ind_from_ctx<0,t2_t>(make_ctx<t1_t>(v2_t{}, make_ctx<t1_t>(v1_t{}))));
+	(void)( static_cast<const decltype(ctx_not_found)&>(by_ind_from_ctx<0,t2_t>(make_ctx<t1_t>(v2_t{}, make_ctx<t1_t>(v1_t{})))) );
 	static_assert( []{
 		auto ctx1 = make_ctx<t1_t>(1, make_ctx<t1_t>(2, make_ctx<t2_t>(3)));
 		auto ctx2 = remove_from_ctx<t1_t>(ctx1);
-		1 / (search_in_ctx<t1_t>(ctx1)==1);
-		return search_in_ctx<t1_t>(ctx2); }() == 2 );
+		return (search_in_ctx<t1_t>(ctx1)==1) + (2*(search_in_ctx<t1_t>(ctx2)==2)); }() == 3 );
 }
 
        
@@ -708,9 +707,9 @@ constexpr static auto test_parser_parse(auto&& r, auto p, auto&& src, auto pr) {
 constexpr static auto test_cmp_vec(const auto& vec, auto... vals) {
 	auto correct = mk_vec<decltype(auto(vec[0]))>();
 	(correct.emplace_back(vals), ...);
-	vec.size() / (vec.size() == sizeof...(vals));
+	(void)(vec.size() / (vec.size() == sizeof...(vals)));
 	//TODO: show also i shomehow in compiletime
-	for(auto i=0;i<vec.size();++i) vec[i] / (vec[i] == correct[i]);
+	for(auto i=0;i<vec.size();++i) (void)(vec[i] / (vec[i] == correct[i]));
 	return true;
 }
 
@@ -749,7 +748,7 @@ constexpr static auto make_source(std::integral auto sym) {
 		decltype(sym) val; bool where_is_more=true;
 		constexpr auto operator()(){ where_is_more=false; return val; }
 		constexpr explicit operator bool() const { return where_is_more; }
-		constexpr auto& operator += (int v) { v==1 || (throw 1,1); where_is_more=false; return *this; }
+		constexpr auto& operator += (int v) { (void)( v==1 || (throw 1,1) ); where_is_more=false; return *this; }
 	} ret{ sym };
 	return ret;
 }
@@ -772,11 +771,11 @@ template<typename param>
 friend constexpr auto make_source(const base_parser<param>& p) { return make_source(p.source_symbol); }
 
 constexpr static bool test_sources(auto&& s) {
-	!!s        || (throw 0, 1);
-	s() == 'a' || (throw 1, 1);
-	!!s        || (throw 0, 1);
-	s() == 'b' || (throw 2, 1);
-	!s         || (throw 0, 1);
+	(void)( !!s        || (throw 0, 1) );
+	(void)( s() == 'a' || (throw 1, 1) );
+	(void)( !!s        || (throw 0, 1) );
+	(void)( s() == 'b' || (throw 2, 1) );
+	(void)( !s         || (throw 0, 1) );
 	return true;
 }
 constexpr static void test_sources() {
@@ -791,9 +790,9 @@ constexpr static void test_sources() {
 
 	static_assert( []{
 		auto s = make_source('a');
-		!!s       || (throw 0, 1);
-		s() == 'a'|| (throw 1, 1);
-		!s        || (throw 2, 1);
+		(void)( !!s       || (throw 0, 1) );
+		(void)( s() == 'a'|| (throw 1, 1) );
+		(void)( !s        || (throw 2, 1) );
 		return true;
 	}(), "source for debug with single symbol" );
 
@@ -803,9 +802,9 @@ constexpr static void test_sources() {
 
 	static_assert( []{
 		auto s = make_source("я");
-		!!s         || (throw 0, 1);
-		s() != s()  || (throw 1, 1);
-		!s          || (throw 2, 1);
+		(void)( !!s         || (throw 0, 1) );
+		(void)( s() != s()  || (throw 1, 1) );
+		(void)( !s          || (throw 2, 1) );
 		return true;
 	}(), "source for debug with multibyte symbol" );
 }
@@ -887,7 +886,7 @@ constexpr static bool test_exists_in() {
 	static_assert( !exists_in(char_<'b'> | char_<'x'>, checker) );
 	static_assert(  exists_in(char_<'b'> - char_<'a'>, checker) );
 	static_assert( !exists_in(char_<'b'> - char_<'x'>, checker) );
-	static_assert(  exists_in(char_<'c'> >> char_<'b'> - char_<'a'>, checker) );
+	static_assert(  exists_in(char_<'c'> >> (char_<'b'> - char_<'a'>), checker) );
 	static_assert(  exists_in(char_<'c'> - (char_<'b'> >> char_<'a'>), checker) );
 	static_assert(  exists_in(skip(char_<'c'> >> char_<'b'> >> char_<'a'>++), checker) );
 	return true;
@@ -1238,53 +1237,6 @@ template<typename parser, typename act_t> struct semact_parser : base_parser<sem
 			return ret;
 		}
 	}
-	/*
-	constexpr const auto parse(auto&& ctx, auto src, auto& result) const requires
-		std::is_same_v<ascip_details::type_any_eq_allow&, decltype(result)>
-	{
-		return p.parse(std::forward<decltype(ctx)>(ctx), std::move(src), result);
-	}
-	constexpr const auto parse(auto&& ctx, auto src, auto& result) const requires (
-		   requires{ static_cast<const ascip_details::type_result_for_parser_concept&>(result); }
-		&& !std::is_same_v<ascip_details::type_any_eq_allow&, decltype(result)>
-	)
-	{ return 0; }
-	constexpr const auto parse(auto&& ctx, auto src, auto& result) const requires (
-		   !ascip_details::is_in_concept_check(decltype(auto(ctx)){})
-		&& !std::is_same_v<ascip_details::type_any_eq_allow&, decltype(result)>
-		&& !requires{ static_cast<const ascip_details::type_result_for_parser_concept&>(result); }
-		&& requires{ requires std::is_lvalue_reference_v<decltype(act(result))>; }
-		&& !requires{ act(); /* check if ... pattern */ /*}
-	) {
-		auto& nr = act(result);
-		if constexpr (requires{ p.parse_with_user_result(ctx,src,nr); })
-			return p.parse_with_user_result(static_cast<decltype(ctx)&&>(ctx),src,nr);
-		else return p.parse(ctx, src, nr);
-	}
-	constexpr const auto parse(auto&& ctx, auto src, auto& result) const requires (
-		   !ascip_details::is_in_concept_check(decltype(auto(ctx)){})
-		&& !std::is_same_v<ascip_details::type_any_eq_allow&, decltype(result)>
-		&& requires{ requires std::is_pointer_v<decltype(act(result))>; }
-		&& !requires{ act(); /* check if ... pattern */ /*}
-	) {
-		auto* nr = act(result);
-		if constexpr (requires{ p.parse_with_user_result(ctx,src,*nr); })
-			return p.parse_with_user_result(static_cast<decltype(ctx)&&>(ctx),src,*nr);
-		else return p.parse(ctx, src, *nr);
-	}
-	constexpr const auto parse(auto&& ctx, auto src, auto& result) const {
-		if constexpr (ascip_details::is_in_concept_check(decltype(auto(ctx)){})) return 0;
-		else {
-			auto ret = p.parse(ctx, src, result);
-			if(ret >= 0) {
-				if constexpr (requires{ act(ret, ctx, src, result); }) act(ret, ctx, src, result);
-				else if constexpr (requires{ acct(ret, result); }) act(ret, result); 
-				else act();
-			}
-			return ret;
-		}
-	}
-	*/
 };
 
 constexpr static bool test_semact() {
@@ -2600,34 +2552,34 @@ constexpr static bool test_seq_injection() {
 	using p2_t = decltype(auto(p2));
 	using inj_t = injected_parser<p2_t,p1_t>;
 
-	static_cast<const inj_t&>(inject_skipping(p1, p2));
-	static_cast<const opt_seq_parser<inj_t, inj_t>&>(inject_skipping(p1 >> p1, p2));
+	(void)static_cast<const inj_t&>(inject_skipping(p1, p2));
+	(void)static_cast<const opt_seq_parser<inj_t, inj_t>&>(inject_skipping(p1 >> p1, p2));
 
-	static_cast<const injected_parser<p2_t,opt_seq_parser<p1_t, p1_t, p1_t>>&>(inject_skipping(lexeme(p1 >> p1 >> p1), p2));
-	static_cast<const injected_parser<p2_t,opt_seq_parser<p1_t, opt_seq_parser<inj_t, inj_t>>>&>(
+	(void)static_cast<const injected_parser<p2_t,opt_seq_parser<p1_t, p1_t, p1_t>>&>(inject_skipping(lexeme(p1 >> p1 >> p1), p2));
+	(void)static_cast<const injected_parser<p2_t,opt_seq_parser<p1_t, opt_seq_parser<inj_t, inj_t>>>&>(
 			inject_skipping(lexeme(p1 >> skip(p1 >> p1)), p2));
 
-	static_cast<const variant_parser<inj_t,inj_t>&>(inject_skipping( p1|p1, p2 ));
-	static_cast<const variant_parser<inj_t,inj_t,inj_t>&>(inject_skipping( p1|p1|p1, p2 ));
-	static_cast<const variant_parser<
+	(void)static_cast<const variant_parser<inj_t,inj_t>&>(inject_skipping( p1|p1, p2 ));
+	(void)static_cast<const variant_parser<inj_t,inj_t,inj_t>&>(inject_skipping( p1|p1|p1, p2 ));
+	(void)static_cast<const variant_parser<
 		result_checker_parser<char,inj_t>,
 		cast_parser<char,inj_t>
 		>&>(inject_skipping( check<char>(p1)|cast<char>(p1), p2 ));
 
-	static_cast<const unary_list_parser<inj_t>&>(inject_skipping( +p1, p2 ));
-	static_cast<const unary_list_parser<opt_seq_parser<inj_t,inj_t>>&>(inject_skipping( +(p1>>p1), p2 ));
+	(void)static_cast<const unary_list_parser<inj_t>&>(inject_skipping( +p1, p2 ));
+	(void)static_cast<const unary_list_parser<opt_seq_parser<inj_t,inj_t>>&>(inject_skipping( +(p1>>p1), p2 ));
 
-	static_cast<const opt_parser<inj_t>&>(inject_skipping( -p1, p2 ));
-	static_cast<const opt_parser<opt_seq_parser<inj_t,inj_t>>&>(inject_skipping( -(p1>>p1), p2 ));
+	(void)static_cast<const opt_parser<inj_t>&>(inject_skipping( -p1, p2 ));
+	(void)static_cast<const opt_parser<opt_seq_parser<inj_t,inj_t>>&>(inject_skipping( -(p1>>p1), p2 ));
 
-	static_cast<const different_parser<inj_t, inj_t>&>(inject_skipping( p1 - p1, p2 ));
-	static_cast<const opt_seq_parser<
+	(void)static_cast<const different_parser<inj_t, inj_t>&>(inject_skipping( p1 - p1, p2 ));
+	(void)static_cast<const opt_seq_parser<
 		inj_t,
 		different_parser<
 		  opt_seq_parser<inj_t,inj_t>,
 		  inj_t
 		>
-		>&>(inject_skipping( p1 >> (p1>>p1) - p1, p2 ));
+		>&>(inject_skipping( p1 >> ((p1>>p1) - p1), p2 ));
 
 
 	static_assert( ({ char r='z'; int t=0;
@@ -2648,21 +2600,21 @@ constexpr static bool test_seq_injection() {
 	t; }) == 1, "injection works with semact" );
 
 
-	static_cast<const variant_parser<inj_t,inj_t>&>(inject_skipping( p1|p1, p2 ));
-	static_cast<const variant_parser<inj_t,inj_t,inj_t>&>(inject_skipping( p1|p1|p1, p2 ));
-	static_cast<const variant_parser<
+	(void)static_cast<const variant_parser<inj_t,inj_t>&>(inject_skipping( p1|p1, p2 ));
+	(void)static_cast<const variant_parser<inj_t,inj_t,inj_t>&>(inject_skipping( p1|p1|p1, p2 ));
+	(void)static_cast<const variant_parser<
 		result_checker_parser<char,inj_t>,
 		result_checker_parser<char,inj_t>
 		>&>(inject_skipping( check<char>(p1)|check<char>(p1), p2 ));
 
-	static_cast<const result_checker_parser<int, inj_t>&>(inject_skipping( check<int>(p1), p2 ));
-	static_cast<const result_checker_parser<int, opt_seq_parser<inj_t,inj_t>>&>(inject_skipping( check<int>(p1 >> p1), p2 ));
+	(void)static_cast<const result_checker_parser<int, inj_t>&>(inject_skipping( check<int>(p1), p2 ));
+	(void)static_cast<const result_checker_parser<int, opt_seq_parser<inj_t,inj_t>>&>(inject_skipping( check<int>(p1 >> p1), p2 ));
 
 
 	static_assert( ({ char r; const auto parser = +alpha; const auto skipper = +space;
 		inject_skipping(parser, skipper).parse(make_test_ctx(), make_source(" a b c "), r); }) == -1 );
 
-	static_cast<const binary_list_parser<inj_t, inj_t>&>(inject_skipping( p1 % p1, p2 ));
+	(void)static_cast<const binary_list_parser<inj_t, inj_t>&>(inject_skipping( p1 % p1, p2 ));
 
 	return true;
 }
@@ -2770,6 +2722,11 @@ template<ascip_details::string_literal v> struct sterm {
 
 } // namespace <anonymus>
 
+
+
+
+
+
 template<typename factory_t, template<typename...>class tuple>
 struct ascip_literals {
 template<typename char_t, char_t... chars>
@@ -2777,3 +2734,4 @@ friend constexpr auto operator""_lex() {
 	return lexeme( omit( (... >> ascip<tuple, factory_t>::template char_<chars>) ) );
 }
 }; // namespace ascip_literals
+

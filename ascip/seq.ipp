@@ -247,6 +247,8 @@ constexpr static bool test_seq_simple_case() {
 }
 
 constexpr static bool test_seq_result_fields() {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-value"
 	struct with_2_chars { char a, b; };
 	static_assert( test_cmp_struct( test_parser_parse(with_2_chars{}, char_<'a'>++ >> char_<'b'>, "ab", 2), 'a', 'b' ) );
 	static_assert( test_cmp_struct( test_parser_parse(with_2_chars{}, ++char_<'a'> >> --char_<'b'>, "ab", 2), 'b', 'a' ) );
@@ -254,6 +256,7 @@ constexpr static bool test_seq_result_fields() {
 	static_cast<const opt_seq_parser<char_parser<'a'>, int_parser, char_parser<'c'>, int_parser>&>(char_<'a'> >> int_ >> char_<'c'> >> int_);
 	static_assert( test_cmp_struct( test_parser_parse(with_2_chars{}, char_<'a'>++ >> char_<'b'>-- >> char_<'c'>, "abc", 3), 'c', 'b' ) );
 	return true;
+#pragma GCC diagnostic pop
 }
 constexpr static bool test_seq_finc() {
 	struct with_3_chars { char a, b, c; };

@@ -51,7 +51,7 @@ constexpr static bool test_exists_in() {
 	static_assert( !exists_in(char_<'b'> | char_<'x'>, checker) );
 	static_assert(  exists_in(char_<'b'> - char_<'a'>, checker) );
 	static_assert( !exists_in(char_<'b'> - char_<'x'>, checker) );
-	static_assert(  exists_in(char_<'c'> >> char_<'b'> - char_<'a'>, checker) );
+	static_assert(  exists_in(char_<'c'> >> (char_<'b'> - char_<'a'>), checker) );
 	static_assert(  exists_in(char_<'c'> - (char_<'b'> >> char_<'a'>), checker) );
 	static_assert(  exists_in(skip(char_<'c'> >> char_<'b'> >> char_<'a'>++), checker) );
 	return true;

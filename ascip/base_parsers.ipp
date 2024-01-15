@@ -17,6 +17,8 @@ template<auto sym> struct char_parser : base_parser<char_parser<sym>> {
 	}
 
 	constexpr bool test() const {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-value"
 		char r;
 		parse(make_test_ctx(), make_source(sym), r) == 1           || (throw __LINE__, 1);
 		parse(make_test_ctx(), make_source(sym+1), r) == -1        || (throw __LINE__, 1);
@@ -40,6 +42,7 @@ template<auto sym> struct char_parser : base_parser<char_parser<sym>> {
 			parse(ctx, make_source('\n'), r);
 			search_in_ctx<ascip_details::new_line_count_tag>(ctx) == 1 || (throw __LINE__, 1);
 		}
+#pragma GCC diagnostic pop
 
 		return true;
 	}
@@ -92,6 +95,8 @@ template<typename t> struct value_parser : base_parser<value_parser<t>> {
 	}
 
 	constexpr bool test() const {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-value"
 		char r;
 		parse(make_test_ctx(), make_source(val), r) == 1           || (throw __LINE__, 1);
 		parse(make_test_ctx(), make_source(val+1), r) == -1        || (throw __LINE__, 1);
@@ -104,6 +109,7 @@ template<typename t> struct value_parser : base_parser<value_parser<t>> {
 		(parse(make_test_ctx(), make_source(val-1), r),r) == val+1 || (throw __LINE__, 1);
 
 		return true;
+#pragma GCC diagnostic pop
 	}
 };
 
@@ -129,6 +135,8 @@ constexpr static struct space_parser : base_parser<space_parser> {
 		return -1 + (2 * is_space);
 	}
 	constexpr bool test() const {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-value"
 		constexpr char r=0x00;
 		parse(make_test_ctx(), make_source(' '), r) == 1    || (throw __LINE__, 1);
 		parse(make_test_ctx(), make_source('\n'), r) == 1   || (throw __LINE__, 1);
@@ -144,6 +152,7 @@ constexpr static struct space_parser : base_parser<space_parser> {
 		search_in_ctx<ascip_details::new_line_count_tag>(ctx) == 2 || (throw __LINE__, 1);
 
 		return true;
+#pragma GCC diagnostic pop
 	}
 } space {};
 
@@ -161,6 +170,8 @@ constexpr static struct any_parser : base_parser<any_parser> {
 		return ret;
 	}
 	constexpr bool test() const {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-value"
 		char r=0x00; ascip_details::type_any_eq_allow rr;
 		parse(make_test_ctx(), make_source(' '), r) == 1       || (throw __LINE__, 1);
 		(parse(make_test_ctx(), make_source('Z'), r),r) == 'Z' || (throw __LINE__, 1);
@@ -177,6 +188,7 @@ constexpr static struct any_parser : base_parser<any_parser> {
 		search_in_ctx<ascip_details::new_line_count_tag>(ctx) == 2 || (throw __LINE__, 1);
 
 		return true;
+#pragma GCC diagnostic pop
 	}
 } any {};
 
@@ -205,6 +217,8 @@ constexpr static struct int_parser : base_parser<int_parser> {
 	}
 
 	constexpr bool test() const {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-value"
 		int_parser p; auto r=0;
 
 		auto t = [](auto&& src, auto sym_cnt, auto answer) {
@@ -230,6 +244,7 @@ constexpr static struct int_parser : base_parser<int_parser> {
 #endif
 
 		return true;
+#pragma GCC diagnostic pop
 	}
 
 } int_ {};

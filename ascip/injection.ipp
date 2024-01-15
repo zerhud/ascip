@@ -117,34 +117,34 @@ constexpr static bool test_seq_injection() {
 	using p2_t = decltype(auto(p2));
 	using inj_t = injected_parser<p2_t,p1_t>;
 
-	static_cast<const inj_t&>(inject_skipping(p1, p2));
-	static_cast<const opt_seq_parser<inj_t, inj_t>&>(inject_skipping(p1 >> p1, p2));
+	(void)static_cast<const inj_t&>(inject_skipping(p1, p2));
+	(void)static_cast<const opt_seq_parser<inj_t, inj_t>&>(inject_skipping(p1 >> p1, p2));
 
-	static_cast<const injected_parser<p2_t,opt_seq_parser<p1_t, p1_t, p1_t>>&>(inject_skipping(lexeme(p1 >> p1 >> p1), p2));
-	static_cast<const injected_parser<p2_t,opt_seq_parser<p1_t, opt_seq_parser<inj_t, inj_t>>>&>(
+	(void)static_cast<const injected_parser<p2_t,opt_seq_parser<p1_t, p1_t, p1_t>>&>(inject_skipping(lexeme(p1 >> p1 >> p1), p2));
+	(void)static_cast<const injected_parser<p2_t,opt_seq_parser<p1_t, opt_seq_parser<inj_t, inj_t>>>&>(
 			inject_skipping(lexeme(p1 >> skip(p1 >> p1)), p2));
 
-	static_cast<const variant_parser<inj_t,inj_t>&>(inject_skipping( p1|p1, p2 ));
-	static_cast<const variant_parser<inj_t,inj_t,inj_t>&>(inject_skipping( p1|p1|p1, p2 ));
-	static_cast<const variant_parser<
+	(void)static_cast<const variant_parser<inj_t,inj_t>&>(inject_skipping( p1|p1, p2 ));
+	(void)static_cast<const variant_parser<inj_t,inj_t,inj_t>&>(inject_skipping( p1|p1|p1, p2 ));
+	(void)static_cast<const variant_parser<
 		result_checker_parser<char,inj_t>,
 		cast_parser<char,inj_t>
 		>&>(inject_skipping( check<char>(p1)|cast<char>(p1), p2 ));
 
-	static_cast<const unary_list_parser<inj_t>&>(inject_skipping( +p1, p2 ));
-	static_cast<const unary_list_parser<opt_seq_parser<inj_t,inj_t>>&>(inject_skipping( +(p1>>p1), p2 ));
+	(void)static_cast<const unary_list_parser<inj_t>&>(inject_skipping( +p1, p2 ));
+	(void)static_cast<const unary_list_parser<opt_seq_parser<inj_t,inj_t>>&>(inject_skipping( +(p1>>p1), p2 ));
 
-	static_cast<const opt_parser<inj_t>&>(inject_skipping( -p1, p2 ));
-	static_cast<const opt_parser<opt_seq_parser<inj_t,inj_t>>&>(inject_skipping( -(p1>>p1), p2 ));
+	(void)static_cast<const opt_parser<inj_t>&>(inject_skipping( -p1, p2 ));
+	(void)static_cast<const opt_parser<opt_seq_parser<inj_t,inj_t>>&>(inject_skipping( -(p1>>p1), p2 ));
 
-	static_cast<const different_parser<inj_t, inj_t>&>(inject_skipping( p1 - p1, p2 ));
-	static_cast<const opt_seq_parser<
+	(void)static_cast<const different_parser<inj_t, inj_t>&>(inject_skipping( p1 - p1, p2 ));
+	(void)static_cast<const opt_seq_parser<
 		inj_t,
 		different_parser<
 		  opt_seq_parser<inj_t,inj_t>,
 		  inj_t
 		>
-		>&>(inject_skipping( p1 >> (p1>>p1) - p1, p2 ));
+		>&>(inject_skipping( p1 >> ((p1>>p1) - p1), p2 ));
 
 #ifndef __clang__
 	static_assert( ({ char r='z'; int t=0;
@@ -165,21 +165,21 @@ constexpr static bool test_seq_injection() {
 	t; }) == 1, "injection works with semact" );
 #endif
 
-	static_cast<const variant_parser<inj_t,inj_t>&>(inject_skipping( p1|p1, p2 ));
-	static_cast<const variant_parser<inj_t,inj_t,inj_t>&>(inject_skipping( p1|p1|p1, p2 ));
-	static_cast<const variant_parser<
+	(void)static_cast<const variant_parser<inj_t,inj_t>&>(inject_skipping( p1|p1, p2 ));
+	(void)static_cast<const variant_parser<inj_t,inj_t,inj_t>&>(inject_skipping( p1|p1|p1, p2 ));
+	(void)static_cast<const variant_parser<
 		result_checker_parser<char,inj_t>,
 		result_checker_parser<char,inj_t>
 		>&>(inject_skipping( check<char>(p1)|check<char>(p1), p2 ));
 
-	static_cast<const result_checker_parser<int, inj_t>&>(inject_skipping( check<int>(p1), p2 ));
-	static_cast<const result_checker_parser<int, opt_seq_parser<inj_t,inj_t>>&>(inject_skipping( check<int>(p1 >> p1), p2 ));
+	(void)static_cast<const result_checker_parser<int, inj_t>&>(inject_skipping( check<int>(p1), p2 ));
+	(void)static_cast<const result_checker_parser<int, opt_seq_parser<inj_t,inj_t>>&>(inject_skipping( check<int>(p1 >> p1), p2 ));
 
 #ifndef __clang__
 	static_assert( ({ char r; const auto parser = +alpha; const auto skipper = +space;
 		inject_skipping(parser, skipper).parse(make_test_ctx(), make_source(" a b c "), r); }) == -1 );
 #endif
-	static_cast<const binary_list_parser<inj_t, inj_t>&>(inject_skipping( p1 % p1, p2 ));
+	(void)static_cast<const binary_list_parser<inj_t, inj_t>&>(inject_skipping( p1 % p1, p2 ));
 
 	return true;
 }
