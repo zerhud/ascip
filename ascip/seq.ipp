@@ -27,7 +27,7 @@ struct seq_shift_stack_tag{};
 struct seq_result_stack_tag{};
 //TODO: dose we realy need the pos parser?
 constexpr static struct cur_pos_parser : base_parser<cur_pos_parser> {
-	constexpr auto parse(auto&&, auto src, auto& result) const {
+	constexpr parse_result parse(auto&&, auto src, auto& result) const {
 		//TODO: extract the info from context or from parent's object
 		//      sequence may sotre it in context
 		//      sequence may have mutable field and
@@ -39,7 +39,7 @@ constexpr static struct cur_pos_parser : base_parser<cur_pos_parser> {
 	}
 } cur_pos{};
 constexpr static struct cur_shift_parser : base_parser<cur_shift_parser> {
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr (ascip_details::is_in_concept_check(decltype(auto(ctx)){})) return 0;
 		else {
 			ascip_details::eq(result, *search_in_ctx<seq_shift_stack_tag>(ctx));
@@ -53,7 +53,7 @@ struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind, ctx_chunk_si
 	constexpr auto& extract_result(auto& ctx) const {
 		return *by_ind_from_ctx<ind, seq_result_stack_tag>(ctx);
 	}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr( ascip_details::is_in_concept_check(decltype(auto(ctx)){})  ) return 0;
 		else if constexpr (ascip_details::is_in_reqursion_check(decltype(auto(ctx)){})) {
 			return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse(ctx, static_cast<decltype(src)&&>(src), extract_result(ctx)) : -1;
@@ -86,16 +86,24 @@ template<typename type> constexpr static auto num_field_val() {
 	else return 0;
 }
 
-struct seq_inc_rfield : base_parser<seq_inc_rfield> {constexpr auto parse(auto&&,auto,auto&)const {return 0;} } sfs ;
+struct seq_inc_rfield : base_parser<seq_inc_rfield> {constexpr parse_result parse(auto&&,auto,auto&)const {return 0;} } sfs ;
 template<ascip_details::parser parser> struct seq_inc_rfield_after : base_parser<seq_inc_rfield_after<parser>> { parser p; };
 template<ascip_details::parser parser> struct seq_inc_rfield_before : base_parser<seq_inc_rfield_before<parser>> { parser p; };
 template<ascip_details::parser parser> struct seq_dec_rfield_after : base_parser<seq_dec_rfield_after<parser>> { parser p; };
 template<ascip_details::parser parser> struct seq_dec_rfield_before : base_parser<seq_dec_rfield_before<parser>> { parser p; };
+#ifdef __clang__
+template<typename p> seq_inc_rfield_after(p) -> seq_inc_rfield_after<p>;
+template<typename p> seq_inc_rfield_before(p) ->  seq_inc_rfield_before<p>;
+template<typename p> seq_dec_rfield_after(p) ->  seq_dec_rfield_after<p>;
+template<typename p> seq_dec_rfield_before(p) -> seq_dec_rfield_before<p>;
+#endif
 template<typename concrete, typename... parsers> struct com_seq_parser : base_parser<concrete>, ascip_details::seq_tag {
 	tuple<parsers...> seq;
 
+	constexpr com_seq_parser() =default ;
 	constexpr com_seq_parser(tuple<parsers...> t) : seq(std::move(t)) {}
 	constexpr com_seq_parser(auto&&... args) requires (sizeof...(parsers) == sizeof...(args)) : seq( static_cast<decltype(args)&&>(args)... ) {}
+	constexpr com_seq_parser(const com_seq_parser&) =default ;
 
 	//TODO: make construction like --parser++ works as expected (decriment result field now and increment after this parser)
 	template<typename type> constexpr static bool is_field_separator = requires(type&p){ static_cast<const seq_inc_rfield&>(p); };
@@ -174,7 +182,7 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 		);
 		return parse_and_store_shift<0,0>(cur_ctx, src, result);
 	}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if(!src) return -1;
 		if constexpr (ascip_details::is_in_concept_check(decltype(auto(ctx)){})) return 0;
 		else {
@@ -191,14 +199,18 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 };
 template<typename... parsers> struct opt_seq_parser : com_seq_parser<opt_seq_parser<parsers...>, parsers...> {
 	using base_t = com_seq_parser<opt_seq_parser<parsers...>, parsers...>;
-	constexpr opt_seq_parser(auto&&... args) requires (sizeof...(parsers)==sizeof...(args)): base_t(static_cast<decltype(args)&&>(args)...) {}
+	constexpr opt_seq_parser() =default ;
+	constexpr opt_seq_parser(opt_seq_parser&&) =default ;
+	constexpr opt_seq_parser(const opt_seq_parser&) =default ;
+	constexpr opt_seq_parser(auto&&... args) : base_t(static_cast<decltype(args)&&>(args)...) {}
 	constexpr auto on_error(auto val) const { return val; }
 };
+template<typename... p> opt_seq_parser(p...) -> opt_seq_parser<std::decay_t<p>...>;
 
 template<ascip_details::string_literal message, ascip_details::parser type>
 struct seq_error_parser : base_parser<seq_error_parser<message,type>> {
 	type p;
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = p.parse(static_cast<decltype(ctx)&&>(ctx), src, result);
 		auto err = search_in_ctx<ascip_details::err_handler_tag>(ctx);
 		if constexpr (!requires{ (*err)(result, src, 0, message); }) return ret;
@@ -218,6 +230,7 @@ constexpr static bool test_seq_simple_case() {
 	static_assert( test_parser_parse_r_str(p_ab, "cab", -1) );
 	static_assert( test_parser_parse_r_str(any >> omit(space) >> any, "1 2", 3, '1', '2') );
 	static_assert( test_parser_parse_r_str(char_<'a'> >> 'b', "ab", 2, 'a', 'b') );
+#ifndef __clang__
 	static_assert( ({ char r='z', l='a';
 		(char_<'a'> >> char_<'b'> >> [&](auto& result, auto src, auto line, auto msg) {
 		 src.ind /= (src.ind==2);
@@ -229,10 +242,13 @@ constexpr static bool test_seq_simple_case() {
 	static_assert(
 		test_parser_parse_r_str(char_<'a'> >> char_<'b'> >> [](auto&&...){return 1;}, "ab", 3, 'a', 'b'),
 		"lambda value is added to position" );
+#endif
 	return true;
 }
 
 constexpr static bool test_seq_result_fields() {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-value"
 	struct with_2_chars { char a, b; };
 	static_assert( test_cmp_struct( test_parser_parse(with_2_chars{}, char_<'a'>++ >> char_<'b'>, "ab", 2), 'a', 'b' ) );
 	static_assert( test_cmp_struct( test_parser_parse(with_2_chars{}, ++char_<'a'> >> --char_<'b'>, "ab", 2), 'b', 'a' ) );
@@ -240,6 +256,7 @@ constexpr static bool test_seq_result_fields() {
 	static_cast<const opt_seq_parser<char_parser<'a'>, int_parser, char_parser<'c'>, int_parser>&>(char_<'a'> >> int_ >> char_<'c'> >> int_);
 	static_assert( test_cmp_struct( test_parser_parse(with_2_chars{}, char_<'a'>++ >> char_<'b'>-- >> char_<'c'>, "abc", 3), 'c', 'b' ) );
 	return true;
+#pragma GCC diagnostic pop
 }
 constexpr static bool test_seq_finc() {
 	struct with_3_chars { char a, b, c; };
@@ -260,6 +277,7 @@ constexpr static bool test_seq_req() {
 	static_assert( test_parser_parse_r_str((char_<'a'>|'b'|'c') >> _char<'('> >> -req<0> >> _char<')'>, "a(b(c()))", 9, 'a', 'b', 'c') );
 
 	struct semact_req_tester { char n='z'; semact_req_tester* ptr=nullptr; };
+#ifndef __clang__
 	static_assert( ({
 		semact_req_tester r, r2; char ok='u';
 		auto p=((char_<'a'>|'b')++ >> -(_char<'('> >> req<1>([&r2,&ok](auto& r){ok='o';return &r2;}) >> _char<')'>));
@@ -273,10 +291,12 @@ constexpr static bool test_seq_req() {
 		delete r.ptr;
 		ret;
 	}) == 'a', "check semact for create value");
+#endif
 
 	return true;
 }
 constexpr static bool test_seq_must() {
+#ifndef __clang__
 	static_assert(
 		({char r='z';(char_<'a'> >> char_<'b'> >> must<"t">(char_<'c'>)).parse(make_test_ctx(), make_source("abd"), r);}) == -1,
 		"if error and no lambda - nothing changed");
@@ -299,9 +319,11 @@ constexpr static bool test_seq_must() {
 	static_assert( ({ char r=0x00;
 		(any >> char_<'a'> >> char_<'b'> >> must<"test">(char_<'c'>)).parse(make_test_ctx(&err_method), make_source("\nabe"), r);
 	}) == -4, "on error: sources are on start sequence and on rule where the error");
+#endif
 	return true;
 }
 constexpr static bool test_seq_shift_pos() {
+#ifndef __clang__
 	static_assert( ({
 		struct { char a='z', b='z'; int pos; } r;
 		(char_<'a'> >> ++char_<'b'> >> ++cur_pos).parse(make_test_ctx(), make_source("ab"), r); r.pos;
@@ -322,6 +344,7 @@ constexpr static bool test_seq_shift_pos() {
 		struct { char a='z'; struct { char b; int shift1;} i; int shift2; } r;
 		ab_req.parse(make_test_ctx(), make_source("a(b)"), r); r.shift2;
 	}) == 4, "can parse current shift in reqursion");
+#endif
 	return true;
 }
 

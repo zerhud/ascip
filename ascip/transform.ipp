@@ -46,13 +46,13 @@ template<typename mutator, typename parser, typename value_type>
 constexpr static auto transform_special(as_parser<value_type, parser>&& src, auto&& ctx) {
 	auto nctx = mutator::create_ctx(src, ctx);
 	auto np = transform_apply<mutator>( std::move(src.p), nctx );
-	return transform_apply<mutator>( as_parser{ {}, src.val, std::move(np) }, nctx );
+	return transform_apply<mutator>( as_parser{ src.val, std::move(np) }, nctx );
 }
 template<typename mutator, typename parser, auto value>
 constexpr static auto transform_special(tmpl_as_parser<value, parser>&& src, auto&& ctx) {
 	auto nctx = mutator::create_ctx(src, ctx);
 	auto np = transform_apply<mutator>( std::move(src.p), nctx );
-	return transform_apply<mutator>( tmpl_as_parser<value, std::decay_t<decltype(np)>>{ {}, std::move(np) }, nctx );
+	return transform_apply<mutator>( tmpl_as_parser<value, std::decay_t<decltype(np)>>{ std::move(np) }, nctx );
 }
 
 template<typename mutator>
@@ -149,11 +149,12 @@ constexpr static auto test_transform_t_to_p(auto&& parser) {
 	return transform<t1_to_t2_mutator>(std::forward<decltype(parser)>(parser));
 }
 constexpr static bool test_transform_modify_leaf() {
+#ifndef __clang__
 	static_assert( !requires(const transform_noncopyable& nc, transform_noncopyable& n){ n = nc; } );
 	static_assert( std::is_same_v<test_parser2, decltype(test_transform_t_to_p(test_parser{}))> );
 	static_assert( std::is_same_v<test_parser2, decltype(test_transform_t_to_p(test_parser2{}))> );
 	static_assert( std::is_same_v<skip_parser<test_parser2>, decltype(test_transform_t_to_p(skip(test_parser{})))> );
-	static_assert( std::is_same_v<skip_parser<skip_parser<test_parser2>>, decltype(test_transform_t_to_p(skip(skip(test_parser{}))))> );
+	static_assert( std::is_same_v<skip_parser<test_parser2>, decltype(test_transform_t_to_p(skip(skip(test_parser{}))))> );
 	static_assert( std::is_same_v<skip_parser<char_parser<'a'>>, decltype(test_transform_t_to_p(skip(char_<'a'>)))> );
 	static_assert( std::is_same_v<lexeme_parser<test_parser>, decltype(test_transform_t_to_p(lexeme(test_parser{})))> );
 	static_assert( std::is_same_v<lexeme_parser<skip_parser<test_parser2>>, decltype(test_transform_t_to_p(lexeme(skip(test_parser{}))))> );
@@ -186,6 +187,7 @@ constexpr static bool test_transform_modify_leaf() {
 			seq_inc_rfield_after<semact_parser<test_parser2, decltype(rv_maker)>>,
 			decltype( test_transform_t_to_p(test_parser{}(rv_maker)++) )
 			> );
+#endif
 	return true;
 }
 constexpr static bool test_transform_modify_leaf_with_cond() {

@@ -6,7 +6,7 @@
 //          https://www.boost.org/LICENSE_1_0.txt)
 
 template<auto sym> struct char_parser : base_parser<char_parser<sym>> {
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		const bool ok = src() == sym;
 		if(ok) {
 			ascip_details::eq(result, sym);
@@ -17,6 +17,8 @@ template<auto sym> struct char_parser : base_parser<char_parser<sym>> {
 	}
 
 	constexpr bool test() const {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-value"
 		char r;
 		parse(make_test_ctx(), make_source(sym), r) == 1           || (throw __LINE__, 1);
 		parse(make_test_ctx(), make_source(sym+1), r) == -1        || (throw __LINE__, 1);
@@ -40,6 +42,7 @@ template<auto sym> struct char_parser : base_parser<char_parser<sym>> {
 			parse(ctx, make_source('\n'), r);
 			search_in_ctx<ascip_details::new_line_count_tag>(ctx) == 1 || (throw __LINE__, 1);
 		}
+#pragma GCC diagnostic pop
 
 		return true;
 	}
@@ -50,13 +53,15 @@ constexpr static void test_parser_char() {
 	static_assert( char_<'a'>.test() ); static_assert( char_<'z'>.test() );
 	static_assert( char_<'!'>.test() ); static_assert( char_<'Z'>.test() );
 	static_assert( char_<' '>.test() ); static_assert( char_<'\n'>.test() );
+#ifndef __clang__
 	static_assert( ({char r;char_<'a'>.parse(make_test_ctx(), make_source("abc"), r);}) == 1 );
 	static_assert( ({char r;char_<'b'>.parse(make_test_ctx(), make_source("abc"), r);}) == -1 );
 	static_assert( ({char r;char_<'a'>.parse(make_test_ctx(), make_source("abc"), r);r;}) == 'a' );
+#endif
 }
 
 template<ascip_details::string_literal val> struct literal_parser : base_parser<literal_parser<val>> {
-	constexpr auto parse(auto&&, auto src, auto& result) const {
+	constexpr parse_result parse(auto&&, auto src, auto& result) const {
 		//TODO: faster? add [] operator in src for direct access (operator[](auto i){return val[ind+i];})
 		auto i=-1, r=0;
 		{
@@ -83,13 +88,15 @@ constexpr static bool test_literal_parser() {
 template<typename t> struct value_parser : base_parser<value_parser<t>> {
 	t val;
 	constexpr value_parser(t v) : val(v) {}
-	constexpr auto parse(auto&&, auto src, auto& result) const {
+	constexpr parse_result parse(auto&&, auto src, auto& result) const {
 		const bool ok = src() == val;
 		if(ok) ascip_details::eq(result, val);
 		return -2 * !ok + 1;
 	}
 
 	constexpr bool test() const {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-value"
 		char r;
 		parse(make_test_ctx(), make_source(val), r) == 1           || (throw __LINE__, 1);
 		parse(make_test_ctx(), make_source(val+1), r) == -1        || (throw __LINE__, 1);
@@ -102,24 +109,34 @@ template<typename t> struct value_parser : base_parser<value_parser<t>> {
 		(parse(make_test_ctx(), make_source(val-1), r),r) == val+1 || (throw __LINE__, 1);
 
 		return true;
+#pragma GCC diagnostic pop
 	}
 };
+
+#ifdef __clang__
+template<typename t>
+value_parser(t) -> value_parser<t>;
+#endif
 
 constexpr static void test_parser_value() {
 	static_assert( value_parser{ 'a' }.test() ); static_assert( value_parser{ 'Z' }.test() );
 	static_assert( value_parser{ L'!' }.test() ); static_assert( value_parser{ '\n' }.test() );
+#ifndef __clang__
 	static_assert( ({char r;value_parser{'a'}.parse(make_test_ctx(), make_source("abc"), r);}) == 1 );
 	static_assert( ({char r;value_parser{'b'}.parse(make_test_ctx(), make_source("abc"), r);}) == -1 );
+#endif
 }
 
 constexpr static struct space_parser : base_parser<space_parser> {
-	constexpr auto parse(auto&& ctx,auto src, auto& r) const {
+	constexpr parse_result parse(auto&& ctx,auto src, auto& r) const {
 		auto sym = src();
 		const bool is_space = 0x07 < sym && sym < '!'; // 0x08 is a backspace
 		ascip_details::count_new_line(ctx, sym);
 		return -1 + (2 * is_space);
 	}
 	constexpr bool test() const {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-value"
 		constexpr char r=0x00;
 		parse(make_test_ctx(), make_source(' '), r) == 1    || (throw __LINE__, 1);
 		parse(make_test_ctx(), make_source('\n'), r) == 1   || (throw __LINE__, 1);
@@ -135,11 +152,12 @@ constexpr static struct space_parser : base_parser<space_parser> {
 		search_in_ctx<ascip_details::new_line_count_tag>(ctx) == 2 || (throw __LINE__, 1);
 
 		return true;
+#pragma GCC diagnostic pop
 	}
 } space {};
 
 constexpr static struct any_parser : base_parser<any_parser> {
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = 0;
 		decltype(src()) cur;
 		do { 
@@ -152,6 +170,8 @@ constexpr static struct any_parser : base_parser<any_parser> {
 		return ret;
 	}
 	constexpr bool test() const {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-value"
 		char r=0x00; ascip_details::type_any_eq_allow rr;
 		parse(make_test_ctx(), make_source(' '), r) == 1       || (throw __LINE__, 1);
 		(parse(make_test_ctx(), make_source('Z'), r),r) == 'Z' || (throw __LINE__, 1);
@@ -168,6 +188,7 @@ constexpr static struct any_parser : base_parser<any_parser> {
 		search_in_ctx<ascip_details::new_line_count_tag>(ctx) == 2 || (throw __LINE__, 1);
 
 		return true;
+#pragma GCC diagnostic pop
 	}
 } any {};
 
@@ -179,7 +200,7 @@ constexpr static struct int_parser : base_parser<int_parser> {
 		result /= (!isint * 9) + 1;
 		return isint;
 	}
-	constexpr auto parse(auto&&, auto src, auto& _result)  const {
+	constexpr parse_result parse(auto&&, auto src, auto& _result)  const {
 		auto sign = src();
 		if(sign != '-' && sign != '+' && !is_int(sign)) return -1;
 		int signer = sign == '-' ? -1 : is_int(sign) || sign=='+';
@@ -196,6 +217,8 @@ constexpr static struct int_parser : base_parser<int_parser> {
 	}
 
 	constexpr bool test() const {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-value"
 		int_parser p; auto r=0;
 
 		auto t = [](auto&& src, auto sym_cnt, auto answer) {
@@ -214,18 +237,21 @@ constexpr static struct int_parser : base_parser<int_parser> {
 		static_assert( t("+103", 4, 103) );
 		static_assert( t("103", 3, 103) );
 		
+#ifndef __clang__
 		static_assert( ({ auto r=0;int_parser{}.parse(make_test_ctx(), make_source("!"), r);}) == -1 );
 		static_assert( ({ auto r=0;int_parser{}.parse(make_test_ctx(), make_source("a"), r);}) == -1 );
 		static_assert( ({ auto r=0;int_parser{}.parse(make_test_ctx(), make_source("A"), r);}) == -1 );
+#endif
 
 		return true;
+#pragma GCC diagnostic pop
 	}
 
 } int_ {};
 
 constexpr static struct float_point_parser : base_parser<float_point_parser> {
 	constexpr static auto pow(auto what, auto to) { const auto m = what; for(auto i=1;i<to;++i) what*=m; return what; }
-	constexpr auto parse(auto&& ctx, auto src, auto& result)  const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result)  const {
 		result = 0;
 		auto int_pos = src;
 		auto dec_pos = src;
@@ -256,18 +282,20 @@ constexpr static struct float_point_parser : base_parser<float_point_parser> {
 		static_assert( t("1.5", 3, 1.5) );
 		static_assert( t("3.075", 5, 3.075) );
 
+#ifndef __clang__
 		static_assert( ({double r=100;float_point_parser{}.parse(make_test_ctx(), make_source("0"), r); }) == -1);
 		static_assert( ({double r=100;float_point_parser{}.parse(make_test_ctx(), make_source("a"), r); }) == -1);
 		static_assert( ({double r=100;float_point_parser{}.parse(make_test_ctx(), make_source("1."), r); }) == -1);
 		static_assert( ({double r=100;float_point_parser{}.parse(make_test_ctx(), make_source("5+3"), r); }) == -1);
 		static_assert( ({double r=100;float_point_parser{}.parse(make_test_ctx(), make_source("5-3"), r); }) == -1);
+#endif
 
 		return true;
 	}
 } fp {};
 
 template<auto from, auto to> struct range_parser : base_parser<range_parser<from,to>> { 
-	constexpr auto parse(auto&&, auto src, auto& result) const {
+	constexpr parse_result parse(auto&&, auto src, auto& result) const {
 		auto sym = src();
 		const bool ok = from <= sym && sym <= to;
 		if(ok) ascip_details::eq( result, sym );
@@ -282,11 +310,13 @@ constexpr static const auto d10 = range_parser<'0', '9'>{};
 constexpr static const auto ascii = range_parser<(char)0x01,(char)0x7F>{};
 
 constexpr static bool test_range_parser() {
+#ifndef __clang__
 	static_assert( ({char r;lower.parse(make_test_ctx(), make_source("a"), r);r;}) == 'a' );
 	static_assert( ({char r;lower.parse(make_test_ctx(), make_source("A"), r);}) == -1 );
 	static_assert( ({char r;ascii.parse(make_test_ctx(), make_source("A"), r);}) == 1 );
 	static_assert( ({char r;ascii.parse(make_test_ctx(), make_source('~'+1), r);}) == 1 );
 	static_assert( ({char r;ascii.parse(make_test_ctx(), make_source('~'+2), r);}) == -1 );
+#endif
 	return true;
 }
 

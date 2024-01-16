@@ -38,9 +38,9 @@ constexpr static auto test_parser_parse(auto&& r, auto p, auto&& src, auto pr) {
 constexpr static auto test_cmp_vec(const auto& vec, auto... vals) {
 	auto correct = mk_vec<decltype(auto(vec[0]))>();
 	(correct.emplace_back(vals), ...);
-	vec.size() / (vec.size() == sizeof...(vals));
+	(void)(vec.size() / (vec.size() == sizeof...(vals)));
 	//TODO: show also i shomehow in compiletime
-	for(auto i=0;i<vec.size();++i) vec[i] / (vec[i] == correct[i]);
+	for(auto i=0;i<vec.size();++i) (void)(vec[i] / (vec[i] == correct[i]));
 	return true;
 }
 

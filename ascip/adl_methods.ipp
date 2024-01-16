@@ -10,10 +10,10 @@ struct adl_tag {};
 struct seq_tag {};
 
 template<typename value_t, ascip_details::parser parser_t> constexpr static auto as( parser_t&& p, value_t&& val ){
-	return typename decltype(auto(p))::holder::template as_parser<decltype(auto(val)), decltype(auto(p))>{ p, val };
+	return typename decltype(auto(p))::holder::template as_parser<decltype(auto(val)), decltype(auto(p))>( val, p );
 }
 template<auto val, ascip_details::parser parser_t> constexpr static auto as( parser_t&& p) {
-	return typename decltype(auto(p))::holder::template tmpl_as_parser<val, decltype(auto(p))>{ {}, p }; }
+	return typename decltype(auto(p))::holder::template tmpl_as_parser<val, decltype(auto(p))>{ p }; }
 constexpr static auto omit(auto&& p) {
 	return typename decltype(auto(p))::holder::template omit_parser<decltype(auto(p))>{ p }; }
 template<typename result, parser type> constexpr auto check(const type& p) {
@@ -22,17 +22,17 @@ template<typename result, parser type> constexpr auto cast(const type& p){
 	return typename decltype(auto(p))::holder::template cast_parser<result, decltype(auto(p))>{ {}, p }; }
 
 template<auto cnt, parser type> constexpr auto finc(const type& p) {
-	using inc_type = decltype(auto(p))::holder::template _seq_inc_rfield_val<cnt,type>;
+	using inc_type = typename decltype(auto(p))::holder::template _seq_inc_rfield_val<cnt,type>;
 	return typename decltype(auto(p))::holder::template seq_inc_rfield_val<inc_type>{ inc_type{p} }; }
 template<auto cnt, parser type> constexpr auto fnum(const type& p) {
-	using num_type = decltype(auto(p))::holder::template _seq_num_rfield_val<cnt,type>;
+	using num_type = typename decltype(auto(p))::holder::template _seq_num_rfield_val<cnt,type>;
 	return typename decltype(auto(p))::holder::template seq_num_rfield_val<num_type>{ num_type{p} }; }
 template<string_literal msg, parser type> constexpr auto must(const type& p) {
 	return typename decltype(auto(p))::holder::template seq_error_parser<msg, type>{ p }; }
 template<parser type> constexpr auto lexeme(const type& p) {
-	return typename decltype(auto(p))::holder::template lexeme_parser<type>{ {}, p }; }
+	return typename decltype(auto(p))::holder::template lexeme_parser<type>{ p }; }
 template<parser type> constexpr auto skip(const type& p) {
-	return typename decltype(auto(p))::holder::template skip_parser<type>{ {}, p }; }
+	return typename decltype(auto(p))::holder::template skip_parser<type>{ p }; }
 
 template<parser type> constexpr auto use_variant_result(const type& p) {
 	return typename decltype(auto(p))::holder::template use_variant_result_parser<type>{ {}, p }; }
@@ -41,7 +41,7 @@ template<parser type, parser... types> constexpr auto rv(auto&& maker, type&& fi
 		return typename std::decay_t<type>::holder::rvariant_parser(
 				std::move(maker),
 				std::decay_t<type>::holder::template transform<
-					typename std::decay_t<type>::holder::rvariant_mutator<inds>
+					typename std::decay_t<type>::holder::template rvariant_mutator<inds>
 					>(std::move(parsers))...
 				);
 	}(

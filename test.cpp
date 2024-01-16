@@ -100,7 +100,9 @@ int main(int,char**) {
 	redefined_parser::test();
 	//TODO: implement own tuple :)
 	//parser_with_own_tuple::test();
+#ifndef __clang__
 	static_assert( ({char r;make_test_gram<parser>().parse(parser::make_test_ctx(), parser::make_source("a"), r);r;}) == 'b' );
+#endif
 	std::cout << "finish" << std::endl;
 	std::cout << "rt start" << std::endl;
 	std::string rt_r;

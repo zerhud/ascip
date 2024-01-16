@@ -38,6 +38,7 @@ template<template<typename...>class tuple, typename factory_t=void>
 struct ascip {
 
 using holder = ascip<tuple, factory_t>;
+using parse_result = decltype(-1);
 
 template<typename parser> struct base_parser : ascip_details::adl_tag {
 	using type_in_base = parser;
@@ -46,7 +47,8 @@ template<typename parser> struct base_parser : ascip_details::adl_tag {
 	constexpr static int start_context_arg = 1;
 	constexpr static const char* source_symbol = "ab";
 
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const requires requires(const parser& p){ p.p; } {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
+		static_assert( requires(const parser& p){ p.p; }, "child parser should define own parse method or have p field" );
 		return static_cast<const parser&>(*this)
 			.p.parse(std::forward<decltype(ctx)>(ctx), std::move(src), result);
 	}
@@ -56,7 +58,8 @@ template<typename parser> struct base_parser : ascip_details::adl_tag {
 
 constexpr static auto make_test_ctx() { return ascip_details::make_ctx<ascip_details::new_line_count_tag>(1); }
 constexpr static auto make_test_ctx(auto err_handler){ return make_ctx<ascip_details::err_handler_tag>(err_handler, make_test_ctx()); }
-template<auto... i> friend constexpr auto make_test_ctx(const base_parser<auto>&) { return ascip_details::make_ctx<ascip_details::parser_concept_check_tag>(1); }
+//template<auto... i> friend constexpr auto make_test_ctx(const base_parser<auto>&) { return ascip_details::make_ctx<ascip_details::parser_concept_check_tag>(1); }
+template<auto... i, typename parser_param> friend constexpr auto make_test_ctx(const base_parser<parser_param>&) { return ascip_details::make_ctx<ascip_details::parser_concept_check_tag>(1); }
 // ^^ implemented for ascip_details::parser concept 
 
 #include "ascip/test_utils.ipp"
@@ -74,7 +77,11 @@ template<auto... i> friend constexpr auto make_test_ctx(const base_parser<auto>&
 #include "ascip/integrated.ipp"
 
 constexpr static void test() {
+#ifdef __clang__
+	static_assert( ascip_details::parser<char_parser<'b'>> );
+#else
 	static_assert( ascip_details::parser<decltype(char_<'b'>)> );
+#endif
 	test_sources();
 	test_parser_char();
 	test_parser_value();
@@ -134,6 +141,11 @@ template<ascip_details::string_literal v> struct sterm {
 
 } // namespace <anonymus>
 
+#ifdef __clang__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wgnu-string-literal-operator-template"
+#endif
+
 template<typename factory_t, template<typename...>class tuple>
 struct ascip_literals {
 template<typename char_t, char_t... chars>
@@ -141,3 +153,7 @@ friend constexpr auto operator""_lex() {
 	return lexeme( omit( (... >> ascip<tuple, factory_t>::template char_<chars>) ) );
 }
 }; // namespace ascip_literals
+
+#ifdef __clang__
+#pragma GCC diagnostic pop
+#endif
