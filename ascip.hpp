@@ -38,6 +38,7 @@ template<template<typename...>class tuple, typename factory_t=void>
 struct ascip {
 
 using holder = ascip<tuple, factory_t>;
+using parse_result = decltype(-1);
 
 template<typename parser> struct base_parser : ascip_details::adl_tag {
 	using type_in_base = parser;
@@ -46,7 +47,7 @@ template<typename parser> struct base_parser : ascip_details::adl_tag {
 	constexpr static int start_context_arg = 1;
 	constexpr static const char* source_symbol = "ab";
 
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		static_assert( requires(const parser& p){ p.p; }, "child parser should define own parse method or have p field" );
 		return static_cast<const parser&>(*this)
 			.p.parse(std::forward<decltype(ctx)>(ctx), std::move(src), result);

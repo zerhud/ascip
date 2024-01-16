@@ -11,7 +11,7 @@ struct rvariant_crop_ctx_tag {};
 struct rvariant_copied_result_tag {};
 template<auto ind> struct rvariant_stop_val { constexpr static auto val = ind; };
 constexpr static struct rvariant_lreq_parser : base_parser<rvariant_lreq_parser> {
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		constexpr const bool need_in_result =
 			   !is_in_concept_check(decltype(auto(ctx)){})
 			&& !std::is_same_v<decltype(result), ascip_details::type_any_eq_allow&>
@@ -25,8 +25,8 @@ constexpr static struct rvariant_lreq_parser : base_parser<rvariant_lreq_parser>
 } rv_lreq{};
 template<auto stop_ind>
 struct rvariant_rreq_parser : base_parser<rvariant_rreq_parser<stop_ind>> {
-	constexpr auto parse(auto&& ctx, auto, auto&) const requires (is_in_concept_check(decltype(auto(ctx)){})) { return 0; }
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const requires (!is_in_concept_check(decltype(auto(ctx)){})) {
+	constexpr parse_result parse(auto&& ctx, auto, auto&) const requires (is_in_concept_check(decltype(auto(ctx)){})) { return 0; }
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const requires (!is_in_concept_check(decltype(auto(ctx)){})) {
 		if(!src) return 0;
 		auto* var = search_in_ctx<rvariant_stack_tag>(ctx);
 		auto* croped_ctx = search_in_ctx<rvariant_crop_ctx_tag>(ctx);
@@ -36,10 +36,10 @@ struct rvariant_rreq_parser : base_parser<rvariant_rreq_parser<stop_ind>> {
 };
 template<auto stop_ind> constexpr static rvariant_rreq_parser<stop_ind> _rv_rreq{};
 constexpr static
-	struct rvariant_rreq_pl_parser : base_parser<rvariant_rreq_pl_parser> { constexpr auto parse(auto&& ctx, auto src, auto& result) const { return 0; } }
+	struct rvariant_rreq_pl_parser : base_parser<rvariant_rreq_pl_parser> { constexpr parse_result parse(auto&& ctx, auto src, auto& result) const { return 0; } }
 	rv_rreq{};
 constexpr static struct rvariant_req_parser : base_parser<rvariant_req_parser> {
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr (is_in_concept_check(decltype(auto(ctx)){})) return 0;
 		else {
 			auto* var = search_in_ctx<rvariant_stack_tag>(ctx);
@@ -76,7 +76,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		auto checker = [](const auto* p){return std::is_same_v<std::decay_t<decltype(*p)>, std::decay_t<decltype(rv_lreq)>>;};
 		return !exists_in((cur_parser_t*)nullptr, checker);
 	}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const requires ( ascip_details::is_in_concept_check(decltype(ctx){}) ) {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const requires ( ascip_details::is_in_concept_check(decltype(ctx){}) ) {
 		return 0;
 	}
 	template<auto ind, auto cnt, auto cur, typename cur_parser, typename... tail>
@@ -99,7 +99,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		if constexpr (std::is_same_v<decltype(result), ascip_details::type_any_eq_allow&>) return result;
 		else return maker(result);
 	}
-	template<auto ind> constexpr decltype(-1) parse_term(auto&& ctx, auto src, auto& result) const {
+	template<auto ind> constexpr parse_result parse_term(auto&& ctx, auto src, auto& result) const {
 		if constexpr (ind == 0) {
 			if constexpr (is_term<ind>()) return get<ind>(seq).parse(ctx, src, result);
 			else return -1;
@@ -113,7 +113,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		}
 	}
 	template<auto ind, auto stop_pos>
-	constexpr auto parse_nonterm(auto&& ctx, auto src, auto& result, auto shift) const {
+	constexpr parse_result parse_nonterm(auto&& ctx, auto src, auto& result, auto shift) const {
 		if(!src) return shift;
 		if constexpr (ind < stop_pos) return shift;
 		else if constexpr (is_term<ind>()) {
@@ -138,13 +138,13 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		}
 	}
 	template<auto stop_pos>
-	constexpr auto parse_without_prep(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse_without_prep(auto&& ctx, auto src, auto& result) const {
 		auto term_r = parse_term<sizeof...(parsers)-1>(ctx, src, result);
 		if(term_r < 0) return term_r;
 		auto nonterm_r = parse_nonterm<sizeof...(parsers)-1, stop_pos>(ctx, src += term_r, result, 0);
 		return term_r + (nonterm_r*(nonterm_r>0));
 	}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr (exists_in_ctx<rvariant_stack_tag>(decltype(auto(ctx)){}))
 			return parse_without_prep<0>(ctx, src, result);
 		else {

@@ -10,7 +10,7 @@ struct variant_stack_tag{};
 struct variant_stack_result_tag{};
 template<ascip_details::parser parser> struct use_variant_result_parser : base_parser<use_variant_result_parser<parser>> {
 	parser p;
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		return p.parse(std::forward<decltype(ctx)>(ctx), std::move(src), result);
 	}
 };
@@ -54,7 +54,7 @@ template<ascip_details::parser... parsers> struct variant_parser : base_parser<v
 			return parse_ind<ind+1>(ctx, src, result);
 		}
 	}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr (exists_in_ctx<self_type>(decltype(auto(ctx)){})) 
 			return parse_ind<0>(ctx, src, result);
 		else {

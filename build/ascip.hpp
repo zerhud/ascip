@@ -611,6 +611,7 @@ template<template<typename...>class tuple, typename factory_t=void>
 struct ascip {
 
 using holder = ascip<tuple, factory_t>;
+using parse_result = decltype(-1);
 
 template<typename parser> struct base_parser : ascip_details::adl_tag {
 	using type_in_base = parser;
@@ -619,7 +620,7 @@ template<typename parser> struct base_parser : ascip_details::adl_tag {
 	constexpr static int start_context_arg = 1;
 	constexpr static const char* source_symbol = "ab";
 
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		static_assert( requires(const parser& p){ p.p; }, "child parser should define own parse method or have p field" );
 		return static_cast<const parser&>(*this)
 			.p.parse(std::forward<decltype(ctx)>(ctx), std::move(src), result);
@@ -899,7 +900,7 @@ constexpr static bool test_exists_in() {
 //          https://www.boost.org/LICENSE_1_0.txt)
 
 template<auto sym> struct char_parser : base_parser<char_parser<sym>> {
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		const bool ok = src() == sym;
 		if(ok) {
 			ascip_details::eq(result, sym);
@@ -951,7 +952,7 @@ constexpr static void test_parser_char() {
 }
 
 template<ascip_details::string_literal val> struct literal_parser : base_parser<literal_parser<val>> {
-	constexpr auto parse(auto&&, auto src, auto& result) const {
+	constexpr parse_result parse(auto&&, auto src, auto& result) const {
 		//TODO: faster? add [] operator in src for direct access (operator[](auto i){return val[ind+i];})
 		auto i=-1, r=0;
 		{
@@ -978,7 +979,7 @@ constexpr static bool test_literal_parser() {
 template<typename t> struct value_parser : base_parser<value_parser<t>> {
 	t val;
 	constexpr value_parser(t v) : val(v) {}
-	constexpr auto parse(auto&&, auto src, auto& result) const {
+	constexpr parse_result parse(auto&&, auto src, auto& result) const {
 		const bool ok = src() == val;
 		if(ok) ascip_details::eq(result, val);
 		return -2 * !ok + 1;
@@ -1015,7 +1016,7 @@ constexpr static void test_parser_value() {
 }
 
 constexpr static struct space_parser : base_parser<space_parser> {
-	constexpr auto parse(auto&& ctx,auto src, auto& r) const {
+	constexpr parse_result parse(auto&& ctx,auto src, auto& r) const {
 		auto sym = src();
 		const bool is_space = 0x07 < sym && sym < '!'; // 0x08 is a backspace
 		ascip_details::count_new_line(ctx, sym);
@@ -1041,7 +1042,7 @@ constexpr static struct space_parser : base_parser<space_parser> {
 } space {};
 
 constexpr static struct any_parser : base_parser<any_parser> {
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = 0;
 		decltype(src()) cur;
 		do { 
@@ -1081,7 +1082,7 @@ constexpr static struct int_parser : base_parser<int_parser> {
 		result /= (!isint * 9) + 1;
 		return isint;
 	}
-	constexpr auto parse(auto&&, auto src, auto& _result)  const {
+	constexpr parse_result parse(auto&&, auto src, auto& _result)  const {
 		auto sign = src();
 		if(sign != '-' && sign != '+' && !is_int(sign)) return -1;
 		int signer = sign == '-' ? -1 : is_int(sign) || sign=='+';
@@ -1129,7 +1130,7 @@ constexpr static struct int_parser : base_parser<int_parser> {
 
 constexpr static struct float_point_parser : base_parser<float_point_parser> {
 	constexpr static auto pow(auto what, auto to) { const auto m = what; for(auto i=1;i<to;++i) what*=m; return what; }
-	constexpr auto parse(auto&& ctx, auto src, auto& result)  const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result)  const {
 		result = 0;
 		auto int_pos = src;
 		auto dec_pos = src;
@@ -1173,7 +1174,7 @@ constexpr static struct float_point_parser : base_parser<float_point_parser> {
 } fp {};
 
 template<auto from, auto to> struct range_parser : base_parser<range_parser<from,to>> { 
-	constexpr auto parse(auto&&, auto src, auto& result) const {
+	constexpr parse_result parse(auto&&, auto src, auto& result) const {
 		auto sym = src();
 		const bool ok = from <= sym && sym <= to;
 		if(ok) ascip_details::eq( result, sym );
@@ -1210,7 +1211,7 @@ template<typename parser, typename act_t> struct semact_parser : base_parser<sem
 	act_t act;
 	[[no_unique_address]] parser p;
 
-	constexpr const auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr const parse_result parse(auto&& ctx, auto src, auto& result) const {
 		constexpr bool is_any_arg_pattern = !requires{ act(); };
 		if constexpr(ascip_details::is_in_concept_check(decltype(auto(ctx)){})) return 0;
 		else if constexpr(std::is_same_v<ascip_details::type_any_eq_allow&, decltype(result)>)
@@ -1261,7 +1262,7 @@ template<ascip_details::parser parser> struct negate_parser : base_parser<negate
 	constexpr negate_parser(const negate_parser&) =default ;
 	constexpr negate_parser(parser p) : p(std::move(p)) {}
 	constexpr auto operator!() const { return p; }
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = p.parse(ctx, static_cast<decltype(auto(src))&&>(src), result);
 		return ret * (-1);
 	}
@@ -1291,7 +1292,7 @@ template<ascip_details::parser parser> struct opt_parser : base_parser<opt_parse
 	constexpr opt_parser(const opt_parser&) =default ;
 	constexpr opt_parser() =default ;
 	constexpr opt_parser(parser p) : p(std::move(p)) {}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if(!src) return 0;
 		auto ret = p.parse(ctx, src, result);
 		return ret * (ret >= 0);
@@ -1310,7 +1311,7 @@ template<ascip_details::parser parser> struct omit_parser : base_parser<omit_par
 	constexpr omit_parser(omit_parser&&) =default ;
 	constexpr omit_parser(const omit_parser&) =default ;
 	constexpr omit_parser(parser p) : p(std::move(p)) {}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		ascip_details::type_any_eq_allow r;
 		return p.parse(ctx, src, r);
 	}
@@ -1337,7 +1338,7 @@ template<auto val, ascip_details::parser parser> struct tmpl_as_parser : base_pa
 	constexpr tmpl_as_parser(tmpl_as_parser&&) =default ;
 	constexpr tmpl_as_parser(const tmpl_as_parser&) =default ;
 	constexpr tmpl_as_parser(parser p) : p(std::move(p)) {}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		ascip_details::type_any_eq_allow r;
 		auto shift = p.parse(ctx, static_cast<decltype(auto(src))&&>(src), r);
 		if(shift >= 0) result = val;
@@ -1351,7 +1352,7 @@ template<typename value_t, ascip_details::parser parser> struct as_parser : base
 	constexpr as_parser(as_parser&&) =default ;
 	constexpr as_parser(const as_parser&) =default ;
 	constexpr as_parser(value_t val, parser p) : val(std::move(val)), p(std::move(p)) {}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		ascip_details::type_any_eq_allow r;
 		auto shift = p.parse(ctx, static_cast<decltype(auto(src))&&>(src), r);
 		if(shift >= 0) result = val;
@@ -1370,7 +1371,7 @@ constexpr static bool test_as() {
 template<typename good_result, ascip_details::parser parser>
 struct result_checker_parser : base_parser<result_checker_parser<good_result, parser>> {
 	parser p;
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		static_assert(
 			   ascip_details::is_in_concept_check(decltype(auto(ctx)){})
 			|| std::is_same_v<ascip_details::type_any_eq_allow, decltype(auto(result))>
@@ -1388,7 +1389,7 @@ template<typename needed, ascip_details::parser type> struct cast_parser : base_
 			return static_cast<needed&>(result);
 		}
 	}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr ( ascip_details::is_in_concept_check(decltype(auto(ctx)){}) ) return 0;
 		else return p.parse(static_cast<decltype(ctx)&&>(ctx), src, check_result(result));
 	}
@@ -1414,7 +1415,7 @@ template<ascip_details::parser left, ascip_details::parser right> struct differe
 	left lp;
 	right rp;
 	constexpr different_parser( left l, right r ) : lp(l), rp(r) {}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		ascip_details::type_any_eq_allow fake_result;
 		if(rp.parse(ctx, src, fake_result) >= 0) return -1;
 		return lp.parse(ctx, src, result);
@@ -1443,7 +1444,7 @@ struct variant_stack_tag{};
 struct variant_stack_result_tag{};
 template<ascip_details::parser parser> struct use_variant_result_parser : base_parser<use_variant_result_parser<parser>> {
 	parser p;
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		return p.parse(std::forward<decltype(ctx)>(ctx), std::move(src), result);
 	}
 };
@@ -1487,7 +1488,7 @@ template<ascip_details::parser... parsers> struct variant_parser : base_parser<v
 			return parse_ind<ind+1>(ctx, src, result);
 		}
 	}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr (exists_in_ctx<self_type>(decltype(auto(ctx)){})) 
 			return parse_ind<0>(ctx, src, result);
 		else {
@@ -1545,7 +1546,7 @@ struct rvariant_crop_ctx_tag {};
 struct rvariant_copied_result_tag {};
 template<auto ind> struct rvariant_stop_val { constexpr static auto val = ind; };
 constexpr static struct rvariant_lreq_parser : base_parser<rvariant_lreq_parser> {
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		constexpr const bool need_in_result =
 			   !is_in_concept_check(decltype(auto(ctx)){})
 			&& !std::is_same_v<decltype(result), ascip_details::type_any_eq_allow&>
@@ -1559,8 +1560,8 @@ constexpr static struct rvariant_lreq_parser : base_parser<rvariant_lreq_parser>
 } rv_lreq{};
 template<auto stop_ind>
 struct rvariant_rreq_parser : base_parser<rvariant_rreq_parser<stop_ind>> {
-	constexpr auto parse(auto&& ctx, auto, auto&) const requires (is_in_concept_check(decltype(auto(ctx)){})) { return 0; }
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const requires (!is_in_concept_check(decltype(auto(ctx)){})) {
+	constexpr parse_result parse(auto&& ctx, auto, auto&) const requires (is_in_concept_check(decltype(auto(ctx)){})) { return 0; }
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const requires (!is_in_concept_check(decltype(auto(ctx)){})) {
 		if(!src) return 0;
 		auto* var = search_in_ctx<rvariant_stack_tag>(ctx);
 		auto* croped_ctx = search_in_ctx<rvariant_crop_ctx_tag>(ctx);
@@ -1570,10 +1571,10 @@ struct rvariant_rreq_parser : base_parser<rvariant_rreq_parser<stop_ind>> {
 };
 template<auto stop_ind> constexpr static rvariant_rreq_parser<stop_ind> _rv_rreq{};
 constexpr static
-	struct rvariant_rreq_pl_parser : base_parser<rvariant_rreq_pl_parser> { constexpr auto parse(auto&& ctx, auto src, auto& result) const { return 0; } }
+	struct rvariant_rreq_pl_parser : base_parser<rvariant_rreq_pl_parser> { constexpr parse_result parse(auto&& ctx, auto src, auto& result) const { return 0; } }
 	rv_rreq{};
 constexpr static struct rvariant_req_parser : base_parser<rvariant_req_parser> {
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr (is_in_concept_check(decltype(auto(ctx)){})) return 0;
 		else {
 			auto* var = search_in_ctx<rvariant_stack_tag>(ctx);
@@ -1610,7 +1611,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		auto checker = [](const auto* p){return std::is_same_v<std::decay_t<decltype(*p)>, std::decay_t<decltype(rv_lreq)>>;};
 		return !exists_in((cur_parser_t*)nullptr, checker);
 	}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const requires ( ascip_details::is_in_concept_check(decltype(ctx){}) ) {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const requires ( ascip_details::is_in_concept_check(decltype(ctx){}) ) {
 		return 0;
 	}
 	template<auto ind, auto cnt, auto cur, typename cur_parser, typename... tail>
@@ -1633,7 +1634,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		if constexpr (std::is_same_v<decltype(result), ascip_details::type_any_eq_allow&>) return result;
 		else return maker(result);
 	}
-	template<auto ind> constexpr decltype(-1) parse_term(auto&& ctx, auto src, auto& result) const {
+	template<auto ind> constexpr parse_result parse_term(auto&& ctx, auto src, auto& result) const {
 		if constexpr (ind == 0) {
 			if constexpr (is_term<ind>()) return get<ind>(seq).parse(ctx, src, result);
 			else return -1;
@@ -1647,7 +1648,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		}
 	}
 	template<auto ind, auto stop_pos>
-	constexpr auto parse_nonterm(auto&& ctx, auto src, auto& result, auto shift) const {
+	constexpr parse_result parse_nonterm(auto&& ctx, auto src, auto& result, auto shift) const {
 		if(!src) return shift;
 		if constexpr (ind < stop_pos) return shift;
 		else if constexpr (is_term<ind>()) {
@@ -1672,13 +1673,13 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		}
 	}
 	template<auto stop_pos>
-	constexpr auto parse_without_prep(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse_without_prep(auto&& ctx, auto src, auto& result) const {
 		auto term_r = parse_term<sizeof...(parsers)-1>(ctx, src, result);
 		if(term_r < 0) return term_r;
 		auto nonterm_r = parse_nonterm<sizeof...(parsers)-1, stop_pos>(ctx, src += term_r, result, 0);
 		return term_r + (nonterm_r*(nonterm_r>0));
 	}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr (exists_in_ctx<rvariant_stack_tag>(decltype(auto(ctx)){}))
 			return parse_without_prep<0>(ctx, src, result);
 		else {
@@ -1799,7 +1800,7 @@ template<ascip_details::parser parser> struct unary_list_parser : base_parser<un
 	constexpr unary_list_parser(const unary_list_parser&) =default ;
 	constexpr unary_list_parser() =default ;
 	constexpr unary_list_parser(parser p) : p(std::move(p)) {}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = p.parse(ctx, src, ascip_details::empback(result));
 		src += ret * (0<=ret);
 		auto cur_r = ret;
@@ -1818,7 +1819,7 @@ struct binary_list_parser : base_parser<binary_list_parser<left, right>> {
 	left lp;
 	right rp;
 	constexpr binary_list_parser(left l, right r) : lp(l), rp(r) {}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		ascip_details::type_any_eq_allow fake_result;
 		auto ret = lp.parse(ctx, src, ascip_details::empback(result));
 		if(ret<0) ascip_details::pop(result);
@@ -1901,7 +1902,7 @@ struct seq_shift_stack_tag{};
 struct seq_result_stack_tag{};
 //TODO: dose we realy need the pos parser?
 constexpr static struct cur_pos_parser : base_parser<cur_pos_parser> {
-	constexpr auto parse(auto&&, auto src, auto& result) const {
+	constexpr parse_result parse(auto&&, auto src, auto& result) const {
 		//TODO: extract the info from context or from parent's object
 		//      sequence may sotre it in context
 		//      sequence may have mutable field and
@@ -1913,7 +1914,7 @@ constexpr static struct cur_pos_parser : base_parser<cur_pos_parser> {
 	}
 } cur_pos{};
 constexpr static struct cur_shift_parser : base_parser<cur_shift_parser> {
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr (ascip_details::is_in_concept_check(decltype(auto(ctx)){})) return 0;
 		else {
 			ascip_details::eq(result, *search_in_ctx<seq_shift_stack_tag>(ctx));
@@ -1927,7 +1928,7 @@ struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind, ctx_chunk_si
 	constexpr auto& extract_result(auto& ctx) const {
 		return *by_ind_from_ctx<ind, seq_result_stack_tag>(ctx);
 	}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr( ascip_details::is_in_concept_check(decltype(auto(ctx)){})  ) return 0;
 		else if constexpr (ascip_details::is_in_reqursion_check(decltype(auto(ctx)){})) {
 			return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse(ctx, static_cast<decltype(src)&&>(src), extract_result(ctx)) : -1;
@@ -1960,7 +1961,7 @@ template<typename type> constexpr static auto num_field_val() {
 	else return 0;
 }
 
-struct seq_inc_rfield : base_parser<seq_inc_rfield> {constexpr auto parse(auto&&,auto,auto&)const {return 0;} } sfs ;
+struct seq_inc_rfield : base_parser<seq_inc_rfield> {constexpr parse_result parse(auto&&,auto,auto&)const {return 0;} } sfs ;
 template<ascip_details::parser parser> struct seq_inc_rfield_after : base_parser<seq_inc_rfield_after<parser>> { parser p; };
 template<ascip_details::parser parser> struct seq_inc_rfield_before : base_parser<seq_inc_rfield_before<parser>> { parser p; };
 template<ascip_details::parser parser> struct seq_dec_rfield_after : base_parser<seq_dec_rfield_after<parser>> { parser p; };
@@ -2056,7 +2057,7 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 		);
 		return parse_and_store_shift<0,0>(cur_ctx, src, result);
 	}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if(!src) return -1;
 		if constexpr (ascip_details::is_in_concept_check(decltype(auto(ctx)){})) return 0;
 		else {
@@ -2084,7 +2085,7 @@ template<typename... p> opt_seq_parser(p...) -> opt_seq_parser<std::decay_t<p>..
 template<ascip_details::string_literal message, ascip_details::parser type>
 struct seq_error_parser : base_parser<seq_error_parser<message,type>> {
 	type p;
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = p.parse(static_cast<decltype(ctx)&&>(ctx), src, result);
 		auto err = search_in_ctx<ascip_details::err_handler_tag>(ctx);
 		if constexpr (!requires{ (*err)(result, src, 0, message); }) return ret;
@@ -2445,19 +2446,19 @@ template<ascip_details::parser pt> struct lexeme_parser : base_parser<lexeme_par
 	constexpr lexeme_parser(lexeme_parser&&) =default ;
 	constexpr lexeme_parser(const lexeme_parser&) =default ;
 	constexpr lexeme_parser(pt p) : p(std::move(p)) {}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const { return p.parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(src)&&>(src), result); }
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const { return p.parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(src)&&>(src), result); }
 };
 template<ascip_details::parser pt> struct skip_parser : base_parser<lexeme_parser<pt>> { [[no_unique_address]] pt p; 
 	constexpr skip_parser() =default ;
 	constexpr skip_parser(skip_parser&&) =default ;
 	constexpr skip_parser(const skip_parser&) =default ;
 	constexpr skip_parser(pt p) : p(std::move(p)) {}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const { return p.parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(src)&&>(src), result); }
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const { return p.parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(src)&&>(src), result); }
 };
 template<ascip_details::parser skip, ascip_details::parser base> struct injected_parser : base_parser<injected_parser<skip,base>> {
 	[[no_unique_address]] skip s;
 	[[no_unique_address]] base b;
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		ascip_details::type_any_eq_allow skip_result;
 		auto sr = s.parse(ctx, src, skip_result);
 		sr *= (0<=sr);

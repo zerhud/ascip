@@ -27,7 +27,7 @@ struct seq_shift_stack_tag{};
 struct seq_result_stack_tag{};
 //TODO: dose we realy need the pos parser?
 constexpr static struct cur_pos_parser : base_parser<cur_pos_parser> {
-	constexpr auto parse(auto&&, auto src, auto& result) const {
+	constexpr parse_result parse(auto&&, auto src, auto& result) const {
 		//TODO: extract the info from context or from parent's object
 		//      sequence may sotre it in context
 		//      sequence may have mutable field and
@@ -39,7 +39,7 @@ constexpr static struct cur_pos_parser : base_parser<cur_pos_parser> {
 	}
 } cur_pos{};
 constexpr static struct cur_shift_parser : base_parser<cur_shift_parser> {
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr (ascip_details::is_in_concept_check(decltype(auto(ctx)){})) return 0;
 		else {
 			ascip_details::eq(result, *search_in_ctx<seq_shift_stack_tag>(ctx));
@@ -53,7 +53,7 @@ struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind, ctx_chunk_si
 	constexpr auto& extract_result(auto& ctx) const {
 		return *by_ind_from_ctx<ind, seq_result_stack_tag>(ctx);
 	}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr( ascip_details::is_in_concept_check(decltype(auto(ctx)){})  ) return 0;
 		else if constexpr (ascip_details::is_in_reqursion_check(decltype(auto(ctx)){})) {
 			return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse(ctx, static_cast<decltype(src)&&>(src), extract_result(ctx)) : -1;
@@ -86,7 +86,7 @@ template<typename type> constexpr static auto num_field_val() {
 	else return 0;
 }
 
-struct seq_inc_rfield : base_parser<seq_inc_rfield> {constexpr auto parse(auto&&,auto,auto&)const {return 0;} } sfs ;
+struct seq_inc_rfield : base_parser<seq_inc_rfield> {constexpr parse_result parse(auto&&,auto,auto&)const {return 0;} } sfs ;
 template<ascip_details::parser parser> struct seq_inc_rfield_after : base_parser<seq_inc_rfield_after<parser>> { parser p; };
 template<ascip_details::parser parser> struct seq_inc_rfield_before : base_parser<seq_inc_rfield_before<parser>> { parser p; };
 template<ascip_details::parser parser> struct seq_dec_rfield_after : base_parser<seq_dec_rfield_after<parser>> { parser p; };
@@ -182,7 +182,7 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 		);
 		return parse_and_store_shift<0,0>(cur_ctx, src, result);
 	}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if(!src) return -1;
 		if constexpr (ascip_details::is_in_concept_check(decltype(auto(ctx)){})) return 0;
 		else {
@@ -210,7 +210,7 @@ template<typename... p> opt_seq_parser(p...) -> opt_seq_parser<std::decay_t<p>..
 template<ascip_details::string_literal message, ascip_details::parser type>
 struct seq_error_parser : base_parser<seq_error_parser<message,type>> {
 	type p;
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = p.parse(static_cast<decltype(ctx)&&>(ctx), src, result);
 		auto err = search_in_ctx<ascip_details::err_handler_tag>(ctx);
 		if constexpr (!requires{ (*err)(result, src, 0, message); }) return ret;

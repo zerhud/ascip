@@ -6,7 +6,7 @@
 //          https://www.boost.org/LICENSE_1_0.txt)
 
 template<auto sym> struct char_parser : base_parser<char_parser<sym>> {
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		const bool ok = src() == sym;
 		if(ok) {
 			ascip_details::eq(result, sym);
@@ -61,7 +61,7 @@ constexpr static void test_parser_char() {
 }
 
 template<ascip_details::string_literal val> struct literal_parser : base_parser<literal_parser<val>> {
-	constexpr auto parse(auto&&, auto src, auto& result) const {
+	constexpr parse_result parse(auto&&, auto src, auto& result) const {
 		//TODO: faster? add [] operator in src for direct access (operator[](auto i){return val[ind+i];})
 		auto i=-1, r=0;
 		{
@@ -88,7 +88,7 @@ constexpr static bool test_literal_parser() {
 template<typename t> struct value_parser : base_parser<value_parser<t>> {
 	t val;
 	constexpr value_parser(t v) : val(v) {}
-	constexpr auto parse(auto&&, auto src, auto& result) const {
+	constexpr parse_result parse(auto&&, auto src, auto& result) const {
 		const bool ok = src() == val;
 		if(ok) ascip_details::eq(result, val);
 		return -2 * !ok + 1;
@@ -128,7 +128,7 @@ constexpr static void test_parser_value() {
 }
 
 constexpr static struct space_parser : base_parser<space_parser> {
-	constexpr auto parse(auto&& ctx,auto src, auto& r) const {
+	constexpr parse_result parse(auto&& ctx,auto src, auto& r) const {
 		auto sym = src();
 		const bool is_space = 0x07 < sym && sym < '!'; // 0x08 is a backspace
 		ascip_details::count_new_line(ctx, sym);
@@ -157,7 +157,7 @@ constexpr static struct space_parser : base_parser<space_parser> {
 } space {};
 
 constexpr static struct any_parser : base_parser<any_parser> {
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = 0;
 		decltype(src()) cur;
 		do { 
@@ -200,7 +200,7 @@ constexpr static struct int_parser : base_parser<int_parser> {
 		result /= (!isint * 9) + 1;
 		return isint;
 	}
-	constexpr auto parse(auto&&, auto src, auto& _result)  const {
+	constexpr parse_result parse(auto&&, auto src, auto& _result)  const {
 		auto sign = src();
 		if(sign != '-' && sign != '+' && !is_int(sign)) return -1;
 		int signer = sign == '-' ? -1 : is_int(sign) || sign=='+';
@@ -251,7 +251,7 @@ constexpr static struct int_parser : base_parser<int_parser> {
 
 constexpr static struct float_point_parser : base_parser<float_point_parser> {
 	constexpr static auto pow(auto what, auto to) { const auto m = what; for(auto i=1;i<to;++i) what*=m; return what; }
-	constexpr auto parse(auto&& ctx, auto src, auto& result)  const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result)  const {
 		result = 0;
 		auto int_pos = src;
 		auto dec_pos = src;
@@ -295,7 +295,7 @@ constexpr static struct float_point_parser : base_parser<float_point_parser> {
 } fp {};
 
 template<auto from, auto to> struct range_parser : base_parser<range_parser<from,to>> { 
-	constexpr auto parse(auto&&, auto src, auto& result) const {
+	constexpr parse_result parse(auto&&, auto src, auto& result) const {
 		auto sym = src();
 		const bool ok = from <= sym && sym <= to;
 		if(ok) ascip_details::eq( result, sym );

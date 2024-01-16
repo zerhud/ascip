@@ -142,11 +142,13 @@ int main(int,char**) {
 	test_expr("(1 + 2) * (3 + 4)", "17 ((1 + 2) * (3 + 4))");
 	test_expr("1 ? (1 + 2) * (3 % 4) : 0", "25 1 ? ((1 + 2) * (3 % 4)) : 0");
 
-	// we can also check it in compile time
+	// we can also check it in compile time, but not in clang
+#ifndef __clang__
 	static_assert( test_expr_ct("(1 + 2) * 3 + 4", [](auto&& r){
 		auto right_top_plus = get<0>(get<7>(*get<1>(r).right));
 		right_top_plus /= (right_top_plus == 4);
 	}) == 15 );
+#endif
 
 	return 0;
 }

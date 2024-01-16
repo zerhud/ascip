@@ -10,7 +10,7 @@ template<typename parser, typename act_t> struct semact_parser : base_parser<sem
 	act_t act;
 	[[no_unique_address]] parser p;
 
-	constexpr const auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr const parse_result parse(auto&& ctx, auto src, auto& result) const {
 		constexpr bool is_any_arg_pattern = !requires{ act(); };
 		if constexpr(ascip_details::is_in_concept_check(decltype(auto(ctx)){})) return 0;
 		else if constexpr(std::is_same_v<ascip_details::type_any_eq_allow&, decltype(result)>)

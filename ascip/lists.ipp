@@ -12,7 +12,7 @@ template<ascip_details::parser parser> struct unary_list_parser : base_parser<un
 	constexpr unary_list_parser(const unary_list_parser&) =default ;
 	constexpr unary_list_parser() =default ;
 	constexpr unary_list_parser(parser p) : p(std::move(p)) {}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = p.parse(ctx, src, ascip_details::empback(result));
 		src += ret * (0<=ret);
 		auto cur_r = ret;
@@ -31,7 +31,7 @@ struct binary_list_parser : base_parser<binary_list_parser<left, right>> {
 	left lp;
 	right rp;
 	constexpr binary_list_parser(left l, right r) : lp(l), rp(r) {}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		ascip_details::type_any_eq_allow fake_result;
 		auto ret = lp.parse(ctx, src, ascip_details::empback(result));
 		if(ret<0) ascip_details::pop(result);

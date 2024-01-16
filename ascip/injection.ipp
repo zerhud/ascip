@@ -10,19 +10,19 @@ template<ascip_details::parser pt> struct lexeme_parser : base_parser<lexeme_par
 	constexpr lexeme_parser(lexeme_parser&&) =default ;
 	constexpr lexeme_parser(const lexeme_parser&) =default ;
 	constexpr lexeme_parser(pt p) : p(std::move(p)) {}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const { return p.parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(src)&&>(src), result); }
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const { return p.parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(src)&&>(src), result); }
 };
 template<ascip_details::parser pt> struct skip_parser : base_parser<lexeme_parser<pt>> { [[no_unique_address]] pt p; 
 	constexpr skip_parser() =default ;
 	constexpr skip_parser(skip_parser&&) =default ;
 	constexpr skip_parser(const skip_parser&) =default ;
 	constexpr skip_parser(pt p) : p(std::move(p)) {}
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const { return p.parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(src)&&>(src), result); }
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const { return p.parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(src)&&>(src), result); }
 };
 template<ascip_details::parser skip, ascip_details::parser base> struct injected_parser : base_parser<injected_parser<skip,base>> {
 	[[no_unique_address]] skip s;
 	[[no_unique_address]] base b;
-	constexpr auto parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		ascip_details::type_any_eq_allow skip_result;
 		auto sr = s.parse(ctx, src, skip_result);
 		sr *= (0<=sr);
