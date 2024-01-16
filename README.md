@@ -170,7 +170,6 @@ please note:
  
 # roadmap
 - test, writing few parsers
-- make it workable with clang (only parser itself, without tests)
 - alfa release
 - implement same struct as the ascip, containg parsers for print a parser it self, as grammar documentation.
 - implement good double parser
