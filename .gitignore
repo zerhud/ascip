@@ -3,6 +3,7 @@ ascip_test
 ascip2_test
 test
 /clion_build/
+/build/*
 
 # Prerequisites
 *.d
