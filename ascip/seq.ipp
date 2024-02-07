@@ -86,7 +86,7 @@ template<typename type> constexpr static auto num_field_val() {
 	else return 0;
 }
 
-struct seq_inc_rfield : base_parser<seq_inc_rfield> {constexpr parse_result parse(auto&&,auto,auto&)const {return 0;} } sfs ;
+static struct seq_inc_rfield : base_parser<seq_inc_rfield> {constexpr parse_result parse(auto&&,auto,auto&)const {return 0;} } sfs ;
 template<ascip_details::parser parser> struct seq_inc_rfield_after : base_parser<seq_inc_rfield_after<parser>> { parser p; };
 template<ascip_details::parser parser> struct seq_inc_rfield_before : base_parser<seq_inc_rfield_before<parser>> { parser p; };
 template<ascip_details::parser parser> struct seq_dec_rfield_after : base_parser<seq_dec_rfield_after<parser>> { parser p; };
@@ -116,7 +116,8 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 	template<typename... types> constexpr static bool is_struct_requires = 
 		((is_field_separator<types> + ...) + (is_inc_field_val<types> + ...) +
 		 (is_inc_field_after<types> + ...) + (is_inc_field_before<types> + ...) +
-		 (is_dec_field_after<types> + ...) + (is_dec_field_before<types> + ...)
+		 (is_dec_field_after<types> + ...) + (is_dec_field_before<types> + ...) +
+		 (is_num_field_val<types> + ...)
 		) > 0;
 
 	constexpr auto on_error(auto val) const { return static_cast<const concrete*>(this)->on_error(val); }
@@ -264,6 +265,13 @@ constexpr static bool test_seq_finc() {
 	static_assert( test_cmp_struct( test_parser_parse(with_3_chars{}, ++char_<'a'> >> ++char_<'b'> >> finc<-2>(char_<'c'>), "abc", 3), 'c', 'a', 'b' ) );
 	return true;
 }
+constexpr static bool test_seq_single_field() {
+	struct with_1_field { decltype(mk_str()) val; };
+	static_assert( test_parser_parse(with_1_field{}, fnum<0>(char_<'a'>) >> char_<'b'>, "ab", 2).val[0] == 'a' );
+	static_assert( test_parser_parse(with_1_field{}, finc<0>(char_<'a'>) >> char_<'b'>, "ab", 2).val[1] == 'b' );
+	static_assert( test_parser_parse(with_1_field{}, sfs >> --char_<'a'> >> char_<'b'>, "ab", 2).val[1] == 'b' );
+	return true;
+}
 constexpr static bool test_seq_fnum() {
 	struct with_2_chars { char a, b; };
 	static_assert( test_cmp_struct( test_parser_parse(with_2_chars{}, char_<'a'>++ >> char_<'b'>++ >> fnum<0>(char_<'c'>), "abc", 3), 'c', 'b' ) );
@@ -353,6 +361,7 @@ constexpr static bool test_seq() {
 	return
 	     test_seq_simple_case()
 	  && test_seq_result_fields()
+	  && test_seq_single_field()
 	  && test_seq_finc()
 	  && test_seq_fnum()
 	  && test_seq_req()
