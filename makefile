@@ -21,6 +21,8 @@ $(build_path)/ascip.hpp: makefile ascip.hpp
 	gcc -fdirectives-only -DINCLUDE_STD=1 -E ascip.hpp -MM | sed 's#ascip.o: ascip.hpp#$(build_path)/ascip.hpp:#' > $(build_path)/ascip.hpp.d
 	gcc -fdirectives-only -DINCLUDE_STD=1 -E ascip.hpp 2>/dev/null |awk '/# 1 "ascip.hpp"/{DO_PRINT=1;} (DO_PRINT && !/#/){print;}' > $(build_path)/ascip.hpp
 
+inc_file: $(build_path)/ascip.hpp
+
 examples: $(build_path)/vec_list $(build_path)/version $(build_path)/type $(build_path)/inheritance $(build_path)/left_reqursion $(build_path)/left_reqursion_clang
 
 -include $(build_path)/vec_list.d
