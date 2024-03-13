@@ -1570,9 +1570,7 @@ struct rvariant_rreq_parser : base_parser<rvariant_rreq_parser<stop_ind>> {
 	}
 };
 template<auto stop_ind> constexpr static rvariant_rreq_parser<stop_ind> _rv_rreq{};
-constexpr static
-	struct rvariant_rreq_pl_parser : base_parser<rvariant_rreq_pl_parser> { constexpr parse_result parse(auto&& ctx, auto src, auto& result) const { return 0; } }
-	rv_rreq{};
+constexpr static struct rvariant_rreq_pl_parser : base_parser<rvariant_rreq_pl_parser> { constexpr parse_result parse(auto&& ctx, auto src, auto& result) const { return 0; } } rv_rreq{};
 constexpr static struct rvariant_req_parser : base_parser<rvariant_req_parser> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr (is_in_concept_check(decltype(auto(ctx)){})) return 0;
