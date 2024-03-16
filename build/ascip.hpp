@@ -237,8 +237,12 @@ constexpr bool is_in_reqursion_check(auto&& ctx) {
 	return exists_in_ctx<in_req_flag>(ctx);
 }
 
-constexpr void count_new_line(auto& ctx, auto sym) {
-	if constexpr (exists_in_ctx<new_line_count_tag>(decltype(auto(ctx)){}))
+constexpr void count_new_line(auto& ctx, auto sym, auto& r) {
+	constexpr bool need_count_new_lines =
+		   exists_in_ctx<new_line_count_tag>(decltype(auto(ctx)){})
+		&& !std::is_same_v<std::decay_t<decltype(r)>, type_any_eq_allow>
+		;
+	if constexpr (need_count_new_lines)
 		search_in_ctx<new_line_count_tag>(ctx) += (sym == '\n');
 }
 
@@ -904,8 +908,7 @@ template<auto sym> struct char_parser : base_parser<char_parser<sym>> {
 		const bool ok = src() == sym;
 		if(ok) {
 			ascip_details::eq(result, sym);
-			if constexpr (sym == '\n' && exists_in_ctx<ascip_details::new_line_count_tag>(decltype(auto(ctx)){}))
-				++search_in_ctx<ascip_details::new_line_count_tag>(ctx);
+			ascip_details::count_new_line(ctx, sym, result);
 		}
 		return -1 + (2 * ok);
 	}
@@ -1019,7 +1022,7 @@ constexpr static struct space_parser : base_parser<space_parser> {
 	constexpr parse_result parse(auto&& ctx,auto src, auto& r) const {
 		auto sym = src();
 		const bool is_space = 0x07 < sym && sym < '!'; // 0x08 is a backspace
-		ascip_details::count_new_line(ctx, sym);
+		ascip_details::count_new_line(ctx, sym, r);
 		return -1 + (2 * is_space);
 	}
 	constexpr bool test() const {
@@ -1048,7 +1051,7 @@ constexpr static struct any_parser : base_parser<any_parser> {
 		do { 
 			cur = src();
 			ascip_details::eq( result, cur );
-			count_new_line(ctx, cur);
+			count_new_line(ctx, cur, result);
 			++ret;
 		}
 		while(src && (cur & 0x80)) ;
@@ -1481,10 +1484,11 @@ template<ascip_details::parser... parsers> struct variant_parser : base_parser<v
 	}
 	template<auto ind> constexpr auto parse_ind(auto&& ctx, auto& src, auto& result) const {
 		auto parse_ctx = make_ctx<variant_pos_tag>(variant_pos_value<ind>{}, ctx);
-		auto parse_result = get<ind>(seq).parse(parse_ctx, src, current_result<ind>(result));
-		if constexpr (ind+1 == sizeof...(parsers)) return parse_result;
+		auto prs = [&](auto&& r){ return get<ind>(seq).parse(parse_ctx, src, current_result<ind>(r)); };
+		if constexpr (ind+1 == sizeof...(parsers)) return prs(result);
 		else {
-			if(parse_result > 0) return parse_result;
+			auto parse_result = prs(ascip_details::type_any_eq_allow{});
+			if(parse_result > 0) return prs(result);
 			return parse_ind<ind+1>(ctx, src, result);
 		}
 	}
@@ -1770,6 +1774,7 @@ constexpr static bool test_rvariant_dexpr() {
 	static_assert( get<fp_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 3, "0.5")) == 0.5 );
 	static_assert( get<int_ind>(*get<0>(get<mul_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 3, "1*5"))).left) == 1 );
 	static_assert( get<int_ind>(*get<0>(get<mul_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 3, "1*5"))).right) == 5 );
+	static_assert( get<int_ind>(*get<1>(get<mul_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 3, "1/5"))).right) == 5 );
 	static_assert( get<int_ind>(*get<pls_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 5, "1*5+7")).right) == 7 );
 	static_assert( get<int_ind>(*get<0>(get<mul_ind>(*get<pls_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 5, "1*5+7")).left)).left) == 1 );
 	static_assert( get<int_ind>(*get<0>(get<mul_ind>(*get<pls_ind>(test_rvariant_val<dbl_expr>(expr_rt{}, maker, 5, "1*5+7")).left)).right) == 5 );

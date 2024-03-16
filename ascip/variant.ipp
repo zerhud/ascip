@@ -47,10 +47,11 @@ template<ascip_details::parser... parsers> struct variant_parser : base_parser<v
 	}
 	template<auto ind> constexpr auto parse_ind(auto&& ctx, auto& src, auto& result) const {
 		auto parse_ctx = make_ctx<variant_pos_tag>(variant_pos_value<ind>{}, ctx);
-		auto parse_result = get<ind>(seq).parse(parse_ctx, src, current_result<ind>(result));
-		if constexpr (ind+1 == sizeof...(parsers)) return parse_result;
+		auto prs = [&](auto&& r){ return get<ind>(seq).parse(parse_ctx, src, current_result<ind>(r)); };
+		if constexpr (ind+1 == sizeof...(parsers)) return prs(result);
 		else {
-			if(parse_result > 0) return parse_result;
+			auto parse_result = prs(ascip_details::type_any_eq_allow{});
+			if(parse_result > 0) return prs(result);
 			return parse_ind<ind+1>(ctx, src, result);
 		}
 	}

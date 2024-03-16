@@ -10,8 +10,7 @@ template<auto sym> struct char_parser : base_parser<char_parser<sym>> {
 		const bool ok = src() == sym;
 		if(ok) {
 			ascip_details::eq(result, sym);
-			if constexpr (sym == '\n' && exists_in_ctx<ascip_details::new_line_count_tag>(decltype(auto(ctx)){}))
-				++search_in_ctx<ascip_details::new_line_count_tag>(ctx);
+			ascip_details::count_new_line(ctx, sym, result);
 		}
 		return -1 + (2 * ok);
 	}
@@ -131,7 +130,7 @@ constexpr static struct space_parser : base_parser<space_parser> {
 	constexpr parse_result parse(auto&& ctx,auto src, auto& r) const {
 		auto sym = src();
 		const bool is_space = 0x07 < sym && sym < '!'; // 0x08 is a backspace
-		ascip_details::count_new_line(ctx, sym);
+		ascip_details::count_new_line(ctx, sym, r);
 		return -1 + (2 * is_space);
 	}
 	constexpr bool test() const {
@@ -163,7 +162,7 @@ constexpr static struct any_parser : base_parser<any_parser> {
 		do { 
 			cur = src();
 			ascip_details::eq( result, cur );
-			count_new_line(ctx, cur);
+			count_new_line(ctx, cur, result);
 			++ret;
 		}
 		while(src && (cur & 0x80)) ;

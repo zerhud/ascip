@@ -179,8 +179,12 @@ constexpr bool is_in_reqursion_check(auto&& ctx) {
 	return exists_in_ctx<in_req_flag>(ctx);
 }
 
-constexpr void count_new_line(auto& ctx, auto sym) {
-	if constexpr (exists_in_ctx<new_line_count_tag>(decltype(auto(ctx)){}))
+constexpr void count_new_line(auto& ctx, auto sym, auto& r) {
+	constexpr bool need_count_new_lines =
+		   exists_in_ctx<new_line_count_tag>(decltype(auto(ctx)){})
+		&& !std::is_same_v<std::decay_t<decltype(r)>, type_any_eq_allow>
+		;
+	if constexpr (need_count_new_lines)
 		search_in_ctx<new_line_count_tag>(ctx) += (sym == '\n');
 }
 
