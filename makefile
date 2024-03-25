@@ -43,7 +43,7 @@ $(build_path)/left_reqursion: makefile examples/left_reqursion.cpp
 $(build_path)/left_reqursion_clang: makefile examples/left_reqursion.cpp
 	$(clang) -I. examples/left_reqursion.cpp -o $(build_path)/left_reqursion_clang
 
-test: $(build_path)/main_test $(build_path)/main_test_clang $(build_path)/ascip.hpp
+test: $(build_path)/main_test $(build_path)/ascip.hpp $(build_path)/main_test_clang
 	$(build_path)/main_test
 	echo "====== clang ======"
 	$(build_path)/main_test_clang

@@ -267,9 +267,11 @@ constexpr static bool test_seq_finc() {
 }
 constexpr static bool test_seq_single_field() {
 	struct with_1_field { decltype(mk_str()) val; };
+#ifndef __clang__ // cannot since clang17 :(
 	static_assert( test_parser_parse(with_1_field{}, fnum<0>(char_<'a'>) >> char_<'b'>, "ab", 2).val[0] == 'a' );
 	static_assert( test_parser_parse(with_1_field{}, finc<0>(char_<'a'>) >> char_<'b'>, "ab", 2).val[1] == 'b' );
 	static_assert( test_parser_parse(with_1_field{}, sfs >> --char_<'a'> >> char_<'b'>, "ab", 2).val[1] == 'b' );
+#endif
 	return true;
 }
 constexpr static bool test_seq_fnum() {
