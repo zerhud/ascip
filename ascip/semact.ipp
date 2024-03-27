@@ -15,23 +15,29 @@ template<typename parser, typename act_t> struct semact_parser : base_parser<sem
 		if constexpr(ascip_details::is_in_concept_check(decltype(auto(ctx)){})) return 0;
 		else if constexpr(std::is_same_v<ascip_details::type_any_eq_allow&, decltype(result)>)
 			return p.parse(std::forward<decltype(ctx)>(ctx), std::move(src), result);
-		else if constexpr (requires{ act(result); requires std::is_lvalue_reference_v<decltype(act(result))>; } ) {
-			auto& nr = act(result);
-			if constexpr (requires{ p.parse_with_user_result(ctx,src,nr); })
-				return p.parse_with_user_result(static_cast<decltype(ctx)&&>(ctx),src,nr);
-			else return p.parse(ctx, src, nr);
-		}
 		else if constexpr(requires{ act(result); requires std::is_pointer_v<decltype(act(result))>;} ) {
 			auto* nr = act(result);
 			if constexpr (requires{ p.parse_with_user_result(ctx,src,*nr); })
 				return p.parse_with_user_result(static_cast<decltype(ctx)&&>(ctx),src,*nr);
 			else return p.parse(ctx, src, *nr);
 		}
+		else if constexpr (requires{ act(result); requires std::is_lvalue_reference_v<decltype(act(result))>; } ) {
+			auto& nr = act(result);
+			if constexpr (requires{ p.parse_with_user_result(ctx,src,nr); })
+				return p.parse_with_user_result(static_cast<decltype(ctx)&&>(ctx),src,nr);
+			else return p.parse(ctx, src, nr);
+		}
+		else if constexpr(requires{ act(result); } && !requires{act(0, ctx, src, result);} ) {
+			auto nr = act(result);
+			if constexpr (requires{ p.parse_with_user_result(ctx,src,nr); })
+				return p.parse_with_user_result(static_cast<decltype(ctx)&&>(ctx),src,nr);
+			else return p.parse(ctx, src, nr);
+		}
 		else {
 			auto ret = p.parse(ctx, src, result);
 			if(ret >= 0) {
 				if constexpr (requires{ act(ret, ctx, src, result); }) act(ret, ctx, src, result);
-				else if constexpr (requires{ acct(ret, result); }) act(ret, result);
+				else if constexpr (requires{ act(ret, result); }) act(ret, result);
 				else act();
 			}
 			return ret;

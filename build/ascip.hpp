@@ -1219,23 +1219,29 @@ template<typename parser, typename act_t> struct semact_parser : base_parser<sem
 		if constexpr(ascip_details::is_in_concept_check(decltype(auto(ctx)){})) return 0;
 		else if constexpr(std::is_same_v<ascip_details::type_any_eq_allow&, decltype(result)>)
 			return p.parse(std::forward<decltype(ctx)>(ctx), std::move(src), result);
-		else if constexpr (requires{ act(result); requires std::is_lvalue_reference_v<decltype(act(result))>; } ) {
-			auto& nr = act(result);
-			if constexpr (requires{ p.parse_with_user_result(ctx,src,nr); })
-				return p.parse_with_user_result(static_cast<decltype(ctx)&&>(ctx),src,nr);
-			else return p.parse(ctx, src, nr);
-		}
 		else if constexpr(requires{ act(result); requires std::is_pointer_v<decltype(act(result))>;} ) {
 			auto* nr = act(result);
 			if constexpr (requires{ p.parse_with_user_result(ctx,src,*nr); })
 				return p.parse_with_user_result(static_cast<decltype(ctx)&&>(ctx),src,*nr);
 			else return p.parse(ctx, src, *nr);
 		}
+		else if constexpr (requires{ act(result); requires std::is_lvalue_reference_v<decltype(act(result))>; } ) {
+			auto& nr = act(result);
+			if constexpr (requires{ p.parse_with_user_result(ctx,src,nr); })
+				return p.parse_with_user_result(static_cast<decltype(ctx)&&>(ctx),src,nr);
+			else return p.parse(ctx, src, nr);
+		}
+		else if constexpr(requires{ act(result); } && !requires{act(0, ctx, src, result);} ) {
+			auto nr = act(result);
+			if constexpr (requires{ p.parse_with_user_result(ctx,src,nr); })
+				return p.parse_with_user_result(static_cast<decltype(ctx)&&>(ctx),src,nr);
+			else return p.parse(ctx, src, nr);
+		}
 		else {
 			auto ret = p.parse(ctx, src, result);
 			if(ret >= 0) {
 				if constexpr (requires{ act(ret, ctx, src, result); }) act(ret, ctx, src, result);
-				else if constexpr (requires{ acct(ret, result); }) act(ret, result);
+				else if constexpr (requires{ act(ret, result); }) act(ret, result);
 				else act();
 			}
 			return ret;
@@ -1806,6 +1812,8 @@ constexpr static bool test_rvariant() {
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          https://www.boost.org/LICENSE_1_0.txt)
 
+template<typename type> struct forwarder{ type& o; constexpr forwarder(type& o) : o(o) {} };
+constexpr static auto fwd(auto& o) { return forwarder( o ); }
 
 template<ascip_details::parser parser> struct unary_list_parser : base_parser<unary_list_parser<parser>> {
 	[[no_unique_address]] parser p;
@@ -1814,16 +1822,21 @@ template<ascip_details::parser parser> struct unary_list_parser : base_parser<un
 	constexpr unary_list_parser() =default ;
 	constexpr unary_list_parser(parser p) : p(std::move(p)) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		auto ret = p.parse(ctx, src, ascip_details::empback(result));
+		auto ret = call_parse(ctx, src, result);
 		src += ret * (0<=ret);
 		auto cur_r = ret;
 		while(src && 0<cur_r) {
-			cur_r = p.parse(ctx, src, ascip_details::empback(result));
+			cur_r = call_parse(ctx, src, result);
 			ret += cur_r * (0<=cur_r);
 			src += cur_r * (0<=cur_r);
 		}
 		if(src) ascip_details::pop(result);
 		return ret;
+	}
+	constexpr auto call_parse(auto&& ctx, auto&& src, auto& result) const {
+		constexpr bool is_fwd = ascip_details::is_specialization_of<std::decay_t<decltype(result)>, forwarder>;
+		if constexpr (is_fwd) return p.parse(ctx, src, result.o);
+		else return p.parse(ctx, src, ascip_details::empback(result));
 	}
 };
 
@@ -1834,7 +1847,7 @@ struct binary_list_parser : base_parser<binary_list_parser<left, right>> {
 	constexpr binary_list_parser(left l, right r) : lp(l), rp(r) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		ascip_details::type_any_eq_allow fake_result;
-		auto ret = lp.parse(ctx, src, ascip_details::empback(result));
+		auto ret = call_parse(ctx, src, result);
 		if(ret<0) ascip_details::pop(result);
 		auto cur = ret;
 		while(cur > 0) {
@@ -1842,7 +1855,7 @@ struct binary_list_parser : base_parser<binary_list_parser<left, right>> {
 			auto r_res = rp.parse(ctx, src, fake_result);
 			if( r_res <= 0 ) break;
 			src += r_res;
-			cur = lp.parse(ctx, src, ascip_details::empback(result));
+			cur = call_parse(ctx, src, result);
 			if( cur <= 0 ) {
 				ascip_details::pop(result);
 				break;
@@ -1850,6 +1863,11 @@ struct binary_list_parser : base_parser<binary_list_parser<left, right>> {
 			ret += cur + r_res;
 		}
 		return ret;
+	}
+	constexpr auto call_parse(auto&& ctx, auto&& src, auto& result) const {
+		constexpr bool is_fwd = ascip_details::is_specialization_of<std::decay_t<decltype(result)>, forwarder>;
+		if constexpr (is_fwd) return lp.parse(ctx, src, result.o);
+		else return lp.parse(ctx, src, ascip_details::empback(result));
 	}
 };
 
@@ -1863,6 +1881,8 @@ constexpr static bool test_unary_list() {
 	static_assert(test_parser_parse(mk_vec<char>(), *char_<'a'>, "aa", 2).size() == 2);
 	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), *char_<'a'>, "aa", 2), 'a', 'a' ));
 	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), +char_<'a'>, "aa", 2), 'a', 'a' ));
+	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), (+(char_<'a'> >> char_<'b'>))([](auto& r){return fwd(r);}), "abab", 4), 'a','b','a','b' ));
+	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), (+(char_<'a'> >> char_<'b'>))([](auto& r){return fwd(r);}), "", -1) ));
 
 
 	static_assert( ({char r='z';char_<'a'>.parse(make_test_ctx(),make_source('b'),r);r;}) == 'z' );
@@ -1880,6 +1900,8 @@ constexpr static bool test_binary_list() {
 	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), lower % d10, "a1b2c", 5), 'a', 'b', 'c' ));
 	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), lower % d10, "a", 1), 'a' ));
 	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), lower % d10, "a1", 1), 'a' ));
+	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), lower % d10, "A1", -1) ));
+	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), ((lower >> lower) % ',')([](auto&r){return fwd(r);}), "ab,cd", 5), 'a','b','c','d' ));
 	return true;
 }
 
