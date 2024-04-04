@@ -4,7 +4,7 @@ path := $(mkfile_dir)
 build_path := $(path)/build
 dep := g++ -MMD -pipe -std=c++23
 gcc := g++ -MMD -pipe -fwhole-program -march=native -std=gnu++23 -fdiagnostics-color=always
-clang := clang++ -march=native -std=c++23 -fdiagnostics-color=always
+clang := clang++ -MMD -march=native -std=c++23 -fdiagnostics-color=always
 
 .PHONY: all clean test
 
@@ -13,6 +13,7 @@ all: test $(build_path)/ascip.hpp examples $(build_path)/ascip.hpp
 -include $(build_path)/main_test.d
 $(build_path)/main_test: makefile $(path)/test.cpp
 	$(gcc) $(path)/test.cpp -o $(build_path)/main_test
+-include $(build_path)/main_test_clang.d
 $(build_path)/main_test_clang: makefile $(path)/test.cpp
 	$(clang) $(path)/test.cpp -o $(build_path)/main_test_clang
 
