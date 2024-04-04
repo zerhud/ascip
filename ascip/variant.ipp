@@ -75,10 +75,8 @@ template<ascip_details::parser... parsers> struct variant_parser : base_parser<v
 	constexpr auto operator|(char p2) { return *this | value_parser( p2 ); }
 };
 
-#ifdef __clang__
 template<ascip_details::parser... parsers>
 variant_parser(parsers...) -> variant_parser<parsers...>;
-#endif
 
 constexpr static const auto alpha = lower | upper;
 

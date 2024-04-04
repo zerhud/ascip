@@ -6,6 +6,7 @@
 //          https://www.boost.org/LICENSE_1_0.txt)
 
 template<typename type> struct forwarder{ type& o; constexpr forwarder(type& o) : o(o) {} };
+template<typename type> forwarder(type&) -> forwarder<type>;
 constexpr static auto fwd(auto& o) { return forwarder( o ); }
 
 template<ascip_details::parser parser> struct unary_list_parser : base_parser<unary_list_parser<parser>> {

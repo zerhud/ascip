@@ -175,11 +175,10 @@ template<ascip_details::parser left, ascip_details::parser right> struct differe
 		return lp.parse(ctx, src, result);
 	}
 };
-#ifdef __clang__
 template<ascip_details::parser left, ascip_details::parser right>
 different_parser(left, right) -> different_parser<left, right>;
 template<typename v, typename p> as_parser(v,p) -> as_parser<v,p>;
-#endif
+
 constexpr static bool test_different() {
 #ifndef __clang__
 	static_assert( ({char r='z';(*(any - char_<'a'>)).parse(make_test_ctx(), make_source("#$%a"), r);}) == 3, "different parser: stops on it's excluding parser" );

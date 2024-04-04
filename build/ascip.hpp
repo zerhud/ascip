@@ -1430,10 +1430,9 @@ template<ascip_details::parser left, ascip_details::parser right> struct differe
 		return lp.parse(ctx, src, result);
 	}
 };
-
-
-
-
+template<ascip_details::parser left, ascip_details::parser right>
+different_parser(left, right) -> different_parser<left, right>;
+template<typename v, typename p> as_parser(v,p) -> as_parser<v,p>;
 
 constexpr static bool test_different() {
 
@@ -1518,10 +1517,8 @@ template<ascip_details::parser... parsers> struct variant_parser : base_parser<v
 	constexpr auto operator|(char p2) { return *this | value_parser( p2 ); }
 };
 
-
-
-
-
+template<ascip_details::parser... parsers>
+variant_parser(parsers...) -> variant_parser<parsers...>;
 
 constexpr static const auto alpha = lower | upper;
 
@@ -1813,6 +1810,7 @@ constexpr static bool test_rvariant() {
 //          https://www.boost.org/LICENSE_1_0.txt)
 
 template<typename type> struct forwarder{ type& o; constexpr forwarder(type& o) : o(o) {} };
+template<typename type> forwarder(type&) -> forwarder<type>;
 constexpr static auto fwd(auto& o) { return forwarder( o ); }
 
 template<ascip_details::parser parser> struct unary_list_parser : base_parser<unary_list_parser<parser>> {
