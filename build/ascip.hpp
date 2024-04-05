@@ -1140,7 +1140,7 @@ constexpr static struct float_point_parser : base_parser<float_point_parser> {
 		auto left_result = int_.parse_without_preparation(int_pos, result);
 		if(left_result <= 0 && int_pos() != '.') return -1;
 		dec_pos+=left_result;
-		if(dec_pos()!='.') return -1;
+		if(!dec_pos || dec_pos()!='.') return -1;
 		auto right_result = int_.parse_without_preparation(dec_pos, result);
 		if(right_result <= 0) return -1;
 		result /= pow(10, right_result);
@@ -1628,7 +1628,19 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		}
 		else return _cur_ind<ind,cnt+1,cur+(!skip),tail...>();
 	}
-	template<auto ind> consteval static auto cur_ind() { return _cur_ind<ind,0,0,parsers...>(); }
+	template<auto ind> consteval static auto cur_ind() {
+		/*
+		using cur_parser_t = std::decay_t<decltype(get<ind>(seq))>;
+		if constexpr (is_top_result_parser<cur_parser_t>()) return -1;
+		else {
+			auto cur = 0;
+			auto cnt = 0;
+			(void)( ((ind==cnt)||(++cnt,cur+=!is_top_result_parser<parsers>(),false)) || ... );
+			return cur;
+		}
+		*/
+		return _cur_ind<ind,0,0,parsers...>();
+	}
 	template<auto ind> constexpr static auto& cur_result(auto& result) {
 		if constexpr (cur_ind<ind>() == -1) return result;
 		else if constexpr (requires{ create<1>(result); } ) return create<cur_ind<ind>()>(result);

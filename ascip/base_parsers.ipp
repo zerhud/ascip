@@ -257,7 +257,7 @@ constexpr static struct float_point_parser : base_parser<float_point_parser> {
 		auto left_result = int_.parse_without_preparation(int_pos, result);
 		if(left_result <= 0 && int_pos() != '.') return -1;
 		dec_pos+=left_result;
-		if(dec_pos()!='.') return -1;
+		if(!dec_pos || dec_pos()!='.') return -1;
 		auto right_result = int_.parse_without_preparation(dec_pos, result);
 		if(right_result <= 0) return -1;
 		result /= pow(10, right_result);

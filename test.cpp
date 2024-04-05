@@ -7,6 +7,8 @@
 #include <iostream>
 #include "ascip.hpp"
 
+using namespace std::literals;
+
 struct factory {
 	template<typename... types> using variant = std::variant<types...>;
 	template<typename... types> using unique_ptr = std::unique_ptr<types...>;
@@ -102,6 +104,7 @@ int main(int,char**) {
 	//parser_with_own_tuple::test();
 #ifndef __clang__
 	static_assert( ({char r;make_test_gram<parser>().parse(parser::make_test_ctx(), parser::make_source("a"), r);r;}) == 'b' );
+	static_assert( ({double r=100;parser::fp.parse(parser::make_test_ctx(), parser::make_source("0"sv), r); }) == -1);
 #endif
 	std::cout << "finish" << std::endl;
 	std::cout << "rt start" << std::endl;
