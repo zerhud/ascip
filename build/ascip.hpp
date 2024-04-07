@@ -2519,7 +2519,7 @@ template<ascip_details::parser skip, ascip_details::parser base> struct injected
 		auto sr = s.parse(ctx, src, skip_result);
 		sr *= (0<=sr);
 		src += sr;
-		auto mr = b.parse(ctx, src, result);
+		auto mr = src ? b.parse(ctx, src, result) : -1;
 		return (sr * (0<=mr)) + mr; // 0<=mr ? mr+sr : mr;
 	}
 

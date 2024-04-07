@@ -105,6 +105,11 @@ int main(int,char**) {
 #ifndef __clang__
 	static_assert( ({char r;make_test_gram<parser>().parse(parser::make_test_ctx(), parser::make_source("a"), r);r;}) == 'b' );
 	static_assert( ({double r=100;parser::fp.parse(parser::make_test_ctx(), parser::make_source("0"sv), r); }) == -1);
+	static_assert( ({
+		std::vector<int> r;
+		parse(+parser::int_, +parser::space, parser::make_source("1 2 3 "sv), r);
+		r.at(2);
+	}) == 3 );
 #endif
 	std::cout << "finish" << std::endl;
 	std::cout << "rt start" << std::endl;
