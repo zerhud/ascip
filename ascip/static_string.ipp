@@ -18,7 +18,7 @@ struct string_literal {
 
 	template<auto sz>
 	constexpr bool operator==(const char_type(&r)[sz]) const {
-		if(sz != str_size) return false;
+		if constexpr (sz != str_size) return false;
 		for(auto i=0;i<str_size;++i) if(value[i]!=r[i]) return false;
 		return true;
 	}
@@ -32,7 +32,9 @@ struct string_literal {
 };
 template<string_literal str> struct test_tmpl{ constexpr bool is_eq(const char* v) const {
 	return str == v;
-} };
+}
+constexpr auto size() const { return str.size(); }
+};
 
 constexpr void test_static_string() {
 	static_assert( string_literal("cstr")[0] == 'c' );
@@ -46,4 +48,6 @@ constexpr void test_static_string() {
 	static_assert( test_tmpl<"test">{}.is_eq("test") );
 	static_assert( !test_tmpl<"test">{}.is_eq("test_ups") );
 	static_assert( test_tmpl<"test">{}.is_eq("test\0ups") );
+	static_assert( test_tmpl<"test">{}.size() == 4 );
+	static_assert( test_tmpl<"is">{}.size() == 2 );
 }

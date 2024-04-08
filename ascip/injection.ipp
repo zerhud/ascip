@@ -62,6 +62,7 @@ struct injection_mutator {
 		constexpr const bool is_parser_skip = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, skip_parser>;
 
 		constexpr const bool is_parser_variant = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, variant_parser>;
+		constexpr const bool is_parser_rvariant = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, rvariant_parser>;
 		constexpr const bool is_parser_blist = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, binary_list_parser>;
 		constexpr const bool is_parser_diff = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, different_parser>;
 		constexpr const bool is_opt_seq_parser = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, opt_seq_parser>;
@@ -69,6 +70,7 @@ struct injection_mutator {
 		constexpr const bool is_parser_for_skip =
 			   is_opt_seq_parser
 			|| is_parser_variant
+			|| is_parser_rvariant
 			|| is_parser_blist
 			|| is_parser_diff
 			;
@@ -174,6 +176,12 @@ constexpr static bool test_seq_injection() {
 
 	(void)static_cast<const result_checker_parser<int, inj_t>&>(inject_skipping( check<int>(p1), p2 ));
 	(void)static_cast<const result_checker_parser<int, opt_seq_parser<inj_t,inj_t>>&>(inject_skipping( check<int>(p1 >> p1), p2 ));
+	{
+		auto rmaker = [](auto& r){ r.reset(new (std::decay_t<decltype(*r)>){}); return r.get(); };
+		auto var = rv(rmaker, p1, p1);
+		(void)static_cast<rvariant_parser<decltype(rmaker), p1_t, p1_t>&>(var);
+		(void)static_cast<const rvariant_parser<decltype(rmaker), inj_t, inj_t>&>(inject_skipping(var, p2));
+	}
 
 #ifndef __clang__
 	static_assert( ({ char r; const auto parser = +alpha; const auto skipper = +space;

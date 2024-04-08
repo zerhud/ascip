@@ -60,7 +60,7 @@ constexpr static void test_parser_char() {
 }
 
 template<ascip_details::string_literal val> struct literal_parser : base_parser<literal_parser<val>> {
-	constexpr parse_result parse(auto&&, auto src, auto& result) const {
+	constexpr parse_result parse(auto&&, auto src, auto&) const {
 		//TODO: faster? add [] operator in src for direct access (operator[](auto i){return val[ind+i];})
 		auto i=-1, r=0;
 		{
