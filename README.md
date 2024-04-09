@@ -36,8 +36,8 @@ with sequence parser can be used
 - `req<number>` for call the sequence (or parent sequence) recursively. the req parser also can be combined with `()` operator with lambda for create recursion result value.
 - `++` prefix or postfix for increate result's field number to store parser result. prefix `++` will increate the number for current parser and postfix `++` - for next parser.
 - `--` same as `++` but decrease the number
-- `finc<number>` method. same as `++` or `--` but you can specify the number will be added to current position (the number can also to be negative).
-- `fnum<number>` method. setts the resulting field position independently the current one.
+- `finc<number>` method. same as `++` or `--` but you can specify the number will be added to current position (the number can also to be negative). the parser should to be the most outter one: char_<'a'> >> -finc<3>(char_<'b'>) will not work.
+- `fnum<number>` method. setts the resulting field position independently the current one. this parser as the finc should to be the most outter one.
 - `must` method. causes an error on fail. accepts message as template parameter, it will be passed to error function, passed in parse method. parameters: result, source on start parser position, current line number, message.
 - lambda in sequnce: sequence parser will call it with same arguments as must method. it returned value, if present, will be added to the source position (or causes error if less then 0).
 
