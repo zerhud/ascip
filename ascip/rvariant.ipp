@@ -86,7 +86,19 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		}
 		else return _cur_ind<ind,cnt+1,cur+(!skip),tail...>();
 	}
-	template<auto ind> consteval static auto cur_ind() { return _cur_ind<ind,0,0,parsers...>(); }
+	template<auto ind> consteval static auto cur_ind() {
+		/*
+		using cur_parser_t = std::decay_t<decltype(get<ind>(seq))>;
+		if constexpr (is_top_result_parser<cur_parser_t>()) return -1;
+		else {
+			auto cur = 0;
+			auto cnt = 0;
+			(void)( ((ind==cnt)||(++cnt,cur+=!is_top_result_parser<parsers>(),false)) || ... );
+			return cur;
+		}
+		*/
+		return _cur_ind<ind,0,0,parsers...>();
+	}
 	template<auto ind> constexpr static auto& cur_result(auto& result) {
 		if constexpr (cur_ind<ind>() == -1) return result;
 		else if constexpr (requires{ create<1>(result); } ) return create<cur_ind<ind>()>(result);
@@ -175,8 +187,8 @@ constexpr static auto test_rvariant_simple(auto r, auto&& src, auto&&... parsers
 	static_assert( var.template is_term<0>() );
 	static_assert( var.template is_term<1>() );
 	auto var_with_skip = inject_skipping(var, +space);
-	static_assert( var_with_skip.b.template is_term<0>() );
-	static_assert( var_with_skip.b.template is_term<1>() );
+	static_assert( var_with_skip.template is_term<0>() );
+	static_assert( var_with_skip.template is_term<1>() );
 	return r;
 }
 template<typename dbl_expr>
@@ -196,14 +208,14 @@ constexpr static auto test_rvariant_val(auto r, auto&& maker, auto pr, auto&& sr
 	cr /= (cr == pr);
 
 	auto var_with_skip = inject_skipping(var, +space);
-	static_assert( !var_with_skip.b.template is_term<0>() );
-	static_assert( !var_with_skip.b.template is_term<1>() );
-	static_assert(  var_with_skip.b.template is_term<2>() );
-	static_assert( !var_with_skip.b.template is_term<3>() );
-	static_assert( !var_with_skip.b.template is_term<4>() );
-	static_assert(  var_with_skip.b.template is_term<5>() );
-	static_assert(  var_with_skip.b.template is_term<6>() );
-	static_assert(  var_with_skip.b.template is_term<7>() );
+	static_assert( !var_with_skip.template is_term<0>() );
+	static_assert( !var_with_skip.template is_term<1>() );
+	static_assert(  var_with_skip.template is_term<2>() );
+	static_assert( !var_with_skip.template is_term<3>() );
+	static_assert( !var_with_skip.template is_term<4>() );
+	static_assert(  var_with_skip.template is_term<5>() );
+	static_assert(  var_with_skip.template is_term<6>() );
+	static_assert(  var_with_skip.template is_term<7>() );
 
 	return r;
 }
