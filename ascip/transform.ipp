@@ -34,6 +34,10 @@ template<typename mutator, auto val, typename type>
 constexpr static auto transform_special(_seq_inc_rfield_val<val,type>&& src, auto& ctx) {
 	return transform_apply<mutator>(finc<val>(transform<mutator>(static_cast<type&&>(src), ctx)), ctx);
 }
+template<typename mutator, auto val, typename type>
+constexpr static auto transform_special(_seq_num_rfield_val<val,type>&& src, auto& ctx) {
+	return transform_apply<mutator>(fnum<val>(transform<mutator>(static_cast<type&&>(src), ctx)), ctx);
+}
 template<typename mutator, typename type, typename parser>
 constexpr static auto transform_special(cast_parser<type,parser>&& src, auto& ctx) {
 	return transform_apply<mutator>(cast<type>(transform<mutator>(std::move(src.p), ctx)), ctx);
@@ -69,7 +73,7 @@ constexpr static auto transform(auto&& src, auto& ctx) {
 	else return transform_apply<mutator>(std::forward<decltype(src)>(src), nctx);
 }
 template<typename mutator, template<ascip_details::parser>class wrapper, ascip_details::parser inner>
-constexpr static auto transform(wrapper<inner>&& src, auto& ctx) requires requires{ src.p; } {
+constexpr static auto transform(wrapper<inner>&& src, auto& ctx) requires (requires{ src.p; } && !requires{transform_special<mutator>(std::move(src), ctx);}){
 	auto nctx = mutator::create_ctx(src, ctx);
 	auto mp = transform<mutator>(std::move(src.p), nctx);
 	if constexpr(requires{ wrapper{{}, std::move(mp)}; })
@@ -165,6 +169,7 @@ constexpr static bool test_transform_modify_leaf() {
 		test_transform_t_to_p(p).parse(make_test_ctx(), make_source("a"), r);
 	r;}) == 'a' );
 	static_assert( std::is_same_v<seq_inc_rfield_val<_seq_inc_rfield_val<1,test_parser2>>, decltype(test_transform_t_to_p(finc<1>(test_parser{})))> );
+	static_assert( std::is_same_v<seq_num_rfield_val<_seq_num_rfield_val<1,test_parser2>>, decltype(test_transform_t_to_p(fnum<1>(test_parser{})))> );
 	static_assert( std::is_same_v<cast_parser<int,test_parser2>, decltype(test_transform_t_to_p(cast<int>(test_parser{})))> );
 	static_assert( std::is_same_v<result_checker_parser<int,test_parser2>, decltype(test_transform_t_to_p(check<int>(test_parser{})))> );
 

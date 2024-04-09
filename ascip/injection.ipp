@@ -66,6 +66,8 @@ struct injection_mutator {
 		constexpr const bool is_parser_blist = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, binary_list_parser>;
 		constexpr const bool is_parser_diff = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, different_parser>;
 		constexpr const bool is_opt_seq_parser = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, opt_seq_parser>;
+		constexpr const bool is_num_seq_parser = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, seq_num_rfield_val>;
+		constexpr const bool is_inc_seq_parser = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, seq_inc_rfield_val>;
 
 		constexpr const bool is_parser_for_skip =
 			   is_opt_seq_parser
@@ -73,6 +75,8 @@ struct injection_mutator {
 			|| is_parser_rvariant
 			|| is_parser_blist
 			|| is_parser_diff
+			|| is_num_seq_parser
+			|| is_inc_seq_parser
 			;
 
 		if constexpr (is_parser_lexeme)
@@ -176,6 +180,7 @@ constexpr static bool test_seq_injection() {
 
 	(void)static_cast<const result_checker_parser<int, inj_t>&>(inject_skipping( check<int>(p1), p2 ));
 	(void)static_cast<const result_checker_parser<int, opt_seq_parser<inj_t,inj_t>>&>(inject_skipping( check<int>(p1 >> p1), p2 ));
+	(void)static_cast<const result_checker_parser<int, opt_seq_parser<inj_t,seq_num_rfield_val<_seq_num_rfield_val<2,inj_t>>>>&>(inject_skipping( check<int>(p1 >> fnum<2>(p1)), p2 ));
 	{
 		auto rmaker = [](auto& r){ r.reset(new (std::decay_t<decltype(*r)>){}); return r.get(); };
 		auto var = rv(rmaker, p1, p1);
