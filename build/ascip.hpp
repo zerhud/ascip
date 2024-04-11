@@ -171,7 +171,7 @@ struct string_literal {
 
 	template<auto sz>
 	constexpr bool operator==(const char_type(&r)[sz]) const {
-		if(sz != str_size) return false;
+		if constexpr (sz != str_size) return false;
 		for(auto i=0;i<str_size;++i) if(value[i]!=r[i]) return false;
 		return true;
 	}
@@ -185,7 +185,9 @@ struct string_literal {
 };
 template<string_literal str> struct test_tmpl{ constexpr bool is_eq(const char* v) const {
 	return str == v;
-} };
+}
+constexpr auto size() const { return str.size(); }
+};
 
 constexpr void test_static_string() {
 	static_assert( string_literal("cstr")[0] == 'c' );
@@ -199,6 +201,8 @@ constexpr void test_static_string() {
 	static_assert( test_tmpl<"test">{}.is_eq("test") );
 	static_assert( !test_tmpl<"test">{}.is_eq("test_ups") );
 	static_assert( test_tmpl<"test">{}.is_eq("test\0ups") );
+	static_assert( test_tmpl<"test">{}.size() == 4 );
+	static_assert( test_tmpl<"is">{}.size() == 2 );
 }
 
 /************
@@ -683,6 +687,7 @@ template<auto... i, typename parser_param> friend constexpr auto make_test_ctx(c
 template<typename type> constexpr static auto mk_vec() { return factory_t{}.template mk_vec<type>(); }
 constexpr static auto mk_str() { return factory_t{}.template mk_str(); }
 constexpr static auto mk_str(auto&& v) { return factory_t{}.template mk_str(static_cast<decltype(v)&&>(v)); }
+constexpr static auto mk_sv(auto&& v) { return factory_t{}.template mk_sv(static_cast<decltype(v)&&>(v)); }
 
 constexpr static auto test_parser_char(const auto& p, auto&& s, auto pr) {
 	char result='z';
@@ -955,7 +960,7 @@ constexpr static void test_parser_char() {
 }
 
 template<ascip_details::string_literal val> struct literal_parser : base_parser<literal_parser<val>> {
-	constexpr parse_result parse(auto&&, auto src, auto& result) const {
+	constexpr parse_result parse(auto&&, auto src, auto&) const {
 		//TODO: faster? add [] operator in src for direct access (operator[](auto i){return val[ind+i];})
 		auto i=-1, r=0;
 		{
@@ -1729,8 +1734,8 @@ constexpr static auto test_rvariant_simple(auto r, auto&& src, auto&&... parsers
 	static_assert( var.template is_term<0>() );
 	static_assert( var.template is_term<1>() );
 	auto var_with_skip = inject_skipping(var, +space);
-	static_assert( var_with_skip.b.template is_term<0>() );
-	static_assert( var_with_skip.b.template is_term<1>() );
+	static_assert( var_with_skip.template is_term<0>() );
+	static_assert( var_with_skip.template is_term<1>() );
 	return r;
 }
 template<typename dbl_expr>
@@ -1750,14 +1755,14 @@ constexpr static auto test_rvariant_val(auto r, auto&& maker, auto pr, auto&& sr
 	cr /= (cr == pr);
 
 	auto var_with_skip = inject_skipping(var, +space);
-	static_assert( !var_with_skip.b.template is_term<0>() );
-	static_assert( !var_with_skip.b.template is_term<1>() );
-	static_assert(  var_with_skip.b.template is_term<2>() );
-	static_assert( !var_with_skip.b.template is_term<3>() );
-	static_assert( !var_with_skip.b.template is_term<4>() );
-	static_assert(  var_with_skip.b.template is_term<5>() );
-	static_assert(  var_with_skip.b.template is_term<6>() );
-	static_assert(  var_with_skip.b.template is_term<7>() );
+	static_assert( !var_with_skip.template is_term<0>() );
+	static_assert( !var_with_skip.template is_term<1>() );
+	static_assert(  var_with_skip.template is_term<2>() );
+	static_assert( !var_with_skip.template is_term<3>() );
+	static_assert( !var_with_skip.template is_term<4>() );
+	static_assert(  var_with_skip.template is_term<5>() );
+	static_assert(  var_with_skip.template is_term<6>() );
+	static_assert(  var_with_skip.template is_term<7>() );
 
 	return r;
 }
@@ -2324,6 +2329,10 @@ template<typename mutator, auto val, typename type>
 constexpr static auto transform_special(_seq_inc_rfield_val<val,type>&& src, auto& ctx) {
 	return transform_apply<mutator>(finc<val>(transform<mutator>(static_cast<type&&>(src), ctx)), ctx);
 }
+template<typename mutator, auto val, typename type>
+constexpr static auto transform_special(_seq_num_rfield_val<val,type>&& src, auto& ctx) {
+	return transform_apply<mutator>(fnum<val>(transform<mutator>(static_cast<type&&>(src), ctx)), ctx);
+}
 template<typename mutator, typename type, typename parser>
 constexpr static auto transform_special(cast_parser<type,parser>&& src, auto& ctx) {
 	return transform_apply<mutator>(cast<type>(transform<mutator>(std::move(src.p), ctx)), ctx);
@@ -2359,7 +2368,7 @@ constexpr static auto transform(auto&& src, auto& ctx) {
 	else return transform_apply<mutator>(std::forward<decltype(src)>(src), nctx);
 }
 template<typename mutator, template<ascip_details::parser>class wrapper, ascip_details::parser inner>
-constexpr static auto transform(wrapper<inner>&& src, auto& ctx) requires requires{ src.p; } {
+constexpr static auto transform(wrapper<inner>&& src, auto& ctx) requires (requires{ src.p; } && !requires{transform_special<mutator>(std::move(src), ctx);}){
 	auto nctx = mutator::create_ctx(src, ctx);
 	auto mp = transform<mutator>(std::move(src.p), nctx);
 	if constexpr(requires{ wrapper{{}, std::move(mp)}; })
@@ -2455,6 +2464,7 @@ constexpr static bool test_transform_modify_leaf() {
 		test_transform_t_to_p(p).parse(make_test_ctx(), make_source("a"), r);
 	r;}) == 'a' );
 	static_assert( std::is_same_v<seq_inc_rfield_val<_seq_inc_rfield_val<1,test_parser2>>, decltype(test_transform_t_to_p(finc<1>(test_parser{})))> );
+	static_assert( std::is_same_v<seq_num_rfield_val<_seq_num_rfield_val<1,test_parser2>>, decltype(test_transform_t_to_p(fnum<1>(test_parser{})))> );
 	static_assert( std::is_same_v<cast_parser<int,test_parser2>, decltype(test_transform_t_to_p(cast<int>(test_parser{})))> );
 	static_assert( std::is_same_v<result_checker_parser<int,test_parser2>, decltype(test_transform_t_to_p(check<int>(test_parser{})))> );
 
@@ -2554,15 +2564,21 @@ struct injection_mutator {
 		constexpr const bool is_parser_skip = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, skip_parser>;
 
 		constexpr const bool is_parser_variant = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, variant_parser>;
+		constexpr const bool is_parser_rvariant = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, rvariant_parser>;
 		constexpr const bool is_parser_blist = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, binary_list_parser>;
 		constexpr const bool is_parser_diff = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, different_parser>;
 		constexpr const bool is_opt_seq_parser = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, opt_seq_parser>;
+		constexpr const bool is_num_seq_parser = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, seq_num_rfield_val>;
+		constexpr const bool is_inc_seq_parser = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, seq_inc_rfield_val>;
 
 		constexpr const bool is_parser_for_skip =
 			   is_opt_seq_parser
 			|| is_parser_variant
+			|| is_parser_rvariant
 			|| is_parser_blist
 			|| is_parser_diff
+			|| is_num_seq_parser
+			|| is_inc_seq_parser
 			;
 
 		if constexpr (is_parser_lexeme)
@@ -2666,6 +2682,13 @@ constexpr static bool test_seq_injection() {
 
 	(void)static_cast<const result_checker_parser<int, inj_t>&>(inject_skipping( check<int>(p1), p2 ));
 	(void)static_cast<const result_checker_parser<int, opt_seq_parser<inj_t,inj_t>>&>(inject_skipping( check<int>(p1 >> p1), p2 ));
+	(void)static_cast<const result_checker_parser<int, opt_seq_parser<inj_t,seq_num_rfield_val<_seq_num_rfield_val<2,inj_t>>>>&>(inject_skipping( check<int>(p1 >> fnum<2>(p1)), p2 ));
+	{
+		auto rmaker = [](auto& r){ r.reset(new (std::decay_t<decltype(*r)>){}); return r.get(); };
+		auto var = rv(rmaker, p1, p1);
+		(void)static_cast<rvariant_parser<decltype(rmaker), p1_t, p1_t>&>(var);
+		(void)static_cast<const rvariant_parser<decltype(rmaker), inj_t, inj_t>&>(inject_skipping(var, p2));
+	}
 
 
 	static_assert( ({ char r; const auto parser = +alpha; const auto skipper = +space;
