@@ -1,59 +1,59 @@
 # ascip
-c++ ascii not poisonous parser. requires c++23. for examples see a sectoin "examples" below.
+c++ ascii not poisonous parser. requires c++23. for examples see a section "examples" below.
 
-the parser was created as struct template, so you can parametrize your method for create grammar by it, instead of include ascip file and depend on it. the ascip needs in tuple for inner use and you can prametrize the structure with any tuple wich have get method in adl. the second template parameter, factory, can to be the void type if you don't want to run the test method.
+the parser was created as struct template, so you can parametrize your method for create grammar by it, instead of include ascip file and depend on it. the ascip needs in tuple for inner use and you can prametrize the structure with any tuple wich have get method in adl. the second template parameter, factory, can be the void type if you don't want to run the test method.
 
-below i've tried using examples for quick start. all of them leavs in the examples directory in aclual state. also i've tried to use the godbolt, but sometimes it can fail, unfortunatly.
+below, i've tried using examples for quick start. all of them leaves in the examples directory in actual state. also i've tried to use the godbolt, but sometimes it can fail, unfortunately.
 ## parser list
-here is a list of avaible parsers. you can find examples below
+here is a list of available parsers. you can find examples below
 - `int_` an integer if it can to be stored to result
 - `d10` or `digit` for parser 0-9
-- `lower` and `upper` for parse asci lower or upper letters. and `letter` is a `lower` or `upper`.
+- `lower` and `upper` for parse ascii lower or upper letters. and `letter` is a `lower` or `upper`.
 - `space` means spaces
 - `any` parses any character (if the character is not an ascii store (use `push_back`) it in result)
 - `nl` parses new line character
-- `quoted_string` parsers string in single or double quoted with escaping character \\. also `dquoted_string` parses only string and double quotes and `squoted_string` - single.
-- `char_<'a'>` char with concreate value (it can to be wide char and so on). and `_char<'a'>` is same with omitted value.
+- `quoted_string` parsers string in single or double-quoted with escaping character \\. also `dquoted_string` parses only string and double quotes and `squoted_string` - single.
+- `char_<'a'>` char with concrete value (it can to be wide char and so on). and `_char<'a'>` is same with omitted value.
 - `lit<"string">` is a string literal. please note the string literal right inside the template parameter. unfortunatly it can to be called only with template keyword, or, with same way as terms parsers, but using `sterm` insead of `term` or `tmpl`.
 - `operator |` for parse variant. the result will be created with 1) `template<auto ind> create(auto& var)` method or with 2) `template<auto ind> constexpr auto& emplace()` method. or 3) the result will be used as is
 - `operator !` for negate parser
-- `unary -` for parse optional value. if tere is no value the default constructor will be used.
+- `unary -` for parse optional value. if there is no value, the default constructor will be used.
 - `binary -` for parse one value except other
 - `*` and `+` for lists
 - `%` for parse separated values
-- `()` with lambda for semact or for create the result. if the functor inside `()` receaves reference to the parser result and returns reference or pointer it's a result maker. in other case it's a semact. the semact can to receave nothing, or the returned value by parser and the result, or the returned value by parser, the parsing context, the source and the result.
+- `()` with lambda for the semantic action (semact) or for create the result. if the functor inside `()` receaves reference to the parser result and returns reference or pointer it's a result maker. in other case it's a semact. the semact can to receave nothing, or the returned value by parser and the result, or the returned value by parser, the parsing context, the source and the result.
 - `as` method for treat some parser as value
 - `omit` method for skip value
 - `cur_pos` just stores to result current position, parse nothing
 - `>>` for sequence parser
-- `>` for sequence parser. it causes an error if the parser fails with message "unknown" (see must method).
-- `check` method checks that the parser got as result exactly required type
-- `cast` method try to `static_cast` gotten result to required type. it usefull for parse to struct with inheritance as result due for language limitations. see example below.
-- `rv` method for parse reverse variant with left reqursion. see example below. the result will be create same way as in the `|` operator.
+- `>` for sequence parser. it causes an error if the parser fails with a message "unknown" (see must method).
+- `check` method checks that the parser got as a result exactly required type
+- `cast` method try to `static_cast` gotten a result to the required type. it is useful for parse to struct with inheritance as a result due to language limitations. see example below.
+- `rv` method for parse reverse variant with left recursion. see example below. the result will be create same way as in the `|` operator.
 
 with sequence parser can be used
-- `cur_shift` for store to result current shift position from sequence start
+- `cur_shift` for store to its result current shift position from sequence start
 - `req<number>` for call the sequence (or parent sequence) recursively. the req parser also can be combined with `()` operator with lambda for create recursion result value.
-- `++` prefix or postfix for increate result's field number to store parser result. prefix `++` will increate the number for current parser and postfix `++` - for next parser.
+- `++` prefix or postfix for increase result's field number to store the parser result. prefix `++` will increase the number for current parser and postfix `++` - for next parser.
 - `--` same as `++` but decrease the number
 - `finc<number>` method. same as `++` or `--` but you can specify the number will be added to current position (the number can also to be negative). the parser should to be the most outter one: char_<'a'> >> -finc<3>(char_<'b'>) will not work.
-- `fnum<number>` method. setts the resulting field position independently the current one. this parser as the finc should to be the most outter one.
-- `must` method. causes an error on fail. accepts message as template parameter, it will be passed to error function, passed in parse method. parameters: result, source on start parser position, current line number, message.
-- lambda in sequnce: sequence parser will call it with same arguments as must method. it returned value, if present, will be added to the source position (or causes error if less then 0).
+- `fnum<number>` method. setts the resulting field position independently of the current one. this parser as the `finc` should to be the most outer one.
+- `must` method. causes an error on fail. accepts a message as template parameter, it will be passed to error function, passed in parse method. parameters: result, source on start parser position, current line number, message.
+- lambda in sequence: sequence parser will call it with the same arguments as must method. its returned value, if present, will be added to the source position (or causes error if less then 0).
 
 # examples
 
-for parse something we have to provide data source. for ascip it's a class what has `operator+=`, `operator bool` and `operator()`.
-- the `operator()` returns symbol and increamets the position.
+to parse something, we have to provide a data source. for ascip it's a class what has `operator+=`, `operator bool` and `operator()`.
+- the `operator()` returns symbol and increments the position.
 - the `operator+=` moves the position forward and
 - the `operator bool` returns true if there is next symbol
 - NOTE: the object has to be light wight: it will be copied many times
 
-`ascip::make_source` can create such object from string_view or string literal.
+`ascip::make_source` can create such objects from string_view or string literal.
 
 ## simple parser
 
-For example we want to parse version number like 'v1.2'.  the major version is 1 and minor version is 2. code to parse it may looks like
+for example, we want to parse version number like `v1.2`. the major version is `1` and minor version is `2`. code to parse it may looks like
 ```
 struct version {
   int major=0;
@@ -163,15 +163,15 @@ please note:
 2. we use `rv_lreq` parser only on leftmost part of parser in the variant (before terminal)
 3. we use `rv_rreq` parser in other parts of parser (after terminal) in the variant. it just parses the next parser from the variant (from a expression parser).
 4. the `rv_result` function is used for skip index in resulting variant. if it won't be called the resulting variant must to same sized as the parser.
-5. any parser can have semantic action and result maker mthods. here it done as `gh::rv_rreq(result_maker)`. the result maker should accepts single parameter, in our case it will be the `right` field in `binary_expr` structure and returns the `expr`. the `result_maker` needed because `std::unique_ptr` is used and parser don't know how to create the field. but the field can has some type which creates result it self (for example in constructor and destroy result in descructor). in such case the `result_maker` can to be omitted. the result maker returns pointer or reference to created result.
-6. the first `rv` parameter is also result creator. it creates the result for `left` field only. the result will be moved inside parser.
-7. we can parse plus and minus as single parser, so it will be all left reqursive, but it can be like in the example: the minus operator is less priority then the plus operator (the expression (1+(2-3)) has same result as ((1+2)-3)).
+5. any parser can have semantic action and result maker methods. here it's done as `gh::rv_rreq(result_maker)`. the result maker should accept single parameter, in our case it will be the `right` field in `binary_expr` structure and returns the `expr`. the `result_maker` needed because `std::unique_ptr` is used and parser don't know how to create the field. but the field can has some type which creates result it self (for example in constructor and destroy result in descructor). in such case the `result_maker` can to be omitted. the result maker returns pointer or reference to created result.
+6. the first `rv` parameter is also result creator. it creates the result for `left` field only. the result will be moved inside the parser.
+7. we can parse plus and minus as single parser, so it will be all left recursive, but it can be like in the example: the minus operator is less priority then the plus operator (the expression (1+(2-3)) has same result as ((1+2)-3)).
 8. `rv` parses as `n*m` where `n` is symbols count and `m` is parsers count
  
 # roadmap
 - test, writing few parsers
 - alfa release
-- implement same struct as the ascip, containg parsers for print a parser it self, as grammar documentation.
+- implement the same struct as the ascip, containg parsers for print a parser itself, as grammar documentation.
 - implement good double parser
 - beta release
 - remove all std includes
