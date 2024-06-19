@@ -16,10 +16,10 @@ constexpr auto make_grammar_a2() { return +term<'a'>::char_; }
 using parser = ascip<std::tuple>;
 
 int main(int,char**) {
-    static_assert( ({
+    static_assert( []{
         std::vector<char> r;
         parse(make_grammar_a1<parser>(), parser::make_source("aaa"), r);
-        r.size(); }) == 3 );
+        return r.size(); }() == 3 );
 
     // the list is not constexpr (in c++23)
     // so we cannot store the result in it

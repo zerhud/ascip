@@ -52,11 +52,9 @@ constexpr static void test_parser_char() {
 	static_assert( char_<'a'>.test() ); static_assert( char_<'z'>.test() );
 	static_assert( char_<'!'>.test() ); static_assert( char_<'Z'>.test() );
 	static_assert( char_<' '>.test() ); static_assert( char_<'\n'>.test() );
-#ifndef __clang__
-	static_assert( ({char r;char_<'a'>.parse(make_test_ctx(), make_source("abc"), r);}) == 1 );
-	static_assert( ({char r;char_<'b'>.parse(make_test_ctx(), make_source("abc"), r);}) == -1 );
-	static_assert( ({char r;char_<'a'>.parse(make_test_ctx(), make_source("abc"), r);r;}) == 'a' );
-#endif
+	static_assert( []{char r;return char_<'a'>.parse(make_test_ctx(), make_source("abc"), r);}() == 1 );
+	static_assert( []{char r;return char_<'b'>.parse(make_test_ctx(), make_source("abc"), r);}() == -1 );
+	static_assert( []{char r;char_<'a'>.parse(make_test_ctx(), make_source("abc"), r);return r;}() == 'a' );
 }
 
 template<ascip_details::string_literal val> struct literal_parser : base_parser<literal_parser<val>> {

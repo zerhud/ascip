@@ -12,10 +12,10 @@ constexpr void example() {
     //   - () operator and return reference or pointer to what we want
     constexpr auto parser = cast<base>(th<'a'>::char_++ >> th<'b'>::char_) >> th<'c'>::char_([](auto&r)->char&{return r.c;});
     constexpr auto skip = +gh::space;
-    static_assert( ({ child r;
+    static_assert( [&]{ child r;
         parse(parser, +gh::space, gh::make_source("a b c"), r);
-        (r.a=='a') + (2*(r.b=='b')) + (4*(r.c=='c'));
-    }) == 7 );
+        return (r.a=='a') + (2*(r.b=='b')) + (4*(r.c=='c'));
+    }() == 7 );
 }
 
 using parser = ascip<std::tuple>;

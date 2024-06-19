@@ -451,7 +451,12 @@ template<typename type, auto... args> constexpr auto size_impl() {
 	else return sizeof...(args);
 }
 
-template<typename t> constexpr auto size = size_impl<t>();
+template<typename type> constexpr auto size_impl_dispatcher() {
+	if constexpr (requires{type::struct_fields_count();}) return type::struct_fields_count();
+	else return size_impl<type>();
+}
+
+template<typename t> constexpr auto size = size_impl<t>();//size_impl_dispatcher<t>();
 template<auto ind,auto cur=0> constexpr auto& nth(auto& first, auto&... args) { if constexpr (cur==ind) return first; else return nth<ind,cur+1>(args...); }
 template<auto ind> constexpr auto& get(auto& r) requires (size<std::decay_t<decltype(r)>> == 1) { auto& [f1]=r; return nth<ind>(f1); }
 template<auto ind> constexpr auto& get(auto& r) requires (size<std::decay_t<decltype(r)>> == 2) { auto&[f1,f2]=r; return nth<ind>(f1,f2); }
@@ -952,11 +957,9 @@ constexpr static void test_parser_char() {
 	static_assert( char_<'a'>.test() ); static_assert( char_<'z'>.test() );
 	static_assert( char_<'!'>.test() ); static_assert( char_<'Z'>.test() );
 	static_assert( char_<' '>.test() ); static_assert( char_<'\n'>.test() );
-
-	static_assert( ({char r;char_<'a'>.parse(make_test_ctx(), make_source("abc"), r);}) == 1 );
-	static_assert( ({char r;char_<'b'>.parse(make_test_ctx(), make_source("abc"), r);}) == -1 );
-	static_assert( ({char r;char_<'a'>.parse(make_test_ctx(), make_source("abc"), r);r;}) == 'a' );
-
+	static_assert( []{char r;return char_<'a'>.parse(make_test_ctx(), make_source("abc"), r);}() == 1 );
+	static_assert( []{char r;return char_<'b'>.parse(make_test_ctx(), make_source("abc"), r);}() == -1 );
+	static_assert( []{char r;char_<'a'>.parse(make_test_ctx(), make_source("abc"), r);return r;}() == 'a' );
 }
 
 template<ascip_details::string_literal val> struct literal_parser : base_parser<literal_parser<val>> {
@@ -2210,19 +2213,20 @@ constexpr static bool test_seq_req() {
 
 	struct semact_req_tester { char n='z'; semact_req_tester* ptr=nullptr; };
 
-	static_assert( ({
+	static_assert( []{
 		semact_req_tester r, r2; char ok='u';
 		auto p=((char_<'a'>|'b')++ >> -(_char<'('> >> req<1>([&r2,&ok](auto& r){ok='o';return &r2;}) >> _char<')'>));
-		p.parse(make_test_ctx(), make_source("a(b)"), r); r.n * (r2.n == 'b') * (ok=='o');
-	}) == 'a', "check semact for create value");
-	static_assert( ({
+		p.parse(make_test_ctx(), make_source("a(b)"), r);
+		return r.n * (r2.n == 'b') * (ok=='o');
+	}() == 'a', "check semact for create value");
+	static_assert( []{
 		semact_req_tester r;
 		auto p=(char_<'a'>++ >> -(omit(char_<'('>) >> req<1>([](auto& r){r=new semact_req_tester('b');return r;}) >> omit(char_<')'>)));
 		p.parse(make_test_ctx(), make_source("a(a)"), r);
 		char ret = r.ptr->n * (r.ptr->ptr == nullptr);
 		delete r.ptr;
-		ret;
-	}) == 'a', "check semact for create value");
+		return ret;
+	}() == 'a', "check semact for create value");
 
 
 	return true;
@@ -2256,26 +2260,30 @@ constexpr static bool test_seq_must() {
 }
 constexpr static bool test_seq_shift_pos() {
 
-	static_assert( ({
+	static_assert( []{
 		struct { char a='z', b='z'; int pos; } r;
-		(char_<'a'> >> ++char_<'b'> >> ++cur_pos).parse(make_test_ctx(), make_source("ab"), r); r.pos;
-	}) == 2, "can parse current position");
+		(char_<'a'> >> ++char_<'b'> >> ++cur_pos).parse(make_test_ctx(), make_source("ab"), r);
+		return r.pos;
+	}() == 2, "can parse current position");
 	static_assert( std::is_same_v<decltype(auto(char_<'a'> >> char_<'b'>)), decltype(auto(char_<'a'> >> char_<'b'>))>,
 			"even if it different declarations it's the same parser and we can use one instead of other instance" );
 	constexpr auto abcd = char_<'a'>++ >> char_<'b'>++ >> (char_<'c'> >> ++char_<'d'> >> ++cur_shift) >> ++cur_shift;
-	static_assert( ({
+	static_assert( [&]{
 		struct { char a='z', b='z'; struct { char c,d; int shift1;} i; int shift2; } r;
-		abcd.parse(make_test_ctx(), make_source("abcd"), r); r.i.shift1 + r.shift2;
-	}) == 6, "can parse current shift");
+		abcd.parse(make_test_ctx(), make_source("abcd"), r);
+		return r.i.shift1 + r.shift2;
+	}() == 6, "can parse current shift");
 	constexpr auto ab_req = (char_<'a'>|'b')++ >> -(_char<'('> >> req<1> >> _char<')'> >> ++cur_shift) >> ++cur_shift;
-	static_assert( ({
+	static_assert( [&]{
 		struct { char a='z'; struct { char b; int shift1;} i; int shift2; } r;
-		ab_req.parse(make_test_ctx(), make_source("a(b)"), r); r.i.shift1;
-	}) == 3, "can parse current shift in reqursion");
-	static_assert( ({
+		ab_req.parse(make_test_ctx(), make_source("a(b)"), r);
+		return r.i.shift1;
+	}() == 3, "can parse current shift in reqursion");
+	static_assert( [&]{
 		struct { char a='z'; struct { char b; int shift1;} i; int shift2; } r;
-		ab_req.parse(make_test_ctx(), make_source("a(b)"), r); r.shift2;
-	}) == 4, "can parse current shift in reqursion");
+		ab_req.parse(make_test_ctx(), make_source("a(b)"), r);
+		return r.shift2;
+	}() == 4, "can parse current shift in reqursion");
 
 	return true;
 }
@@ -2610,12 +2618,12 @@ constexpr static bool test_injection_parser() {
 	static_assert( ({ char r='z';
 		make_injected(char_<' '>, char_<'a'>).parse(make_test_ctx(), make_source("ba"), r);
 	}) == -1, "inejction parser fails if cannot parse first parameter");
-	static_assert( ({ char r='z';
+	static_assert( []{ char r='z';
 		auto pr=make_injected(char_<' '>, char_<'a'>).parse(make_test_ctx(), make_source("a"), r);
-	(pr==1) + (2*(r=='a'));}) == 3, "inejction parser parse if only first parameter fails");
-	static_assert( ({ char r='z';
+		return (pr==1) + (2*(r=='a'));}() == 3, "inejction parser parse if only first parameter fails");
+	static_assert( []{ char r='z';
 		auto pr=make_injected(char_<' '>, char_<'a'>).parse(make_test_ctx(), make_source("aa"), r);
-	(pr==1) + (2*(r=='a'));}) == 3, "inejction parser parse if only first parameter fails");
+		return (pr==1) + (2*(r=='a'));}() == 3, "inejction parser parse if only first parameter fails");
 
 	return true;
 }

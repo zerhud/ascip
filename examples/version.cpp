@@ -21,19 +21,19 @@ constexpr auto make_grammar() {
 using parser = ascip<std::tuple>;
 
 constexpr void test_grammar() {
-  static_assert( ({
+  static_assert( []{
     version result;
     parse(make_grammar<parser>(), +parser::space, parser::make_source("v1.2"), result);
     result.major /= (result.major == 1);
-    result.minor; }) == 2 );
+    return result.minor; }() == 2 );
   // we can also use a string_view as a source
   // the source must to be light weight: it will be copied many times
-  static_assert( ({
+  static_assert( []{
     std::string_view src = "v3.4";
     version result;
     parse(make_grammar<parser>(), +parser::space, parser::make_source("v3.4"), result);
     result.major /= (result.major == 3);
-    result.minor; }) == 4 );
+    return result.minor; }() == 4 );
 }
 
 int main(int,char**) {

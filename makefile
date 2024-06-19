@@ -25,11 +25,14 @@ $(build_path)/ascip.hpp: makefile ascip.hpp $(build_path)/ascip.hpp.d
 
 inc_file: $(build_path)/ascip.hpp
 
-examples: $(build_path)/vec_list $(build_path)/version $(build_path)/type $(build_path)/inheritance $(build_path)/left_reqursion $(build_path)/left_reqursion_clang
+examples: $(build_path)/vec_list $(build_path)/vec_list_clang $(build_path)/version $(build_path)/type $(build_path)/inheritance $(build_path)/inheritance_clang $(build_path)/left_reqursion $(build_path)/left_reqursion_clang
 
 -include $(build_path)/vec_list.d
 $(build_path)/vec_list: makefile examples/vec_list.cpp
 	$(gcc) -I. examples/vec_list.cpp -o $(build_path)/vec_list
+-include $(build_path)/vec_list_clang.d
+$(build_path)/vec_list_clang: makefile examples/vec_list.cpp
+	$(clang) -I. examples/vec_list.cpp -o $(build_path)/vec_list_clang
 -include $(build_path)/version.d
 $(build_path)/version: makefile examples/version.cpp
 	$(gcc) -I. examples/version.cpp -o $(build_path)/version
@@ -39,6 +42,9 @@ $(build_path)/type: makefile examples/type.cpp
 -include $(build_path)/inheritance.d
 $(build_path)/inheritance: makefile examples/inheritance.cpp
 	$(gcc) -I. examples/inheritance.cpp -o $(build_path)/inheritance
+-include $(build_path)/inheritance_clang.d
+$(build_path)/inheritance_clang: makefile examples/inheritance.cpp
+	$(clang) -I. examples/inheritance.cpp -o $(build_path)/inheritance_clang
 -include $(build_path)/left_reqursion.d
 $(build_path)/left_reqursion: makefile examples/left_reqursion.cpp
 	$(gcc) -I. examples/left_reqursion.cpp -o $(build_path)/left_reqursion
@@ -54,10 +60,10 @@ clean:
 	rm -f $(build_path)/main_test.d
 	rm -f $(build_path)/main_test
 	rm -f $(build_path)/main_test_clang
-	rm -f $(build_path)/vec_list{,.d}
+	rm -f $(build_path)/vec_list{,.d,_clang,_clang.d}
 	rm -f $(build_path)/version{,.d}
 	rm -f $(build_path)/type{,.d}
-	rm -f $(build_path)/inheritance{,.d}
+	rm -f $(build_path)/inheritance{,.d,_clang,_clang.d}
 	rm -f $(build_path)/left_reqursion{,.d}
 	rm -f $(build_path)/left_reqursion_clang{,.d}
 	rm -f $(build_path)/ascip.hpp.d

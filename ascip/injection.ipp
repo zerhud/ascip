@@ -108,12 +108,12 @@ constexpr static bool test_injection_parser() {
 	static_assert( ({ char r='z';
 		make_injected(char_<' '>, char_<'a'>).parse(make_test_ctx(), make_source("ba"), r);
 	}) == -1, "inejction parser fails if cannot parse first parameter");
-	static_assert( ({ char r='z';
+	static_assert( []{ char r='z';
 		auto pr=make_injected(char_<' '>, char_<'a'>).parse(make_test_ctx(), make_source("a"), r);
-	(pr==1) + (2*(r=='a'));}) == 3, "inejction parser parse if only first parameter fails");
-	static_assert( ({ char r='z';
+		return (pr==1) + (2*(r=='a'));}() == 3, "inejction parser parse if only first parameter fails");
+	static_assert( []{ char r='z';
 		auto pr=make_injected(char_<' '>, char_<'a'>).parse(make_test_ctx(), make_source("aa"), r);
-	(pr==1) + (2*(r=='a'));}) == 3, "inejction parser parse if only first parameter fails");
+		return (pr==1) + (2*(r=='a'));}() == 3, "inejction parser parse if only first parameter fails");
 #endif
 	return true;
 }
