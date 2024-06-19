@@ -15,7 +15,12 @@ template<typename type, auto... args> constexpr auto size_impl() {
 	else return sizeof...(args);
 }
 
-template<typename t> constexpr auto size = size_impl<t>();
+template<typename type> constexpr auto size_impl_dispatcher() {
+	if constexpr (requires{type::struct_fields_count();}) return type::struct_fields_count();
+	else return size_impl<type>();
+}
+
+template<typename t> constexpr auto size = size_impl<t>();//size_impl_dispatcher<t>();
 template<auto ind,auto cur=0> constexpr auto& nth(auto& first, auto&... args) { if constexpr (cur==ind) return first; else return nth<ind,cur+1>(args...); }
 template<auto ind> constexpr auto& get(auto& r) requires (size<std::decay_t<decltype(r)>> == 1) { auto& [f1]=r; return nth<ind>(f1); }
 template<auto ind> constexpr auto& get(auto& r) requires (size<std::decay_t<decltype(r)>> == 2) { auto&[f1,f2]=r; return nth<ind>(f1,f2); }
