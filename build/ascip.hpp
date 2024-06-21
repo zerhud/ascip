@@ -456,7 +456,7 @@ template<typename type> constexpr auto size_impl_dispatcher() {
 	else return size_impl<type>();
 }
 
-template<typename t> constexpr auto size = size_impl<t>();//size_impl_dispatcher<t>();
+template<typename t> constexpr auto size = size_impl_dispatcher<t>();
 template<auto ind,auto cur=0> constexpr auto& nth(auto& first, auto&... args) { if constexpr (cur==ind) return first; else return nth<ind,cur+1>(args...); }
 template<auto ind> constexpr auto& get(auto& r) requires (size<std::decay_t<decltype(r)>> == 1) { auto& [f1]=r; return nth<ind>(f1); }
 template<auto ind> constexpr auto& get(auto& r) requires (size<std::decay_t<decltype(r)>> == 2) { auto&[f1,f2]=r; return nth<ind>(f1,f2); }
@@ -2212,7 +2212,6 @@ constexpr static bool test_seq_req() {
 	static_assert( test_parser_parse_r_str((char_<'a'>|'b'|'c') >> _char<'('> >> -req<0> >> _char<')'>, "a(b(c()))", 9, 'a', 'b', 'c') );
 
 	struct semact_req_tester { char n='z'; semact_req_tester* ptr=nullptr; };
-
 	static_assert( []{
 		semact_req_tester r, r2; char ok='u';
 		auto p=((char_<'a'>|'b')++ >> -(_char<'('> >> req<1>([&r2,&ok](auto& r){ok='o';return &r2;}) >> _char<')'>));
@@ -2227,7 +2226,6 @@ constexpr static bool test_seq_req() {
 		delete r.ptr;
 		return ret;
 	}() == 'a', "check semact for create value");
-
 
 	return true;
 }
@@ -2259,9 +2257,8 @@ constexpr static bool test_seq_must() {
 	return true;
 }
 constexpr static bool test_seq_shift_pos() {
-
 	static_assert( []{
-		struct { char a='z', b='z'; int pos; } r;
+		struct { char a='z', b='z'; int pos=-1; } r;
 		(char_<'a'> >> ++char_<'b'> >> ++cur_pos).parse(make_test_ctx(), make_source("ab"), r);
 		return r.pos;
 	}() == 2, "can parse current position");
@@ -2284,7 +2281,6 @@ constexpr static bool test_seq_shift_pos() {
 		ab_req.parse(make_test_ctx(), make_source("a(b)"), r);
 		return r.shift2;
 	}() == 4, "can parse current shift in reqursion");
-
 	return true;
 }
 
