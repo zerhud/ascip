@@ -119,6 +119,10 @@ constexpr static bool test_as() {
 	static_assert( test_parser_char(as(int_, 'b'), "123", 3) == 'b' );
 	static_assert( test_parser_char(as<'b'>(int_), "123", 3) == 'b' );
 	static_assert( test_parser_char(as<'b'>(int_), "a", -1) == 'z' );
+	static_assert( []{
+		auto p = char_<'a'>;
+		return test_parser_char(as(p, 'b'), "a", 1);
+	}() == 'b' );
 	return true;
 }
 
