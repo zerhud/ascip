@@ -167,6 +167,7 @@ template<typename type> concept empbackable = requires(type& r){ emplace_back(r)
 template<typename type> concept parser = requires(type& p, type_result_for_parser_concept& r) {
 	p.parse(make_test_ctx<1,2,3,4,5,6,7,8,' ','c','o','c','e','p','t',' ',1,2,3,4>(p), make_source(p), r) < 0; };
 template<typename type> concept nonparser = !parser<type>;
+template<typename type> concept optional = requires(type& p){ p.has_value(); *p; p.emplace(); };
 
 constexpr bool is_in_concept_check(auto&& ctx) {
 	return exists_in_ctx<parser_concept_check_tag>(ctx);
@@ -240,10 +241,13 @@ constexpr auto& emplace_back(type_any_eq_allow& v){ return v; };
 constexpr void pop(auto& r) requires requires{ pop_back(r); } { pop_back(r); }
 constexpr void pop(auto& r) requires requires{ r.pop_back(); } { r.pop_back(); }
 constexpr void pop(auto& r) { }
-constexpr auto& empback(empbackable auto& r) requires requires{ emplace_back(r); } { return emplace_back(r); }
-constexpr auto& empback(empbackable auto& r) requires requires{ r.emplace_back(); } { return r.emplace_back(); }
-constexpr auto& empback(string auto& r) { r += typename decltype(auto(r))::value_type{}; return r.back(); }
-constexpr auto& empback(auto& r) requires( !empbackable<decltype(auto(r))> && !string<decltype(auto(r))> ){ return r; }
+template<typename type> constexpr auto& empback(type& r) {
+	if constexpr(requires{ emplace_back(r); }) return emplace_back(r);
+	else if constexpr(requires{ r.emplace_back(); }) return r.emplace_back();
+	else if constexpr(string<type>) { r += typename decltype(auto(r))::value_type{}; return r.back(); }
+	else if constexpr(optional<type>) return empback(r.emplace());
+	else return r;
+}
 inline constexpr auto& eq( auto& to, const auto& from) { return empback(to) = from; }
 
 constexpr auto pos(const auto& src)
