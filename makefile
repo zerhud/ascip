@@ -7,7 +7,9 @@ gcc := g++ -MMD -pipe -fwhole-program -march=native -std=gnu++23 -fdiagnostics-c
 clang := clang++ -MMD -march=native -std=c++23 -fdiagnostics-color=always
 
 example_files := $(shell find . -ipath './examples/*.cpp' | sed 's/^..//g')
+tests_files := $(shell find . -ipath './tests/*.cpp' | sed 's/^..//g')
 base_example = $(basename $(subst examples/,,$(1)))
+base_tests = $(basename $(subst tests/,,$(1)))
 
 .PHONY: all clean test
 
@@ -47,7 +49,23 @@ clean::
 endef
 $(foreach src_file,$(example_files),$(eval $(call create_examples_template,$(src_file))))
 
-test: $(build_path)/main_test $(build_path)/ascip.hpp $(build_path)/main_test_clang
+define create_tests_template
+-include $(build_path)/test_$(call base_tests,$(1))_gcc.d
+$(build_path)/test_$(call base_tests,$(1))_gcc: makefile $(1) | $(build_path)
+	$(gcc) -I. $(1) -o $$@ && $$@
+-include $(build_path)/test_$(call base_tests,$(1))_clang.d
+$(build_path)/test_$(call base_tests,$(1))_clang: makefile $(1) | $(build_path)
+	$(clang) -I. $(1) -o $$@ && $$@
+
+tests_gcc:: $(build_path)/test_$(call base_tests,$(1))_gcc 
+tests_clang:: $(build_path)/test_$(call base_tests,$(1))_clang
+clean::
+	rm -f $(build_path)/test_$(call base_tests,$(1))_{gcc,clang}{,.d}
+
+endef
+$(foreach src_file,$(tests_files),$(eval $(call create_tests_template,$(src_file))))
+
+test: $(build_path)/main_test $(build_path)/ascip.hpp $(build_path)/main_test_clang tests_gcc tests_clang
 	$(build_path)/main_test
 	echo "====== clang ======"
 	$(build_path)/main_test_clang

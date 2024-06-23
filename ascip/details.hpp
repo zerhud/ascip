@@ -245,7 +245,6 @@ template<typename type> constexpr auto& empback(type& r) {
 	if constexpr(requires{ emplace_back(r); }) return emplace_back(r);
 	else if constexpr(requires{ r.emplace_back(); }) return r.emplace_back();
 	else if constexpr(string<type>) { r += typename decltype(auto(r))::value_type{}; return r.back(); }
-	else if constexpr(optional<type>) return empback(r.emplace());
 	else return r;
 }
 inline constexpr auto& eq( auto& to, const auto& from) { return empback(to) = from; }

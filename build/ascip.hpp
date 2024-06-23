@@ -307,7 +307,6 @@ template<typename type> constexpr auto& empback(type& r) {
 	if constexpr(requires{ emplace_back(r); }) return emplace_back(r);
 	else if constexpr(requires{ r.emplace_back(); }) return r.emplace_back();
 	else if constexpr(string<type>) { r += typename decltype(auto(r))::value_type{}; return r.back(); }
-	else if constexpr(optional<type>) return empback(r.emplace());
 	else return r;
 }
 inline constexpr auto& eq( auto& to, const auto& from) { return empback(to) = from; }
@@ -1321,9 +1320,18 @@ template<ascip_details::parser parser> struct opt_parser : base_parser<opt_parse
 	constexpr opt_parser() =default ;
 	constexpr opt_parser(parser p) : p(std::move(p)) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
+		using result_type = std::decay_t<decltype(result)>;
+
 		if(!src) return 0;
-		auto ret = p.parse(ctx, src, result);
-		return ret * (ret >= 0);
+		if constexpr(ascip_details::optional<result_type>) {
+			auto ret = p.parse(ctx, src, result.emplace());
+			if(ret<0) result.reset();
+			return ret * (ret >= 0);
+		}
+		else {
+			auto ret = p.parse(ctx, src, result);
+			return ret * (ret >= 0);
+		}
 	}
 };
 
