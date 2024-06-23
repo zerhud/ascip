@@ -87,16 +87,38 @@ template<typename type> constexpr static auto num_field_val() {
 }
 
 static struct seq_inc_rfield : base_parser<seq_inc_rfield> {constexpr parse_result parse(auto&&,auto,auto&)const {return 0;} } sfs ;
-template<ascip_details::parser parser> struct seq_inc_rfield_after : base_parser<seq_inc_rfield_after<parser>> { parser p; };
-template<ascip_details::parser parser> struct seq_inc_rfield_before : base_parser<seq_inc_rfield_before<parser>> { parser p; };
-template<ascip_details::parser parser> struct seq_dec_rfield_after : base_parser<seq_dec_rfield_after<parser>> { parser p; };
-template<ascip_details::parser parser> struct seq_dec_rfield_before : base_parser<seq_dec_rfield_before<parser>> { parser p; };
-#ifdef __clang__
+template<ascip_details::parser parser> struct seq_inc_rfield_after : base_parser<seq_inc_rfield_after<parser>> {
+	constexpr seq_inc_rfield_after() =default ;
+	constexpr seq_inc_rfield_after(seq_inc_rfield_after&&) noexcept =default ;
+	constexpr seq_inc_rfield_after(const seq_inc_rfield_after&) noexcept =default ;
+	constexpr explicit seq_inc_rfield_after(parser p) : p(std::move(p)) {}
+	parser p;
+};
+template<ascip_details::parser parser> struct seq_inc_rfield_before : base_parser<seq_inc_rfield_before<parser>> {
+	constexpr seq_inc_rfield_before() =default ;
+	constexpr seq_inc_rfield_before(seq_inc_rfield_before&&) noexcept =default ;
+	constexpr seq_inc_rfield_before(const seq_inc_rfield_before&) noexcept =default ;
+	constexpr explicit seq_inc_rfield_before(parser p) : p(std::move(p)) {}
+	parser p;
+};
+template<ascip_details::parser parser> struct seq_dec_rfield_after : base_parser<seq_dec_rfield_after<parser>> {
+	constexpr seq_dec_rfield_after() =default ;
+	constexpr seq_dec_rfield_after(seq_dec_rfield_after&&) noexcept =default ;
+	constexpr seq_dec_rfield_after(const seq_dec_rfield_after&) noexcept =default ;
+	constexpr explicit seq_dec_rfield_after(parser p) : p(std::move(p)) {}
+	parser p;
+};
+template<ascip_details::parser parser> struct seq_dec_rfield_before : base_parser<seq_dec_rfield_before<parser>> {
+	constexpr seq_dec_rfield_before() =default ;
+	constexpr seq_dec_rfield_before(seq_dec_rfield_before&&) noexcept =default ;
+	constexpr seq_dec_rfield_before(const seq_dec_rfield_before&) noexcept =default ;
+	constexpr explicit seq_dec_rfield_before(parser p) : p(std::move(p)) {}
+	parser p;
+};
 template<typename p> seq_inc_rfield_after(p) -> seq_inc_rfield_after<p>;
 template<typename p> seq_inc_rfield_before(p) ->  seq_inc_rfield_before<p>;
 template<typename p> seq_dec_rfield_after(p) ->  seq_dec_rfield_after<p>;
 template<typename p> seq_dec_rfield_before(p) -> seq_dec_rfield_before<p>;
-#endif
 template<typename concrete, typename... parsers> struct com_seq_parser : base_parser<concrete>, ascip_details::seq_tag {
 	tuple<parsers...> seq;
 

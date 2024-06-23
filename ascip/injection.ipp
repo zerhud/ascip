@@ -22,6 +22,10 @@ template<ascip_details::parser pt> struct skip_parser : base_parser<lexeme_parse
 template<ascip_details::parser skip, ascip_details::parser base> struct injected_parser : base_parser<injected_parser<skip,base>> {
 	[[no_unique_address]] skip s;
 	[[no_unique_address]] base b;
+	constexpr injected_parser() noexcept =default ;
+	constexpr injected_parser(injected_parser&&) noexcept =default ;
+	constexpr injected_parser(const injected_parser&) noexcept =default ;
+	constexpr injected_parser(skip s, base b) : s(std::forward<decltype(s)>(s)), b(std::forward<decltype(b)>(b)) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		ascip_details::type_any_eq_allow skip_result;
 		auto sr = s.parse(ctx, src, skip_result);
@@ -36,11 +40,9 @@ template<ascip_details::parser skip, ascip_details::parser base> struct injected
 		return b.parse_with_user_result(std::forward<decltype(ctx)>(ctx), std::move(src), result);
 	}
 };
-#ifdef __clang__
 template<typename t> lexeme_parser(t) -> lexeme_parser<t>;
 template<typename t> skip_parser(t) -> skip_parser<t>;
 template<typename s, typename b> injected_parser(s,b) -> injected_parser<s,b>;
-#endif
 
 template<typename skip_type>
 struct injection_mutator {
@@ -80,11 +82,11 @@ struct injection_mutator {
 			;
 
 		if constexpr (is_parser_lexeme)
-			return injected_parser<skip_type, std::decay_t<decltype(p.p)>>{{}, skip_type{}, std::move(p.p)};
+			return injected_parser<skip_type, std::decay_t<decltype(p.p)>>( skip_type{}, std::move(p.p) );
 		else if constexpr (is_inside_lexeme || is_parser_for_skip) return p;
 		else if constexpr (is_parser_skip) return p.p;
 		else if constexpr ( requires{ p.p; }) return p;
-		else return injected_parser<skip_type, std::decay_t<decltype(p)>>{{}, skip_type{}, std::move(p)};
+		else return injected_parser<skip_type, std::decay_t<decltype(p)>>( skip_type{}, std::move(p) );
 	}
 };
 
@@ -94,7 +96,7 @@ constexpr static auto inject_skipping(parser&& to, skipper&& what) {
 	return transform<mutator>(std::move(to));
 }
 template<ascip_details::parser p1, ascip_details::parser p2> constexpr static auto make_injected(const p1& l, const p2& r) {
-	return typename p1::holder::template injected_parser<p1, p2>{ {}, l, r }; }
+	return typename p1::holder::template injected_parser<p1, p2>( l, r ); }
 
 constexpr static bool test_injection_parser() {
 #ifndef __clang__

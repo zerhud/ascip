@@ -1,6 +1,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <utility>
 
 #include "ascip.hpp"
 
@@ -11,12 +12,12 @@ struct type {
 
 template<typename gh, template<auto> class term=gh::template term>
 constexpr auto make_grammar() {
-	constexpr auto ident = lexeme(gh::alpha >> *(gh::alpha | gh::d10 | term<'_'>::char_));
-	static_assert(({
+	auto ident = lexeme(gh::alpha >> *(gh::alpha | gh::d10 | term<'_'>::char_));
+	static_assert([&]{
 		std::string r;
 		parse(ident, gh::make_source("ok"), r);
-		(r[0] == 'o') + (2 * (r[1] == 'k'));
-	}) == 3, "can parser ident");
+		return (r[0] == 'o') + (2 * (r[1] == 'k'));
+	}() == 3, "can parser ident");
 
 	constexpr auto type_p =
 		ident++ //++ for increase result field number
@@ -26,11 +27,11 @@ constexpr auto make_grammar() {
 				return r.get(); // we can also returns a reference
 			}) % ',')
 			>> term<'>'>::_char);
-	static_assert(({
+	static_assert([=]{
 		type r;
 		parse(type_p, +gh::space, gh::make_source("a"), r);
-		r.name[0];
-	}) == 'a');
+		return r.name[0];
+	}() == 'a');
 	static_assert([&] {
 		type r;
 		parse(type_p, +gh::space, gh::make_source("a<b,c>"), r);
@@ -47,11 +48,11 @@ using parser = ascip<std::tuple>;
 
 int main(int, char**) {
 	auto g = make_grammar<parser>();
-	static_assert(({
+	static_assert([]{
 		type r;
 		parse(make_grammar<parser>(), +parser::space, parser::make_source("box<list<string>,int>"), r);
-		(r.sub_types[0]->sub_types[0]->name == "string") +
-		(2 * (r.sub_types[1]->name == "int"));
-	}) == 3);
+		return (r.sub_types[0]->sub_types[0]->name == "string") +
+		       (2 * (r.sub_types[1]->name == "int"));
+	}() == 3);
 	return 0;
 }

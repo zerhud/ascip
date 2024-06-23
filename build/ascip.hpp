@@ -229,6 +229,7 @@ template<typename type> concept empbackable = requires(type& r){ emplace_back(r)
 template<typename type> concept parser = requires(type& p, type_result_for_parser_concept& r) {
 	p.parse(make_test_ctx<1,2,3,4,5,6,7,8,' ','c','o','c','e','p','t',' ',1,2,3,4>(p), make_source(p), r) < 0; };
 template<typename type> concept nonparser = !parser<type>;
+template<typename type> concept optional = requires(type& p){ p.has_value(); *p; p.emplace(); };
 
 constexpr bool is_in_concept_check(auto&& ctx) {
 	return exists_in_ctx<parser_concept_check_tag>(ctx);
@@ -302,10 +303,13 @@ constexpr auto& emplace_back(type_any_eq_allow& v){ return v; };
 constexpr void pop(auto& r) requires requires{ pop_back(r); } { pop_back(r); }
 constexpr void pop(auto& r) requires requires{ r.pop_back(); } { r.pop_back(); }
 constexpr void pop(auto& r) { }
-constexpr auto& empback(empbackable auto& r) requires requires{ emplace_back(r); } { return emplace_back(r); }
-constexpr auto& empback(empbackable auto& r) requires requires{ r.emplace_back(); } { return r.emplace_back(); }
-constexpr auto& empback(string auto& r) { r += typename decltype(auto(r))::value_type{}; return r.back(); }
-constexpr auto& empback(auto& r) requires( !empbackable<decltype(auto(r))> && !string<decltype(auto(r))> ){ return r; }
+template<typename type> constexpr auto& empback(type& r) {
+	if constexpr(requires{ emplace_back(r); }) return emplace_back(r);
+	else if constexpr(requires{ r.emplace_back(); }) return r.emplace_back();
+	else if constexpr(string<type>) { r += typename decltype(auto(r))::value_type{}; return r.back(); }
+	else if constexpr(optional<type>) return empback(r.emplace());
+	else return r;
+}
 inline constexpr auto& eq( auto& to, const auto& from) { return empback(to) = from; }
 
 constexpr auto pos(const auto& src)
@@ -339,29 +343,33 @@ struct adl_tag {};
 struct seq_tag {};
 
 template<typename value_t, ascip_details::parser parser_t> constexpr static auto as( parser_t&& p, value_t&& val ){
-	return typename decltype(auto(p))::holder::template as_parser<decltype(auto(val)), decltype(auto(p))>( val, p );
+	using ptype = std::decay_t<decltype(p)>;
+	using valtype = std::decay_t<decltype(val)>;
+	return typename ptype::holder::template as_parser<valtype, ptype>( std::forward<decltype(val)>(val), std::forward<decltype(p)>(p) );
 }
 template<auto val, ascip_details::parser parser_t> constexpr static auto as( parser_t&& p) {
-	return typename decltype(auto(p))::holder::template tmpl_as_parser<val, decltype(auto(p))>{ p }; }
+	using type = std::decay_t<decltype(p)>;
+	return typename type::holder::template tmpl_as_parser<val, type>{ std::forward<decltype(p)>(p) }; }
 constexpr static auto omit(auto&& p) {
-	return typename decltype(auto(p))::holder::template omit_parser<decltype(auto(p))>{ p }; }
-template<typename result, parser type> constexpr auto check(const type& p) {
-	return typename decltype(auto(p))::holder::template result_checker_parser<result, decltype(auto(p))>{ {}, p }; }
-template<typename result, parser type> constexpr auto cast(const type& p){
-	return typename decltype(auto(p))::holder::template cast_parser<result, decltype(auto(p))>{ {}, p }; }
+	using type = std::decay_t<decltype(p)>;
+	return typename type::holder::template omit_parser<type>{ std::forward<decltype(p)>(p) }; }
+template<typename result, parser type> constexpr auto check(type&& p) {
+	return typename std::decay_t<type>::holder::template result_checker_parser<result, std::decay_t<type>>{ {}, std::forward<decltype(p)>(p) }; }
+template<typename result, parser type> constexpr auto cast(type&& p){
+	return typename std::decay_t<type>::holder::template cast_parser<result, std::decay_t<type>>{ {}, std::forward<decltype(p)>(p) }; }
 
-template<auto cnt, parser type> constexpr auto finc(const type& p) {
-	using inc_type = typename decltype(auto(p))::holder::template _seq_inc_rfield_val<cnt,type>;
-	return typename decltype(auto(p))::holder::template seq_inc_rfield_val<inc_type>{ inc_type{p} }; }
-template<auto cnt, parser type> constexpr auto fnum(const type& p) {
-	using num_type = typename decltype(auto(p))::holder::template _seq_num_rfield_val<cnt,type>;
-	return typename decltype(auto(p))::holder::template seq_num_rfield_val<num_type>{ num_type{p} }; }
-template<string_literal msg, parser type> constexpr auto must(const type& p) {
-	return typename decltype(auto(p))::holder::template seq_error_parser<msg, type>{ p }; }
-template<parser type> constexpr auto lexeme(const type& p) {
-	return typename decltype(auto(p))::holder::template lexeme_parser<type>{ p }; }
-template<parser type> constexpr auto skip(const type& p) {
-	return typename decltype(auto(p))::holder::template skip_parser<type>{ p }; }
+template<auto cnt, parser type> constexpr auto finc(type&& p) {
+	using inc_type = typename std::decay_t<type>::holder::template _seq_inc_rfield_val<cnt,std::decay_t<type>>;
+	return typename std::decay_t<type>::holder::template seq_inc_rfield_val<inc_type>{ inc_type{std::forward<decltype(p)>(p)} }; }
+template<auto cnt, parser type> constexpr auto fnum(type&& p) {
+	using num_type = typename std::decay_t<type>::holder::template _seq_num_rfield_val<cnt,std::decay_t<type>>;
+	return typename std::decay_t<type>::holder::template seq_num_rfield_val<num_type>{ num_type{std::forward<decltype(p)>(p)} }; }
+template<string_literal msg, parser type> constexpr auto must(type&& p) {
+	return typename std::decay_t<type>::holder::template seq_error_parser<msg, std::decay_t<type>>{ std::forward<decltype(p)>(p) }; }
+template<parser type> constexpr auto lexeme(type&& p) {
+	return typename std::decay_t<type>::holder::template lexeme_parser<std::decay_t<type>>{ std::forward<decltype(p)>(p) }; }
+template<parser type> constexpr auto skip(type&& p) {
+	return typename std::decay_t<type>::holder::template skip_parser<std::decay_t<type>>{ std::forward<decltype(p)>(p) }; }
 
 template<parser type> constexpr auto use_variant_result(const type& p) {
 	return typename decltype(auto(p))::holder::template use_variant_result_parser<type>{ {}, p }; }
@@ -389,23 +397,26 @@ template<parser type> constexpr auto rv_result(type&& p) {
 
 constexpr auto parse(auto&& parser, auto src) {
 	type_any_eq_allow r;
-	return parse(std::move(parser), src, r);
+	return parse(std::forward<decltype(parser)>(parser), src, r);
 }
 
-constexpr auto parse(const auto& parser, auto src, auto& result) {
-	return parser.parse(decltype(auto(parser))::holder::make_test_ctx(), src, result);
+constexpr auto parse(auto&& parser, auto src, auto& result) {
+	using parser_type = std::decay_t<decltype(parser)>;
+	return parser.parse(parser_type::holder::make_test_ctx(), src, result);
 }
 
-constexpr auto parse(const auto& parser, const auto& skip, auto src, auto& result) {
-	auto ctx = decltype(auto(parser))::holder::make_test_ctx();
-	return decltype(auto(parser))::holder::template
-		inject_skipping(std::decay_t<decltype(parser)>(parser), std::decay_t<decltype(skip)>(skip)).parse(ctx, src, result);
+constexpr auto parse(auto&& parser, const auto& skip, auto src, auto& result) {
+	using parser_type = std::decay_t<decltype(parser)>;
+	auto ctx = parser_type::holder::make_test_ctx();
+	return parser_type::holder::template
+		inject_skipping(auto(parser), std::forward<decltype(skip)>(skip)).parse(ctx, src, result);
 }
 
 constexpr auto parse(auto&& parser, auto&& skip, auto src, auto& result, const auto& err) {
-	auto ctx = decltype(auto(parser))::holder::make_test_ctx(&err);
-	return decltype(auto(parser))::holder::template
-		inject_skipping(std::move(parser), std::move(skip)).parse(ctx, src, result);
+	using parser_type = std::decay_t<decltype(parser)>;
+	auto ctx = parser_type::holder::make_test_ctx(&err);
+	return parser_type::holder::template
+		inject_skipping(auto(parser), std::move(skip)).parse(ctx, src, result);
 }
 
 
@@ -413,21 +424,21 @@ constexpr auto parse(auto&& parser, auto&& skip, auto src, auto& result, const a
 //          operators part
 // ===============================
 
-template<parser left, typename right> constexpr auto operator>>(const left& l, const right& r)
-	requires (!is_specialization_of<left, decltype(auto(l))::holder::template opt_seq_parser>)
+template<parser left, typename right> constexpr auto operator>>(left&& l, right&& r)
+	requires (!is_specialization_of<std::decay_t<left>, std::decay_t<left>::holder::template opt_seq_parser>)
 {
-	return typename decltype(auto(l))::holder::template opt_seq_parser<left, right>{ l, r };
+	return typename std::decay_t<left>::holder::template opt_seq_parser<std::decay_t<left>, std::decay_t<right>>{ std::forward<left>(l), std::forward<right>(r) };
 }
-template<parser left> constexpr auto operator>>(const left& l, char r) {
-	return l >> typename decltype(auto(l))::holder::template value_parser<decltype(auto(r))>( r ); }
-template<parser p> constexpr auto operator++(const p& l) {
-	return typename decltype(auto(l))::holder::template seq_inc_rfield_before<p>{ {}, l }; }
-template<parser p> constexpr auto operator++(const p& l,int) {
-	return typename decltype(auto(l))::holder::template seq_inc_rfield_after<p>{ {}, l }; }
-template<parser p> constexpr auto operator--(const p& l) {
-	return typename decltype(auto(l))::holder::template seq_dec_rfield_before<p>{ {}, l }; }
-template<parser p> constexpr auto operator--(const p& l,int) {
-	return typename decltype(auto(l))::holder::template seq_dec_rfield_after<p>{ {}, l }; }
+template<parser left> constexpr auto operator>>(left&& l, char r) {
+	return std::forward<left>(l) >> typename std::decay_t<left>::holder::template value_parser<decltype(auto(r))>( r ); }
+template<parser p> constexpr auto operator++(p&& l) {
+	return typename std::decay_t<p>::holder::template seq_inc_rfield_before<std::decay_t<p>>{ std::forward<p>(l) }; }
+template<parser p> constexpr auto operator++(p&& l,int) {
+	return typename std::decay_t<p>::holder::template seq_inc_rfield_after<std::decay_t<p>>{ std::forward<p>(l) }; }
+template<parser p> constexpr auto operator--(p&& l) {
+	return typename std::decay_t<p>::holder::template seq_dec_rfield_before<std::decay_t<p>>{ std::forward<p>(l) }; }
+template<parser p> constexpr auto operator--(p&& l,int) {
+	return typename std::decay_t<p>::holder::template seq_dec_rfield_after<std::decay_t<p>>{ std::forward<p>(l) }; }
 
 
 } // namespace ascip_details
@@ -1382,6 +1393,10 @@ constexpr static bool test_as() {
 	static_assert( test_parser_char(as(int_, 'b'), "123", 3) == 'b' );
 	static_assert( test_parser_char(as<'b'>(int_), "123", 3) == 'b' );
 	static_assert( test_parser_char(as<'b'>(int_), "a", -1) == 'z' );
+	static_assert( []{
+		auto p = char_<'a'>;
+		return test_parser_char(as(p, 'b'), "a", 1);
+	}() == 'b' );
 	return true;
 }
 
@@ -2015,16 +2030,38 @@ template<typename type> constexpr static auto num_field_val() {
 }
 
 static struct seq_inc_rfield : base_parser<seq_inc_rfield> {constexpr parse_result parse(auto&&,auto,auto&)const {return 0;} } sfs ;
-template<ascip_details::parser parser> struct seq_inc_rfield_after : base_parser<seq_inc_rfield_after<parser>> { parser p; };
-template<ascip_details::parser parser> struct seq_inc_rfield_before : base_parser<seq_inc_rfield_before<parser>> { parser p; };
-template<ascip_details::parser parser> struct seq_dec_rfield_after : base_parser<seq_dec_rfield_after<parser>> { parser p; };
-template<ascip_details::parser parser> struct seq_dec_rfield_before : base_parser<seq_dec_rfield_before<parser>> { parser p; };
-
-
-
-
-
-
+template<ascip_details::parser parser> struct seq_inc_rfield_after : base_parser<seq_inc_rfield_after<parser>> {
+	constexpr seq_inc_rfield_after() =default ;
+	constexpr seq_inc_rfield_after(seq_inc_rfield_after&&) noexcept =default ;
+	constexpr seq_inc_rfield_after(const seq_inc_rfield_after&) noexcept =default ;
+	constexpr explicit seq_inc_rfield_after(parser p) : p(std::move(p)) {}
+	parser p;
+};
+template<ascip_details::parser parser> struct seq_inc_rfield_before : base_parser<seq_inc_rfield_before<parser>> {
+	constexpr seq_inc_rfield_before() =default ;
+	constexpr seq_inc_rfield_before(seq_inc_rfield_before&&) noexcept =default ;
+	constexpr seq_inc_rfield_before(const seq_inc_rfield_before&) noexcept =default ;
+	constexpr explicit seq_inc_rfield_before(parser p) : p(std::move(p)) {}
+	parser p;
+};
+template<ascip_details::parser parser> struct seq_dec_rfield_after : base_parser<seq_dec_rfield_after<parser>> {
+	constexpr seq_dec_rfield_after() =default ;
+	constexpr seq_dec_rfield_after(seq_dec_rfield_after&&) noexcept =default ;
+	constexpr seq_dec_rfield_after(const seq_dec_rfield_after&) noexcept =default ;
+	constexpr explicit seq_dec_rfield_after(parser p) : p(std::move(p)) {}
+	parser p;
+};
+template<ascip_details::parser parser> struct seq_dec_rfield_before : base_parser<seq_dec_rfield_before<parser>> {
+	constexpr seq_dec_rfield_before() =default ;
+	constexpr seq_dec_rfield_before(seq_dec_rfield_before&&) noexcept =default ;
+	constexpr seq_dec_rfield_before(const seq_dec_rfield_before&) noexcept =default ;
+	constexpr explicit seq_dec_rfield_before(parser p) : p(std::move(p)) {}
+	parser p;
+};
+template<typename p> seq_inc_rfield_after(p) -> seq_inc_rfield_after<p>;
+template<typename p> seq_inc_rfield_before(p) ->  seq_inc_rfield_before<p>;
+template<typename p> seq_dec_rfield_after(p) ->  seq_dec_rfield_after<p>;
+template<typename p> seq_dec_rfield_before(p) -> seq_dec_rfield_before<p>;
 template<typename concrete, typename... parsers> struct com_seq_parser : base_parser<concrete>, ascip_details::seq_tag {
 	tuple<parsers...> seq;
 
@@ -2528,6 +2565,10 @@ template<ascip_details::parser pt> struct skip_parser : base_parser<lexeme_parse
 template<ascip_details::parser skip, ascip_details::parser base> struct injected_parser : base_parser<injected_parser<skip,base>> {
 	[[no_unique_address]] skip s;
 	[[no_unique_address]] base b;
+	constexpr injected_parser() noexcept =default ;
+	constexpr injected_parser(injected_parser&&) noexcept =default ;
+	constexpr injected_parser(const injected_parser&) noexcept =default ;
+	constexpr injected_parser(skip s, base b) : s(std::forward<decltype(s)>(s)), b(std::forward<decltype(b)>(b)) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		ascip_details::type_any_eq_allow skip_result;
 		auto sr = s.parse(ctx, src, skip_result);
@@ -2542,11 +2583,9 @@ template<ascip_details::parser skip, ascip_details::parser base> struct injected
 		return b.parse_with_user_result(std::forward<decltype(ctx)>(ctx), std::move(src), result);
 	}
 };
-
-
-
-
-
+template<typename t> lexeme_parser(t) -> lexeme_parser<t>;
+template<typename t> skip_parser(t) -> skip_parser<t>;
+template<typename s, typename b> injected_parser(s,b) -> injected_parser<s,b>;
 
 template<typename skip_type>
 struct injection_mutator {
@@ -2586,11 +2625,11 @@ struct injection_mutator {
 			;
 
 		if constexpr (is_parser_lexeme)
-			return injected_parser<skip_type, std::decay_t<decltype(p.p)>>{{}, skip_type{}, std::move(p.p)};
+			return injected_parser<skip_type, std::decay_t<decltype(p.p)>>( skip_type{}, std::move(p.p) );
 		else if constexpr (is_inside_lexeme || is_parser_for_skip) return p;
 		else if constexpr (is_parser_skip) return p.p;
 		else if constexpr ( requires{ p.p; }) return p;
-		else return injected_parser<skip_type, std::decay_t<decltype(p)>>{{}, skip_type{}, std::move(p)};
+		else return injected_parser<skip_type, std::decay_t<decltype(p)>>( skip_type{}, std::move(p) );
 	}
 };
 
@@ -2600,7 +2639,7 @@ constexpr static auto inject_skipping(parser&& to, skipper&& what) {
 	return transform<mutator>(std::move(to));
 }
 template<ascip_details::parser p1, ascip_details::parser p2> constexpr static auto make_injected(const p1& l, const p2& r) {
-	return typename p1::holder::template injected_parser<p1, p2>{ {}, l, r }; }
+	return typename p1::holder::template injected_parser<p1, p2>( l, r ); }
 
 constexpr static bool test_injection_parser() {
 

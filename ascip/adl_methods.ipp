@@ -99,11 +99,11 @@ template<parser left, typename right> constexpr auto operator>>(left&& l, right&
 template<parser left> constexpr auto operator>>(left&& l, char r) {
 	return std::forward<left>(l) >> typename std::decay_t<left>::holder::template value_parser<decltype(auto(r))>( r ); }
 template<parser p> constexpr auto operator++(p&& l) {
-	return typename std::decay_t<p>::holder::template seq_inc_rfield_before<std::decay_t<p>>{ {}, std::forward<p>(l) }; }
+	return typename std::decay_t<p>::holder::template seq_inc_rfield_before<std::decay_t<p>>{ std::forward<p>(l) }; }
 template<parser p> constexpr auto operator++(p&& l,int) {
-	return typename std::decay_t<p>::holder::template seq_inc_rfield_after<std::decay_t<p>>{ {}, std::forward<p>(l) }; }
+	return typename std::decay_t<p>::holder::template seq_inc_rfield_after<std::decay_t<p>>{ std::forward<p>(l) }; }
 template<parser p> constexpr auto operator--(p&& l) {
-	return typename std::decay_t<p>::holder::template seq_dec_rfield_before<std::decay_t<p>>{ {}, std::forward<p>(l) }; }
+	return typename std::decay_t<p>::holder::template seq_dec_rfield_before<std::decay_t<p>>{ std::forward<p>(l) }; }
 template<parser p> constexpr auto operator--(p&& l,int) {
-	return typename std::decay_t<p>::holder::template seq_dec_rfield_after<std::decay_t<p>>{ {}, std::forward<p>(l) }; }
+	return typename std::decay_t<p>::holder::template seq_dec_rfield_after<std::decay_t<p>>{ std::forward<p>(l) }; }
 
