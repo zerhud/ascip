@@ -16,6 +16,7 @@ template<ascip_details::parser parser> struct unary_list_parser : base_parser<un
 	constexpr unary_list_parser() =default ;
 	constexpr unary_list_parser(parser p) : p(std::move(p)) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
+		if(!src) return -1;
 		auto ret = call_parse(ctx, src, result);
 		src += ret * (0<=ret);
 		auto cur_r = ret;

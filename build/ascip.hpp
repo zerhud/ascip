@@ -1558,6 +1558,7 @@ template<ascip_details::parser... parsers> struct variant_parser : base_parser<v
 		else return _cur_ind<ind,cnt+1,cur+(!skip),tail...>();
 	}
 	template<auto ind> consteval static auto cur_ind() { return _cur_ind<ind,0,0,parsers...>(); }
+	//TODO: make current result with if constexpr with the this sequence: create, adl emplace, inner emplace
 	template<auto ind> constexpr auto& current_result(auto& result) const
 	requires requires{ create<1>(result); } {
 		if constexpr (cur_ind<ind>()<0) return result;
@@ -1916,6 +1917,7 @@ template<ascip_details::parser parser> struct unary_list_parser : base_parser<un
 	constexpr unary_list_parser() =default ;
 	constexpr unary_list_parser(parser p) : p(std::move(p)) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
+		if(!src) return -1;
 		auto ret = call_parse(ctx, src, result);
 		src += ret * (0<=ret);
 		auto cur_r = ret;
