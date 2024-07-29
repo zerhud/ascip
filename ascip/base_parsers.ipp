@@ -200,12 +200,13 @@ constexpr static struct int_parser : base_parser<int_parser> {
 	constexpr parse_result parse(auto&&, auto src, auto& _result)  const {
 		auto sign = src();
 		if(sign != '-' && sign != '+' && !is_int(sign)) return -1;
-		int signer = sign == '-' ? -1 : is_int(sign) || sign=='+';
-		auto& result = ascip_details::eq(_result, is_int(sign) ? sign-'0' : 0);
+		int signer = -1*(sign=='-') + is_int(sign) + (sign=='+');
+		auto& result = ascip_details::eq(_result, is_int(sign) * (sign-'0'));
 		auto ret = 1;
 		while(src && next(src(), result *= 10)) ++ret;
 		result *= signer;
-		return ret;
+		bool bad_result = ((sign=='-')+(sign=='+')+(ret==1))==2;
+		return -1*bad_result + ret*!bad_result;
 	}
 	constexpr auto parse_without_preparation(auto src, auto& result) const {
 		auto ret = 0;
@@ -238,6 +239,8 @@ constexpr static struct int_parser : base_parser<int_parser> {
 		static_assert( ({ auto r=0;int_parser{}.parse(make_test_ctx(), make_source("!"), r);}) == -1 );
 		static_assert( ({ auto r=0;int_parser{}.parse(make_test_ctx(), make_source("a"), r);}) == -1 );
 		static_assert( ({ auto r=0;int_parser{}.parse(make_test_ctx(), make_source("A"), r);}) == -1 );
+		static_assert( ({ auto r=0;int_parser{}.parse(make_test_ctx(), make_source("-"), r);}) == -1 );
+		static_assert( ({ auto r=0;int_parser{}.parse(make_test_ctx(), make_source("-["), r);}) == -1 );
 #endif
 
 		return true;
