@@ -1160,7 +1160,6 @@ constexpr static struct int_parser : base_parser<int_parser> {
 		auto sign = src();
 		if(sign != '-' && sign != '+' && !is_int(sign)) return -1;
 		int signer = -1*(sign=='-') + is_int(sign) + (sign=='+');
-		//auto& result = ascip_details::eq(_result, is_int(sign) ? sign-'0' : 0);
 		auto& result = ascip_details::eq(_result, is_int(sign) * (sign-'0'));
 		auto ret = 1;
 		while(src && next(src(), result *= 10)) ++ret;
@@ -1736,7 +1735,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		else if constexpr (requires{ result.template emplace<1>(); } ) return result.template emplace<cur_ind<ind>()>();
 		else return result;
 	}
-	constexpr auto copy_result(auto& result) const {
+	constexpr auto move_result(auto& result) const {
 		if constexpr (std::is_same_v<decltype(result), ascip_details::type_any_eq_allow&>) return result;
 		else return maker(result);
 	}
@@ -1767,7 +1766,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 			decltype(pr) prev_pr = 0;
 			while(0 < pr) {
 				prev_pr += pr;
-				auto cur = copy_result(result);
+				auto cur = move_result(result);
 				if constexpr (!std::is_same_v<decltype(result), ascip_details::type_any_eq_allow&>)
 					search_in_ctx<rvariant_copied_result_tag>(ctx) = &cur;
 				src += get<ind>(seq).parse(ctx, src, cur_result<ind>(result));
@@ -1789,7 +1788,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		if constexpr (exists_in_ctx<rvariant_stack_tag>(decltype(auto(ctx)){}))
 			return parse_without_prep<0>(ctx, src, result);
 		else {
-			using copied_result_type = decltype(copy_result(result));
+			using copied_result_type = decltype(move_result(result));
 			auto nctx =
 				make_ctx<rvariant_copied_result_tag>((copied_result_type*)nullptr,
 				make_ctx<rvariant_stack_tag>(this, ctx));
