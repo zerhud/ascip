@@ -4,6 +4,14 @@ c++ ascii not poisonous parser. requires c++23. for examples see a section "exam
 the parser was created as struct template, so you can parametrize your method for create grammar by it, instead of include ascip file and depend on it. the ascip needs in tuple for inner use and you can prametrize the structure with any tuple wich have get method in adl. the second template parameter, factory, can be the void type if you don't want to run the test method.
 
 below, i've tried using examples for quick start. all of them leaves in the examples directory in actual state. also i've tried to use the godbolt, but sometimes it can fail, unfortunately.
+## how to install
+it is a header only library: just include `ascip.hpp`. there is also `build/ascip.hpp` file. it is a whole library in single file. it used in examples.
+
+after the `ascip.hpp` is included the parser are avaible as `using parser = ascip<std::tuple>;`
+
+in the root is `flake.nix` file. so you can use it as flake input and develop as `nix develop .`. more information about [nix](https://nixos.wiki/wiki/Main_Page) and [nix flakes](https://nixos.wiki/wiki/Flakes).
+
+there is no `make install` target. just copy the `ascip.hpp` and `ascip` to directory where your compiler will find it, or pass `-I(path_to_ascip_dir)` to compiler.
 ## parser list
 here is a list of available parsers. you can find examples below
 - `int_` an integer if it can to be stored to result
@@ -19,7 +27,7 @@ here is a list of available parsers. you can find examples below
 - `operator !` for negate parser
 - `unary -` for parse optional value. if there is no value, the default constructor will be used.
 - `binary -` for parse one value except other
-- `*` and `+` for lists
+- `*` and `+` for lists. `*` - zero or more times, `+` - one or mote times.
 - `%` for parse separated values
 - `()` with lambda for the semantic action (semact) or for create the result. if the functor inside `()` receaves reference to the parser result and returns reference or pointer it's a result maker. in other case it's a semact. the semact can to receave nothing, or the returned value by parser and the result, or the returned value by parser, the parsing context, the source and the result.
 - `as` method for treat some parser as value
