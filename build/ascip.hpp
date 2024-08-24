@@ -1470,8 +1470,8 @@ struct result_checker_parser : base_parser<result_checker_parser<good_result, pa
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		static_assert(
 			   ascip_details::is_in_concept_check(decltype(auto(ctx)){})
-			|| std::is_same_v<ascip_details::type_any_eq_allow, decltype(auto(result))>
-			|| std::is_same_v<good_result, decltype(auto(result))>
+			|| std::is_same_v<ascip_details::type_any_eq_allow, std::decay_t<decltype(result)>>
+			|| std::is_same_v<good_result, std::decay_t<decltype(result)>>
 			, "can only parser to required type" );
 		return p.parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(auto(src))&&>(src), result);
 	}
