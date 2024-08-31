@@ -73,7 +73,12 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 	template<auto ind> constexpr static bool is_term() {
 		using cur_parser_t = std::decay_t<decltype(get<ind>(seq))>;
 		auto checker = [](const auto* p){return std::is_same_v<std::decay_t<decltype(*p)>, std::decay_t<decltype(rv_lreq)>>;};
-		return !exists_in((cur_parser_t*)nullptr, checker);
+		auto stop = [](const auto* p){
+			using p_type = std::decay_t<decltype(*p)>;
+			const bool is_rv = requires{ p->maker; };
+			return is_rv && !ascip_details::is_specialization_of<cur_parser_t, rvariant_parser>;
+		};
+		return !exists_in((cur_parser_t*)nullptr, checker, stop);
 	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const requires ( ascip_details::is_in_concept_check(decltype(ctx){}) ) {
 		return 0;
@@ -171,8 +176,13 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		if constexpr (!exists_in_ctx<rvariant_stack_tag>(decltype(auto(ctx)){}))
 			return parse_with_prep(ctx, src, result);
 		else  {
-			const bool is_in_neasted_rv = static_cast<const void*>(search_in_ctx<rvariant_stack_tag>(ctx)) != static_cast<const void*>(this);
-			return is_in_neasted_rv ? parse_rerun(ctx, src, result) : parse_without_prep<0>(ctx, src, result);
+			using rv_stack_type = std::decay_t<decltype(search_in_ctx<rvariant_stack_tag>(decltype(auto(ctx)){}))>;
+			if constexpr ( std::is_same_v<rv_stack_type, std::decay_t<decltype(this)>> )
+				return parse_without_prep<0>(ctx, src, result);
+			else return parse_with_prep(ctx, src, result);
+			//else return parse_with_prep(ctx, src, result);
+			//const bool is_in_neasted_rv = static_cast<const void*>(search_in_ctx<rvariant_stack_tag>(ctx)) != static_cast<const void*>(this);
+			//return is_in_neasted_rv ? parse_rerun(ctx, src, result) : parse_without_prep<0>(ctx, src, result);
 		}
 	}
 };

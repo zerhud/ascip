@@ -919,54 +919,80 @@ constexpr static void write_out_error_msg(
 //          https://www.boost.org/LICENSE_1_0.txt)
 
 template<auto... inds, template<typename...>class wrapper, typename... parsers>
-constexpr static bool exists_in_get(const wrapper<parsers...>* seq, const auto& checker) {
+constexpr static bool exists_in_get(const wrapper<parsers...>* seq, const auto& checker, const auto& stop) {
 	if constexpr (sizeof...(inds) == sizeof...(parsers)) return false;
 	else return
-		   checker((std::decay_t<decltype(get<sizeof...(inds)>(*seq))>*)nullptr)
-		|| exists_in((std::decay_t<decltype(get<sizeof...(inds)>(*seq))>*)nullptr, checker)
-		|| exists_in_get<inds..., sizeof...(inds)>(seq, checker)
+		(!stop((std::decay_t<decltype(get<sizeof...(inds)>(*seq))>*)nullptr)
+		&& (
+		      checker((std::decay_t<decltype(get<sizeof...(inds)>(*seq))>*)nullptr)
+		   || exists_in((std::decay_t<decltype(get<sizeof...(inds)>(*seq))>*)nullptr, checker, stop)
+		   )
+		)
+		|| exists_in_get<inds..., sizeof...(inds)>(seq, checker, stop)
 		;
 }
-constexpr static bool exists_in(auto&& src, const auto& checker) { return exists_in(&src, checker); }
 template<template<typename>class wrapper, typename parser>
-constexpr static bool exists_in_drived(const wrapper<parser>* src, const auto& checker) {
-	return exists_in(static_cast<const parser*>(src), checker); }
-constexpr static bool exists_in(auto* src, const auto& checker) {
-	if constexpr (std::is_same_v<typename std::decay_t<decltype(*src)>::type_in_base, std::decay_t<decltype(*src)>>)
-		return checker(src);
-	else return exists_in_drived(src, checker);
+constexpr static bool exists_in_derived(const wrapper<parser>* src, const auto& checker, const auto& stop) {
+	return exists_in(static_cast<const parser*>(src), checker, stop);
 }
-constexpr static bool exists_in(auto* src, const auto& checker) requires requires{ src->p; } {
+
+constexpr static bool exists_in(auto&& src, const auto& checker, const auto& stop) {
+	return exists_in(&src, checker, stop);
+}
+
+constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) {
+	if constexpr (std::is_same_v<typename std::decay_t<decltype(*src)>::type_in_base, std::decay_t<decltype(*src)>>)
+		return stop(src) ? false : checker(src);
+	else return exists_in_derived(src, checker, stop);
+}
+constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) requires requires{ src->p; } {
 	using type = std::decay_t<decltype(src->p)>;
-	return checker(src) || exists_in((type*)nullptr, checker); }
-constexpr static bool exists_in(auto* src, const auto& checker) requires requires{ src->lp; } {
+	return stop(src) ? false : checker(src) || exists_in((type*)nullptr, checker, stop);
+}
+constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) requires requires{ src->lp; } {
 	using ltype = std::decay_t<decltype(src->lp)>;
 	using rtype = std::decay_t<decltype(src->rp)>;
+	if(stop(src)) return false;
+	const bool lstop = stop((ltype*)nullptr);
+	const bool rstop = stop((rtype*)nullptr);
 	return checker(src)
-		|| checker((ltype*)nullptr) || checker((rtype*)nullptr)
-		|| exists_in((ltype*)nullptr, checker) || exists_in((rtype*)nullptr, checker)
+		|| (!lstop&&checker((ltype*)nullptr))
+		|| (!rstop&&checker((rtype*)nullptr))
+		|| (!lstop&&exists_in((ltype*)nullptr, checker, stop))
+		|| (!rstop&&exists_in((rtype*)nullptr, checker, stop))
 		;
 }
-constexpr static bool exists_in(auto* src, const auto& checker) requires requires{ src->seq; } {
+constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) requires requires{ src->seq; } {
 	using seq_t = decltype(src->seq);
-	return checker(src) || exists_in_get((seq_t*)nullptr, checker); }
-constexpr static bool exists_in(auto* src, const auto& checker) requires requires{ src->s; src->b; } {
+	if(stop(src)) return false;
+	return checker(src) || exists_in_get((seq_t*)nullptr, checker, stop); }
+constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) requires requires{ src->s; src->b; } {
 	//NOTE: it's for injected_parser, but without forward declaration
-	return exists_in((std::decay_t<decltype(src->b)>*)nullptr, checker) ; }
+	if(stop(src)) return false;
+	return exists_in((std::decay_t<decltype(src->b)>*)nullptr, checker, stop) ; }
 
 constexpr static bool test_exists_in() {
 	auto checker = [](const auto* s){ return std::is_same_v<std::decay_t<decltype(*s)>, std::decay_t<decltype(char_<'a'>)>>; };
-	static_assert(  exists_in(char_<'a'>, checker) );
-	static_assert( !exists_in(char_<'b'>, checker) );
-	static_assert(  exists_in(skip(char_<'a'>), checker) );
-	static_assert( !exists_in(skip(char_<'b'>), checker) );
-	static_assert(  exists_in(char_<'b'> | char_<'a'>, checker) );
-	static_assert( !exists_in(char_<'b'> | char_<'x'>, checker) );
-	static_assert(  exists_in(char_<'b'> - char_<'a'>, checker) );
-	static_assert( !exists_in(char_<'b'> - char_<'x'>, checker) );
-	static_assert(  exists_in(char_<'c'> >> (char_<'b'> - char_<'a'>), checker) );
-	static_assert(  exists_in(char_<'c'> - (char_<'b'> >> char_<'a'>), checker) );
-	static_assert(  exists_in(skip(char_<'c'> >> char_<'b'> >> char_<'a'>++), checker) );
+	auto pass = [](const auto* s){ return false; };
+	auto stop = [](const auto* s){ return true; };
+	static_assert(  exists_in(char_<'a'>, checker, pass) );
+	static_assert( !exists_in(char_<'a'>, checker, stop) );
+	static_assert( !exists_in(char_<'b'>, checker, pass) );
+	static_assert( !exists_in(char_<'b'>, checker, stop) );
+	static_assert(  exists_in(skip(char_<'a'>), checker, pass) );
+	static_assert( !exists_in(skip(char_<'a'>), checker, stop) );
+	static_assert( !exists_in(skip(char_<'b'>), checker, pass) );
+	static_assert(  exists_in(char_<'b'> | char_<'a'>, checker, pass) );
+	static_assert( !exists_in(char_<'b'> | char_<'a'>, checker, stop) );
+	static_assert( !exists_in(char_<'b'> | char_<'x'>, checker, pass) );
+	static_assert(  exists_in(char_<'b'> - char_<'a'>, checker, pass) );
+	static_assert( !exists_in(char_<'b'> - char_<'a'>, checker, stop) );
+	static_assert( !exists_in(char_<'b'> - char_<'x'>, checker, pass) );
+	static_assert(  exists_in(char_<'c'> >> (char_<'b'> - char_<'a'>), checker, pass) );
+	static_assert(  exists_in(char_<'c'> - (char_<'b'> >> char_<'a'>), checker, pass) );
+	static_assert( !exists_in(char_<'c'> - (char_<'b'> >> char_<'a'>), checker, stop) );
+	static_assert(  exists_in(skip(char_<'c'> >> char_<'b'> >> char_<'a'>++), checker, pass) );
+	static_assert( !exists_in(skip(char_<'c'> >> char_<'b'> >> char_<'a'>++), checker, stop) );
 	return true;
 }
        
@@ -1703,7 +1729,12 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 	template<auto ind> constexpr static bool is_term() {
 		using cur_parser_t = std::decay_t<decltype(get<ind>(seq))>;
 		auto checker = [](const auto* p){return std::is_same_v<std::decay_t<decltype(*p)>, std::decay_t<decltype(rv_lreq)>>;};
-		return !exists_in((cur_parser_t*)nullptr, checker);
+		auto stop = [](const auto* p){
+			using p_type = std::decay_t<decltype(*p)>;
+			const bool is_rv = requires{ p->maker; };
+			return is_rv && !ascip_details::is_specialization_of<cur_parser_t, rvariant_parser>;
+		};
+		return !exists_in((cur_parser_t*)nullptr, checker, stop);
 	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const requires ( ascip_details::is_in_concept_check(decltype(ctx){}) ) {
 		return 0;
@@ -1801,8 +1832,13 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		if constexpr (!exists_in_ctx<rvariant_stack_tag>(decltype(auto(ctx)){}))
 			return parse_with_prep(ctx, src, result);
 		else  {
-			const bool is_in_neasted_rv = static_cast<const void*>(search_in_ctx<rvariant_stack_tag>(ctx)) != static_cast<const void*>(this);
-			return is_in_neasted_rv ? parse_rerun(ctx, src, result) : parse_without_prep<0>(ctx, src, result);
+			using rv_stack_type = std::decay_t<decltype(search_in_ctx<rvariant_stack_tag>(decltype(auto(ctx)){}))>;
+			if constexpr ( std::is_same_v<rv_stack_type, std::decay_t<decltype(this)>> )
+				return parse_without_prep<0>(ctx, src, result);
+			else return parse_with_prep(ctx, src, result);
+			//else return parse_with_prep(ctx, src, result);
+			//const bool is_in_neasted_rv = static_cast<const void*>(search_in_ctx<rvariant_stack_tag>(ctx)) != static_cast<const void*>(this);
+			//return is_in_neasted_rv ? parse_rerun(ctx, src, result) : parse_without_prep<0>(ctx, src, result);
 		}
 	}
 };
