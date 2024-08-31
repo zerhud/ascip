@@ -1,9 +1,21 @@
 {
-  "image": "mcr.microsoft.com/devcontainers/universal:2",
-  "features": {
+	"name": "nix.university",
+	"image":"mcr.microsoft.com/devcontainers/base:alpine",
+	"features": {
 		"ghcr.io/devcontainers/features/nix:1": {
 		  "multiUser": true,
 		  "version": "latest"
+		}
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"nicolasdschmidt.lunar-pink",
+				"github.copilot",
+				"github.copilot-chat",
+				"jeff-hykin.better-nix-syntax",
+				"vscodevim.vim"
+			]
 		}
 	}
 }
