@@ -1636,6 +1636,7 @@ constexpr static bool test_variant() {
 //          https://www.boost.org/LICENSE_1_0.txt)
 
 
+struct rvariant_rerun_tag {};
 struct rvariant_stack_tag {};
 struct rvariant_crop_ctx_tag {};
 struct rvariant_copied_result_tag {};
@@ -1784,16 +1785,22 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		auto nonterm_r = parse_nonterm<sizeof...(parsers)-1, stop_pos>(ctx, src += term_r, result, 0);
 		return term_r + (nonterm_r*(nonterm_r>0));
 	}
+	constexpr parse_result parse_with_prep(auto&& ctx, auto src, auto& result) const {
+		using copied_result_type = decltype(move_result(result));
+		auto nctx =
+			make_ctx<rvariant_copied_result_tag>((copied_result_type*)nullptr,
+			make_ctx<rvariant_stack_tag>(this,
+			make_ctx<rvariant_rerun_tag>(&ctx, ctx)));
+		return parse_without_prep<0>(make_ctx<rvariant_crop_ctx_tag>(&nctx, nctx), src, result);
+	}
+	constexpr parse_result parse_rerun(auto&& ctx, auto src, auto& result) const {
+		auto* rerun_ctx = search_in_ctx<rvariant_rerun_tag>(ctx);
+		return parse_with_prep(*rerun_ctx, src, result);
+	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr (exists_in_ctx<rvariant_stack_tag>(decltype(auto(ctx)){}))
-			return parse_without_prep<0>(ctx, src, result);
-		else {
-			using copied_result_type = decltype(move_result(result));
-			auto nctx =
-				make_ctx<rvariant_copied_result_tag>((copied_result_type*)nullptr,
-				make_ctx<rvariant_stack_tag>(this, ctx));
-			return parse_without_prep<0>(make_ctx<rvariant_crop_ctx_tag>(&nctx, nctx), src, result);
-		}
+			return search_in_ctx<rvariant_stack_tag>(ctx) == this ? parse_without_prep<0>(ctx, src, result) : parse_rerun(ctx, src, result);
+		else return parse_with_prep(ctx, src, result);
 	}
 };
 
