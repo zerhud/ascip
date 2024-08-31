@@ -168,9 +168,12 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		return parse_with_prep(*rerun_ctx, src, result);
 	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		if constexpr (exists_in_ctx<rvariant_stack_tag>(decltype(auto(ctx)){}))
-			return search_in_ctx<rvariant_stack_tag>(ctx) == this ? parse_without_prep<0>(ctx, src, result) : parse_rerun(ctx, src, result);
-		else return parse_with_prep(ctx, src, result);
+		if constexpr (!exists_in_ctx<rvariant_stack_tag>(decltype(auto(ctx)){}))
+			return parse_with_prep(ctx, src, result);
+		else  {
+			const bool is_in_neasted_rv = static_cast<const void*>(search_in_ctx<rvariant_stack_tag>(ctx)) != static_cast<const void*>(this);
+			return is_in_neasted_rv ? parse_rerun(ctx, src, result) : parse_without_prep<0>(ctx, src, result);
+		}
 	}
 };
 #ifdef __clang__
