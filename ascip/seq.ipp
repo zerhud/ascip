@@ -130,7 +130,10 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 	//TODO: make construction like --parser++ works as expected (decriment result field now and increment after this parser)
 	template<typename type> constexpr static bool is_field_separator = requires(type&p){ static_cast<const seq_inc_rfield&>(p); };
 	template<typename type> constexpr static bool is_inc_field_val = ascip_details::is_specialization_of<type, seq_inc_rfield_val>;
-	template<typename type> constexpr static bool is_num_field_val = ascip_details::is_specialization_of<type, seq_num_rfield_val>;
+	template<typename type> constexpr static bool is_num_field_val = ascip_details::is_specialization_of<std::decay_t<type>, seq_num_rfield_val>;
+	//template<typename type> constexpr static bool is_num_field_val = exists_in(static_cast<const type*>(nullptr),
+			//[](const auto* p){ return ascip_details::is_specialization_of<std::decay_t<decltype(p)>, seq_num_rfield_val>; }, 
+			//[](const auto* p){ return requires{ p->seq; } && !requires{ static_cast<const com_seq_parser<concrete, parsers...>*>(p); }; });
 	template<typename type> constexpr static bool is_inc_field_after = ascip_details::is_specialization_of<type, seq_inc_rfield_after>;
 	template<typename type> constexpr static bool is_inc_field_before = ascip_details::is_specialization_of<type, seq_inc_rfield_before>;
 	template<typename type> constexpr static bool is_dec_field_after = ascip_details::is_specialization_of<type, seq_dec_rfield_after>;

@@ -106,4 +106,6 @@ template<parser p> constexpr auto operator--(p&& l) {
 	return typename std::decay_t<p>::holder::template seq_dec_rfield_before<std::decay_t<p>>{ std::forward<p>(l) }; }
 template<parser p> constexpr auto operator--(p&& l,int) {
 	return typename std::decay_t<p>::holder::template seq_dec_rfield_after<std::decay_t<p>>{ std::forward<p>(l) }; }
+template<parser p> constexpr auto operator-(p&& _p) {
+	return typename std::decay_t<p>::holder::template opt_parser<std::decay_t<p>>{ _p }; }
 

@@ -21,7 +21,6 @@ constexpr auto operator|(const ascip_details::nonparser auto& p2) const {
 constexpr auto operator!() const {
 	return negate_parser<parser>{ static_cast<const parser&>(*this) };
 }
-constexpr auto operator-()const{ return opt_parser<parser>{ static_cast<const parser&>(*this) }; }
 constexpr auto operator+()const{ return unary_list_parser<parser>{ static_cast<const parser&>(*this) }; }
 constexpr auto operator*()const{ return -( +(static_cast<const parser&>(*this)) ); }
 
