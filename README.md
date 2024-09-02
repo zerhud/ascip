@@ -1,29 +1,41 @@
 # ascip
 c++ ascii not poisonous parser. requires c++23. for examples see a section "examples" below.
 
-the parser was created as struct template, so you can parametrize your method for create grammar by it, instead of include ascip file and depend on it. the ascip needs in tuple for inner use and you can prametrize the structure with any tuple wich have get method in adl. the second template parameter, factory, can be the void type if you don't want to run the test method.
+the parser was created as struct template, so you can parametrize your method for create grammar by it,
+instead of include ascip file and depend on it.
+the ascip needs in tuple for inner use,
+and you can parametrize the structure with any tuple that have get method in adl.
+the second template parameter, factory, can be the void type if you don't want to run the test method.
 
-below, i've tried using examples for quick start. all of them leaves in the examples directory in actual state. also i've tried to use the godbolt, but sometimes it can fail, unfortunately.
+below, I've tried using examples for quick start.
+all of them leave in the examples directory in actual state.
+also I've tried to use the godbolt, but sometimes it can fail, unfortunately.
 ## how to install
-it is a header only library: just include `ascip.hpp`. there is also `build/ascip.hpp` file. it is a whole library in single file. it used in examples.
+it is a header-only library: for start using it include `ascip.hpp`.
+there is also `build/ascip.hpp` file, it is a whole library in single file.
+the file is used in examples (the godbolt can't include other files from url).
 
-after the `ascip.hpp` is included the parser are avaible as `using parser = ascip<std::tuple>;`
+after the `ascip.hpp` is included the parser is
+`using parser = ascip<std::tuple>;` (or any other `tuple` can to be used).
 
-in the root is `flake.nix` file. so you can use it as flake input and develop as `nix develop .`. more information about [nix](https://nixos.wiki/wiki/Main_Page) and [nix flakes](https://nixos.wiki/wiki/Flakes).
+in the root is `flake.nix` file. so you can use it as flake input and develop with `nix develop`.
+more information about [nix](https://nixos.wiki/wiki/Main_Page) and [nix flakes](https://nixos.wiki/wiki/Flakes).
 
-there is no `make install` target. just copy the `ascip.hpp` and `ascip` to directory where your compiler will find it, or pass `-I(path_to_ascip_dir)` to compiler.
+there is no `make install` target.
+for install copy the `ascip.hpp` and `ascip` to directory where your compiler will find it,
+or pass `-I$(path_to_ascip_dir)` to compiler.
 ## parser list
 here is a list of available parsers. you can find examples below
 - `int_` an integer if it can to be stored to result
 - `d10` or `digit` for parser 0-9
 - `lower` and `upper` for parse ascii lower or upper letters. and `letter` is a `lower` or `upper`.
 - `space` means spaces
-- `any` parses any character (if the character is not an ascii store (use `push_back`) it in result)
+- `any` parses any character (if the character is not an ascii store (use `push_back`) it in the result)
 - `nl` parses new line character
 - `quoted_string` parsers string in single or double-quoted with escaping character \\. also `dquoted_string` parses only string and double quotes and `squoted_string` - single.
 - `char_<'a'>` char with concrete value (it can to be wide char and so on). and `_char<'a'>` is same with omitted value.
 - `lit<"string">` is a string literal. please note the string literal right inside the template parameter. unfortunatly it can to be called only with template keyword, or, with same way as terms parsers, but using `sterm` insead of `term` or `tmpl`.
-- `operator |` for parse variant. the result will be created with 1) `template<auto ind> create(auto& var)` method or with 2) `template<auto ind> constexpr auto& emplace()` method. or 3) the result will be used as is
+- `operator |` for parse variant. the result will be created with 1) `template<auto ind> create(auto& var)` method or with 2) `template<auto ind> constepxr auto& emplace(auto &var)` 3) `template<auto ind> constexpr auto& emplace()` method. or 4) the result will be used as is
 - `operator !` for negate parser
 - `unary -` for parse optional value. if there is no value, the default constructor will be used.
 - `binary -` for parse one value except other
@@ -37,7 +49,7 @@ here is a list of available parsers. you can find examples below
 - `>` for sequence parser. it causes an error if the parser fails with a message "unknown" (see must method).
 - `check` method checks that the parser got as a result exactly required type
 - `cast` method try to `static_cast` gotten a result to the required type. it is useful for parse to struct with inheritance as a result due to language limitations. see example below.
-- `rv` method for parse reverse variant with left recursion. see example below. the result will be create same way as in the `|` operator.
+- `rv` method for parse reverse variant with left recursion. see example below. the result will be created same way as in the `|` operator.
 
 with sequence parser can be used
 - `cur_shift` for store to its result current shift position from sequence start
