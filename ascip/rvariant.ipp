@@ -83,17 +83,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const requires ( ascip_details::is_in_concept_check(decltype(ctx){}) ) {
 		return 0;
 	}
-	template<auto ind, auto cnt, auto cur, typename cur_parser, typename... tail>
-	constexpr static auto _cur_ind() {
-		constexpr const bool skip = is_top_result_parser<cur_parser>();
-		if constexpr (ind == cnt) {
-			if constexpr (skip) return -1;
-			else return cur;
-		}
-		else return _cur_ind<ind,cnt+1,cur+(!skip),tail...>();
-	}
 	template<auto ind> consteval static auto cur_ind() {
-		/*
 		using cur_parser_t = std::decay_t<decltype(get<ind>(seq))>;
 		if constexpr (is_top_result_parser<cur_parser_t>()) return -1;
 		else {
@@ -102,8 +92,6 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 			(void)( ((ind==cnt)||(++cnt,cur+=!is_top_result_parser<parsers>(),false)) || ... );
 			return cur;
 		}
-		*/
-		return _cur_ind<ind,0,0,parsers...>();
 	}
 	constexpr auto move_result(auto& result) const {
 		if constexpr (std::is_same_v<decltype(result), ascip_details::type_any_eq_allow&>) return result;
