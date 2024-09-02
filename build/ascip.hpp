@@ -2168,7 +2168,7 @@ template<typename type> constexpr static auto num_field_val() {
 	else return 0;
 }
 
-static struct seq_inc_rfield : base_parser<seq_inc_rfield> {constexpr parse_result parse(auto&&,auto,auto&)const {return 0;} } sfs ;
+constexpr static struct seq_inc_rfield : base_parser<seq_inc_rfield> {constexpr parse_result parse(auto&&,auto,auto&)const {return 0;} } sfs{} ;
 template<ascip_details::parser parser> struct seq_inc_rfield_after : base_parser<seq_inc_rfield_after<parser>> {
 	constexpr seq_inc_rfield_after() =default ;
 	constexpr seq_inc_rfield_after(seq_inc_rfield_after&&) noexcept =default ;
@@ -2219,7 +2219,6 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 			return requires{ p->seq; } && !requires{ static_cast<const com_seq_parser<concrete, parsers...>*>(p); };
 		});
 	}
-	//TODO: make construction like --parser++ works as expected (decriment result field now and increment after this parser)
 	template<typename type> constexpr static bool is_field_separator = _exists_in<type>([](const auto* p){return requires{ static_cast<const seq_inc_rfield*>(p); };});
 	template<typename type> constexpr static bool is_inc_field_val = _exists_in<type>(is_spec_checker<seq_inc_rfield_val>);
 	template<typename type> constexpr static bool is_num_field_val = _exists_in<type>(is_spec_checker<seq_num_rfield_val>);

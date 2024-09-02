@@ -35,6 +35,24 @@ static_assert( []{
 	return  (pr==2) + 2*(r.f=='a');
 }() == 3 );
 
+struct dec_and_inc {
+	char a;
+	char b;
+	char c;
+	constexpr static auto gram() {
+		// 1. a=>1, ind=1
+		// 2. ind=0, b=>a, ind=1
+		// 3. c=>b
+		return parser::char_<'a'>++ >> --parser::char_<'b'>++ >> parser::char_<'c'>;
+	}
+};
+
+static_assert( []{
+	dec_and_inc r;
+	auto pr = parse(dec_and_inc::gram(), +parser::space, parser::make_source("abc"), r);
+	return (pr==3) + 2*(r.a=='b') + 4*(r.b=='c');
+ }() == 7 );
+
 int main(int,char**) {
 	return 0;
 }
