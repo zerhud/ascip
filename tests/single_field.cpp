@@ -11,18 +11,59 @@ struct single_field {
 		return parser::_char<'b'> >> -fnum<0>(parser::char_<'a'>);
 	}
 };
-
 using gram_type = std::decay_t<decltype(single_field::gram())>;
+constexpr auto simple_seq = parser::_char<'b'> >> -fnum<0>(parser::char_<'a'>);
+constexpr auto simple_seq_inj = parser::inject_skipping(simple_seq, +parser::space);
+constexpr auto neasted_parser = parser::char_<'a'> >> *(parser::char_<'a'> >> fnum<0>(parser::char_<'b'>));
+struct single_field2 {
+	char f;
+
+	constexpr static auto gram() {
+		return simple_seq;
+		//return parser::_char<'b'> >> -fnum<0>(parser::char_<'a'>);
+	}
+};
+
 //static_assert( single_field::gram().bar() );
 static_assert( parser::exists_in(static_cast<const gram_type*>(nullptr),
 			[](const auto* p){
-				//std::decay_t<decltype(p)>::foo();
-				//return ascip_details::is_specialization_of<std::decay_t<decltype(p)>, parser::seq_num_rfield_val>;
-				return requires{ p->num_val; };
+				return ascip_details::is_specialization_of<std::decay_t<decltype(*p)>, parser::seq_num_rfield_val>;
 			},
 			[](const auto* p){ return false; }
 			) );
 
+static_assert( !parser::exists_in(&neasted_parser,
+			[](const auto* p){
+				return ascip_details::is_specialization_of<std::decay_t<decltype(*p)>, parser::seq_num_rfield_val>;
+			},
+			[](const auto* p){
+				return requires{ p->seq; } && !requires{ static_cast<decltype(&neasted_parser)>(p); };
+			}
+			) );
+static_assert( parser::exists_in(&simple_seq,
+								 [](const auto* p){return std::is_same_v<parser::char_parser<'b'>,std::decay_t<decltype(*p)>>; },
+								 [](const auto* p){return false; })
+								 );
+static_assert( parser::exists_in(&simple_seq_inj,
+                                 [](const auto* p){
+	return requires{p->num_val;};
+	//return std::is_same_v<parser::char_parser<'b'>,std::decay_t<decltype(*p)>>;
+	},
+                                 [](const auto* p){return false; })
+);
+//static_assert( decltype(simple_seq_inj){}.is_num_field_val<decltype(simple_seq_inj)> );
+//static_assert( simple_seq_inj.is_struct_requires_pd );
+//static_assert( (parser::char_<'b'> >> fnum<0>(parser::char_<'a'>)).is_struct_requires_pd  );
+static_assert( parser::inject_skipping(parser::char_<'b'> >> fnum<0>(parser::char_<'a'>), +parser::space).is_struct_requires_pd );
+//static_assert( parser::inject_skipping(single_field2::gram(), +parser::space).is_struct_requires_pd );
+//static_assert( single_field::gram().is_struct_requires_pd );
+//static_assert( single_field::gram().is_num_field_val<gram_type> );
+//static_assert( parser::inject_skipping(single_field::gram(), +parser::space).foo() );
+using cur_t = std::decay_t<decltype(parser::inject_skipping(single_field::gram(), +parser::space))>;
+//static_assert( cur_t{}.foo() );
+//static_assert( cur_t{}.is_num_field_val<cur_t> );
+//static_assert( cur_t{}.is_struct_requires_pd );
+//static_assert( parser::inject_skipping(single_field::gram(), +parser::space).is_struct_requires_pd );
 /*
 static_assert( []{
 	single_field r;

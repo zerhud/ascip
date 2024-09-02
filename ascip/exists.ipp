@@ -20,6 +20,11 @@ constexpr static bool exists_in_get(const wrapper<parsers...>* seq, const auto& 
 }
 template<template<typename>class wrapper, typename parser>
 constexpr static bool exists_in_derived(const wrapper<parser>* src, const auto& checker, const auto& stop) {
+	if(stop(src)) return false;
+	if(checker(src)) return true;
+	//src->bar();
+	//TODO: add _seq_num_rfield_val overload: it uses auto as temlate argument
+	static_cast<const parser*>(src)->baz();
 	return exists_in(static_cast<const parser*>(src), checker, stop);
 }
 
@@ -27,9 +32,14 @@ constexpr static bool exists_in(auto&& src, const auto& checker, const auto& sto
 	return exists_in(&src, checker, stop);
 }
 
+constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) requires (!requires{typename std::decay_t<decltype(*src)>::type_in_base;}){
+	return false;
+}
 constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) {
+	if(stop(src)) return false;
+	if(checker(src)) return true;
 	if constexpr (std::is_same_v<typename std::decay_t<decltype(*src)>::type_in_base, std::decay_t<decltype(*src)>>)
-		return stop(src) ? false : checker(src);
+		return checker(src);
 	else return exists_in_derived(src, checker, stop);
 }
 constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) requires requires{ src->p; } {
@@ -56,7 +66,9 @@ constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop
 constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) requires requires{ src->s; src->b; } {
 	//NOTE: it's for injected_parser, but without forward declaration
 	if(stop(src)) return false;
-	return exists_in((std::decay_t<decltype(src->b)>*)nullptr, checker, stop) ; }
+	const auto* ptr = static_cast<const std::decay_t<decltype(src->b)>*>(nullptr);
+	if(checker(ptr)) return true;
+	return exists_in(ptr, checker, stop) ; }
 
 constexpr static bool test_exists_in() {
 	auto checker = [](const auto* s){ return std::is_same_v<std::decay_t<decltype(*s)>, std::decay_t<decltype(char_<'a'>)>>; };

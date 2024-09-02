@@ -438,6 +438,8 @@ template<parser p> constexpr auto operator--(p&& l) {
 	return typename std::decay_t<p>::holder::template seq_dec_rfield_before<std::decay_t<p>>{ std::forward<p>(l) }; }
 template<parser p> constexpr auto operator--(p&& l,int) {
 	return typename std::decay_t<p>::holder::template seq_dec_rfield_after<std::decay_t<p>>{ std::forward<p>(l) }; }
+template<parser p> constexpr auto operator-(p&& _p) {
+	return typename std::decay_t<p>::holder::template opt_parser<std::decay_t<p>>{ _p }; }
 
 
 } // namespace ascip_details
@@ -725,7 +727,6 @@ constexpr auto operator|(const ascip_details::nonparser auto& p2) const {
 constexpr auto operator!() const {
 	return negate_parser<parser>{ static_cast<const parser&>(*this) };
 }
-constexpr auto operator-()const{ return opt_parser<parser>{ static_cast<const parser&>(*this) }; }
 constexpr auto operator+()const{ return unary_list_parser<parser>{ static_cast<const parser&>(*this) }; }
 constexpr auto operator*()const{ return -( +(static_cast<const parser&>(*this)) ); }
 
@@ -933,6 +934,8 @@ constexpr static bool exists_in_get(const wrapper<parsers...>* seq, const auto& 
 }
 template<template<typename>class wrapper, typename parser>
 constexpr static bool exists_in_derived(const wrapper<parser>* src, const auto& checker, const auto& stop) {
+	if(stop(src)) return false;
+	if(checker(src)) return true;
 	return exists_in(static_cast<const parser*>(src), checker, stop);
 }
 
@@ -940,9 +943,13 @@ constexpr static bool exists_in(auto&& src, const auto& checker, const auto& sto
 	return exists_in(&src, checker, stop);
 }
 
+constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) requires (!requires{typename std::decay_t<decltype(*src)>::type_in_base;}){
+	return false;
+}
 constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) {
+	if(stop(src)) return false;
 	if constexpr (std::is_same_v<typename std::decay_t<decltype(*src)>::type_in_base, std::decay_t<decltype(*src)>>)
-		return stop(src) ? false : checker(src);
+		return checker(src);
 	else return exists_in_derived(src, checker, stop);
 }
 constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) requires requires{ src->p; } {
@@ -2182,10 +2189,16 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 	constexpr com_seq_parser(auto&&... args) requires (sizeof...(parsers) == sizeof...(args)) : seq( static_cast<decltype(args)&&>(args)... ) {}
 	constexpr com_seq_parser(const com_seq_parser&) =default ;
 
+	constexpr static auto is_req_parser_ptr = [](const auto* p){
+		return requires{ p->seq; } && !requires{ static_cast<const com_seq_parser<concrete, parsers...>*>(p); };
+	};
 	//TODO: make construction like --parser++ works as expected (decriment result field now and increment after this parser)
 	template<typename type> constexpr static bool is_field_separator = requires(type&p){ static_cast<const seq_inc_rfield&>(p); };
 	template<typename type> constexpr static bool is_inc_field_val = ascip_details::is_specialization_of<type, seq_inc_rfield_val>;
-	template<typename type> constexpr static bool is_num_field_val = ascip_details::is_specialization_of<type, seq_num_rfield_val>;
+	//template<typename type> constexpr static bool is_num_field_val = ascip_details::is_specialization_of<std::decay_t<type>, seq_num_rfield_val>;
+	template<typename type> constexpr static bool is_num_field_val = exists_in(static_cast<const type*>(nullptr),
+			[](const auto* p){ return ascip_details::is_specialization_of<std::decay_t<decltype(*p)>, seq_num_rfield_val>; }, 
+			is_req_parser_ptr);
 	template<typename type> constexpr static bool is_inc_field_after = ascip_details::is_specialization_of<type, seq_inc_rfield_after>;
 	template<typename type> constexpr static bool is_inc_field_before = ascip_details::is_specialization_of<type, seq_inc_rfield_before>;
 	template<typename type> constexpr static bool is_dec_field_after = ascip_details::is_specialization_of<type, seq_dec_rfield_after>;
@@ -2196,10 +2209,11 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 		 (is_dec_field_after<types> + ...) + (is_dec_field_before<types> + ...) +
 		 (is_num_field_val<types> + ...)
 		) > 0;
+	constexpr static bool is_struct_requires_pd = is_struct_requires<parsers...>;
 
 	constexpr auto on_error(auto val) const { return static_cast<const concrete*>(this)->on_error(val); }
 
-	template<auto find> constexpr auto call_parse(ascip_details::parser auto& p, auto&& ctx, auto src, auto& result) const requires is_struct_requires<parsers...> {
+	template<auto find> constexpr auto call_parse(ascip_details::parser auto& p, auto&& ctx, auto src, auto& result) const requires is_struct_requires_pd {
 		if constexpr (is_field_separator<decltype(auto(p))>) return p.parse(ctx, src, result);
 		else if constexpr ( std::is_same_v<std::decay_t<decltype(result)>, ascip_details::type_any_eq_allow> )
 			return p.parse(ctx, src, result);
@@ -2207,7 +2221,7 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 			return p.parse(ctx, src, ascip_reflection::get<find>(result));
 		}
 	}
-	template<auto find> constexpr auto call_parse(ascip_details::parser auto& p, auto&& ctx, auto src, auto& result) const requires (!is_struct_requires<parsers...>) {
+	template<auto find> constexpr auto call_parse(ascip_details::parser auto& p, auto&& ctx, auto src, auto& result) const requires (!is_struct_requires_pd) {
 		return p.parse(ctx, src, result);
 	}
 	template<auto find> constexpr auto call_parse(auto& p, auto&& ctx, auto src, auto& result) const requires (!ascip_details::parser<decltype(auto(p))>) {
