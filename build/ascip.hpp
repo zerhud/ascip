@@ -361,8 +361,9 @@ template<auto cnt, parser type> constexpr auto finc(type&& p) {
 	using inc_type = typename std::decay_t<type>::holder::template _seq_inc_rfield_val<cnt,std::decay_t<type>>;
 	return typename std::decay_t<type>::holder::template seq_inc_rfield_val<inc_type>{ inc_type{std::forward<decltype(p)>(p)} }; }
 template<auto cnt, parser type> constexpr auto fnum(type&& p) {
-	using num_type = typename std::decay_t<type>::holder::template _seq_num_rfield_val<cnt,std::decay_t<type>>;
-	return typename std::decay_t<type>::holder::template seq_num_rfield_val<num_type>{ num_type{std::forward<decltype(p)>(p)} }; }
+	using p_type = std::decay_t<type>;
+	using num_type = typename std::decay_t<type>::holder::template _seq_num_rfield_val<cnt>;
+	return typename std::decay_t<type>::holder::template seq_num_rfield_val<p_type, num_type>{ std::forward<decltype(p)>(p) }; }
 template<string_literal msg, parser type> constexpr auto must(type&& p) {
 	return typename std::decay_t<type>::holder::template seq_error_parser<msg, std::decay_t<type>>{ std::forward<decltype(p)>(p) }; }
 template<parser type> constexpr auto lexeme(type&& p) {
@@ -948,6 +949,7 @@ constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop
 }
 constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) {
 	if(stop(src)) return false;
+	if(checker(src)) return true;
 	if constexpr (std::is_same_v<typename std::decay_t<decltype(*src)>::type_in_base, std::decay_t<decltype(*src)>>)
 		return checker(src);
 	else return exists_in_derived(src, checker, stop);
@@ -976,7 +978,9 @@ constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop
 constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) requires requires{ src->s; src->b; } {
 	//NOTE: it's for injected_parser, but without forward declaration
 	if(stop(src)) return false;
-	return exists_in((std::decay_t<decltype(src->b)>*)nullptr, checker, stop) ; }
+	const auto* ptr = static_cast<const std::decay_t<decltype(src->b)>*>(nullptr);
+	if(checker(ptr)) return true;
+	return exists_in(ptr, checker, stop) ; }
 
 constexpr static bool test_exists_in() {
 	auto checker = [](const auto* s){ return std::is_same_v<std::decay_t<decltype(*s)>, std::decay_t<decltype(char_<'a'>)>>; };
@@ -2136,15 +2140,23 @@ struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind, ctx_chunk_si
 template<auto ind> constexpr static auto req = seq_reqursion_parser<ind, 4, 1>{};
 
 template<auto cnt, ascip_details::parser p> struct _seq_inc_rfield_val : p { constexpr static auto inc_val = cnt; };
-template<auto cnt, ascip_details::parser p> struct _seq_num_rfield_val : p { constexpr static auto num_val = cnt; };
+template<auto cnt> struct _seq_num_rfield_val { constexpr static auto num_val = cnt; };
 template<ascip_details::parser p> struct seq_inc_rfield_val : p { };
-template<ascip_details::parser p> struct seq_num_rfield_val : p { };
+template<ascip_details::parser parser, typename val> struct seq_num_rfield_val : base_parser<seq_num_rfield_val<parser, val>> {
+	constexpr seq_num_rfield_val() =default ;
+	constexpr seq_num_rfield_val(seq_num_rfield_val&&) noexcept =default ;
+	constexpr seq_num_rfield_val(const seq_num_rfield_val&) noexcept =default ;
+	constexpr explicit seq_num_rfield_val(parser p) : p(std::move(p)) {}
+	parser p;
+
+	constexpr static auto value = val::num_val;
+};
 template<typename type> constexpr static auto inc_field_val() {
 	if constexpr (ascip_details::is_specialization_of<type, seq_inc_rfield_val>) return type::inc_val;
 	else return 0;
 }
 template<typename type> constexpr static auto num_field_val() {
-	if constexpr (ascip_details::is_specialization_of<type, seq_num_rfield_val>) return type::num_val;
+	if constexpr (ascip_details::is_specialization_of<type, seq_num_rfield_val>) return type::value;
 	else return 0;
 }
 
@@ -2190,14 +2202,14 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 	constexpr com_seq_parser(const com_seq_parser&) =default ;
 
 	constexpr static auto is_req_parser_ptr = [](const auto* p){
-		return requires{ p->seq; } && !requires{ static_cast<const com_seq_parser<concrete, parsers...>*>(p); };
+		return false;
+		//return requires{ p->seq; } && !requires{ static_cast<const com_seq_parser<concrete, parsers...>*>(p); };
 	};
 	//TODO: make construction like --parser++ works as expected (decriment result field now and increment after this parser)
 	template<typename type> constexpr static bool is_field_separator = requires(type&p){ static_cast<const seq_inc_rfield&>(p); };
 	template<typename type> constexpr static bool is_inc_field_val = ascip_details::is_specialization_of<type, seq_inc_rfield_val>;
-	//template<typename type> constexpr static bool is_num_field_val = ascip_details::is_specialization_of<std::decay_t<type>, seq_num_rfield_val>;
 	template<typename type> constexpr static bool is_num_field_val = exists_in(static_cast<const type*>(nullptr),
-			[](const auto* p){ return ascip_details::is_specialization_of<std::decay_t<decltype(*p)>, seq_num_rfield_val>; }, 
+			[](const auto* p){ return ascip_details::is_specialization_of<std::decay_t<decltype(*p)>, seq_num_rfield_val>; },
 			is_req_parser_ptr);
 	template<typename type> constexpr static bool is_inc_field_after = ascip_details::is_specialization_of<type, seq_inc_rfield_after>;
 	template<typename type> constexpr static bool is_inc_field_before = ascip_details::is_specialization_of<type, seq_inc_rfield_before>;
@@ -2496,10 +2508,6 @@ template<typename mutator, auto val, typename type>
 constexpr static auto transform_special(_seq_inc_rfield_val<val,type>&& src, auto& ctx) {
 	return transform_apply<mutator>(finc<val>(transform<mutator>(static_cast<type&&>(src), ctx)), ctx);
 }
-template<typename mutator, auto val, typename type>
-constexpr static auto transform_special(_seq_num_rfield_val<val,type>&& src, auto& ctx) {
-	return transform_apply<mutator>(fnum<val>(transform<mutator>(static_cast<type&&>(src), ctx)), ctx);
-}
 template<typename mutator, typename type, typename parser>
 constexpr static auto transform_special(cast_parser<type,parser>&& src, auto& ctx) {
 	return transform_apply<mutator>(cast<type>(transform<mutator>(std::move(src.p), ctx)), ctx);
@@ -2631,7 +2639,7 @@ constexpr static bool test_transform_modify_leaf() {
 		test_transform_t_to_p(p).parse(make_test_ctx(), make_source("a"), r);
 	r;}) == 'a' );
 	static_assert( std::is_same_v<seq_inc_rfield_val<_seq_inc_rfield_val<1,test_parser2>>, decltype(test_transform_t_to_p(finc<1>(test_parser{})))> );
-	static_assert( std::is_same_v<seq_num_rfield_val<_seq_num_rfield_val<1,test_parser2>>, decltype(test_transform_t_to_p(fnum<1>(test_parser{})))> );
+	static_assert( std::is_same_v<seq_num_rfield_val<test_parser2, _seq_num_rfield_val<1>>, decltype(test_transform_t_to_p(fnum<1>(test_parser{})))> );
 	static_assert( std::is_same_v<cast_parser<int,test_parser2>, decltype(test_transform_t_to_p(cast<int>(test_parser{})))> );
 	static_assert( std::is_same_v<result_checker_parser<int,test_parser2>, decltype(test_transform_t_to_p(check<int>(test_parser{})))> );
 
@@ -2851,7 +2859,7 @@ constexpr static bool test_seq_injection() {
 
 	(void)static_cast<const result_checker_parser<int, inj_t>&>(inject_skipping( check<int>(p1), p2 ));
 	(void)static_cast<const result_checker_parser<int, opt_seq_parser<inj_t,inj_t>>&>(inject_skipping( check<int>(p1 >> p1), p2 ));
-	(void)static_cast<const result_checker_parser<int, opt_seq_parser<inj_t,seq_num_rfield_val<_seq_num_rfield_val<2,inj_t>>>>&>(inject_skipping( check<int>(p1 >> fnum<2>(p1)), p2 ));
+	(void)static_cast<const result_checker_parser<int, opt_seq_parser<inj_t,seq_num_rfield_val<inj_t, _seq_num_rfield_val<2>>>>&>(inject_skipping( check<int>(p1 >> fnum<2>(p1)), p2 ));
 	{
 		auto rmaker = [](auto& r){ r.reset(new (std::decay_t<decltype(*r)>){}); return r.get(); };
 		auto var = rv(rmaker, p1, p1);

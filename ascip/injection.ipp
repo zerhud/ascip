@@ -182,7 +182,7 @@ constexpr static bool test_seq_injection() {
 
 	(void)static_cast<const result_checker_parser<int, inj_t>&>(inject_skipping( check<int>(p1), p2 ));
 	(void)static_cast<const result_checker_parser<int, opt_seq_parser<inj_t,inj_t>>&>(inject_skipping( check<int>(p1 >> p1), p2 ));
-	(void)static_cast<const result_checker_parser<int, opt_seq_parser<inj_t,seq_num_rfield_val<_seq_num_rfield_val<2,inj_t>>>>&>(inject_skipping( check<int>(p1 >> fnum<2>(p1)), p2 ));
+	(void)static_cast<const result_checker_parser<int, opt_seq_parser<inj_t,seq_num_rfield_val<inj_t, _seq_num_rfield_val<2>>>>&>(inject_skipping( check<int>(p1 >> fnum<2>(p1)), p2 ));
 	{
 		auto rmaker = [](auto& r){ r.reset(new (std::decay_t<decltype(*r)>){}); return r.get(); };
 		auto var = rv(rmaker, p1, p1);

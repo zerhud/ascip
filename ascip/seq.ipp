@@ -74,15 +74,23 @@ struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind, ctx_chunk_si
 template<auto ind> constexpr static auto req = seq_reqursion_parser<ind, 4, 1>{};
 
 template<auto cnt, ascip_details::parser p> struct _seq_inc_rfield_val : p { constexpr static auto inc_val = cnt; };
-template<auto cnt, ascip_details::parser p> struct _seq_num_rfield_val : p { constexpr static auto num_val = cnt; };
+template<auto cnt> struct _seq_num_rfield_val { constexpr static auto num_val = cnt; };
 template<ascip_details::parser p> struct seq_inc_rfield_val : p { };
-template<ascip_details::parser p> struct seq_num_rfield_val : p { };
+template<ascip_details::parser parser, typename val> struct seq_num_rfield_val : base_parser<seq_num_rfield_val<parser, val>> {
+	constexpr seq_num_rfield_val() =default ;
+	constexpr seq_num_rfield_val(seq_num_rfield_val&&) noexcept =default ;
+	constexpr seq_num_rfield_val(const seq_num_rfield_val&) noexcept =default ;
+	constexpr explicit seq_num_rfield_val(parser p) : p(std::move(p)) {}
+	parser p;
+
+	constexpr static auto value = val::num_val;
+};
 template<typename type> constexpr static auto inc_field_val() {
 	if constexpr (ascip_details::is_specialization_of<type, seq_inc_rfield_val>) return type::inc_val;
 	else return 0;
 }
 template<typename type> constexpr static auto num_field_val() {
-	if constexpr (ascip_details::is_specialization_of<type, seq_num_rfield_val>) return type::num_val;
+	if constexpr (ascip_details::is_specialization_of<type, seq_num_rfield_val>) return type::value;
 	else return 0;
 }
 
@@ -134,13 +142,8 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 	//TODO: make construction like --parser++ works as expected (decriment result field now and increment after this parser)
 	template<typename type> constexpr static bool is_field_separator = requires(type&p){ static_cast<const seq_inc_rfield&>(p); };
 	template<typename type> constexpr static bool is_inc_field_val = ascip_details::is_specialization_of<type, seq_inc_rfield_val>;
-	//template<typename type> constexpr static bool is_num_field_val = ascip_details::is_specialization_of<std::decay_t<type>, seq_num_rfield_val>;
 	template<typename type> constexpr static bool is_num_field_val = exists_in(static_cast<const type*>(nullptr),
-			[](const auto* p){
-		if constexpr(!requires{static_cast<const char_parser<'b'>*>(p);} && !requires{static_cast<const char_parser<'a'>*>(p);})
-			p->foo();
-		return /*ascip_details::is_specialization_of<std::decay_t<decltype(*p)>, seq_num_rfield_val>*/requires{p->num_val;};
-		},
+			[](const auto* p){ return ascip_details::is_specialization_of<std::decay_t<decltype(*p)>, seq_num_rfield_val>; },
 			is_req_parser_ptr);
 	template<typename type> constexpr static bool is_inc_field_after = ascip_details::is_specialization_of<type, seq_inc_rfield_after>;
 	template<typename type> constexpr static bool is_inc_field_before = ascip_details::is_specialization_of<type, seq_inc_rfield_before>;

@@ -22,9 +22,6 @@ template<template<typename>class wrapper, typename parser>
 constexpr static bool exists_in_derived(const wrapper<parser>* src, const auto& checker, const auto& stop) {
 	if(stop(src)) return false;
 	if(checker(src)) return true;
-	//src->bar();
-	//TODO: add _seq_num_rfield_val overload: it uses auto as temlate argument
-	static_cast<const parser*>(src)->baz();
 	return exists_in(static_cast<const parser*>(src), checker, stop);
 }
 
