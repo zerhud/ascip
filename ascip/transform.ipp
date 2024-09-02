@@ -30,9 +30,15 @@ constexpr static auto transform_apply_to_each(i_tuple<tail...>&& src, auto& ctx,
 			);
 	else return  transform_apply_to_each<mutator, result_t, ind..., sizeof...(ind)>(std::move(src), ctx, std::forward<decltype(args)>(args)...);
 }
-template<typename mutator, auto val, typename type>
-constexpr static auto transform_special(_seq_inc_rfield_val<val,type>&& src, auto& ctx) {
-	return transform_apply<mutator>(finc<val>(transform<mutator>(static_cast<type&&>(src), ctx)), ctx);
+template<typename mutator, typename value, typename type>
+constexpr static auto transform_special(seq_inc_rfield_val<type, value>&& src, auto& ctx) {
+	constexpr auto num = seq_inc_rfield_val<type, value>::value;
+	return transform_apply<mutator>(finc<num>(transform<mutator>(std::move(src.p), ctx)), ctx);
+}
+template<typename mutator, ascip_details::parser ptype, typename value>
+constexpr static auto transform_special(seq_num_rfield_val<ptype, value>&& src, auto& ctx) {
+	constexpr auto num = seq_num_rfield_val<ptype, value>::value;
+	return transform_apply<mutator>(fnum<num>(transform<mutator>(std::move(src.p), ctx)), ctx);
 }
 template<typename mutator, typename type, typename parser>
 constexpr static auto transform_special(cast_parser<type,parser>&& src, auto& ctx) {
@@ -164,8 +170,8 @@ constexpr static bool test_transform_modify_leaf() {
 		auto p = char_<'a'> >> [&nc](...){ return 0; };
 		test_transform_t_to_p(p).parse(make_test_ctx(), make_source("a"), r);
 	r;}) == 'a' );
-	static_assert( std::is_same_v<seq_inc_rfield_val<_seq_inc_rfield_val<1,test_parser2>>, decltype(test_transform_t_to_p(finc<1>(test_parser{})))> );
-	static_assert( std::is_same_v<seq_num_rfield_val<test_parser2, _seq_num_rfield_val<1>>, decltype(test_transform_t_to_p(fnum<1>(test_parser{})))> );
+	static_assert( std::is_same_v<seq_inc_rfield_val<test_parser2, _seq_rfield_val<1>>, decltype(test_transform_t_to_p(finc<1>(test_parser{})))> );
+	static_assert( std::is_same_v<seq_num_rfield_val<test_parser2, _seq_rfield_val<1>>, decltype(test_transform_t_to_p(fnum<1>(test_parser{})))> );
 	static_assert( std::is_same_v<cast_parser<int,test_parser2>, decltype(test_transform_t_to_p(cast<int>(test_parser{})))> );
 	static_assert( std::is_same_v<result_checker_parser<int,test_parser2>, decltype(test_transform_t_to_p(check<int>(test_parser{})))> );
 

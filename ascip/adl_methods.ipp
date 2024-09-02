@@ -26,11 +26,12 @@ template<typename result, parser type> constexpr auto cast(type&& p){
 	return typename std::decay_t<type>::holder::template cast_parser<result, std::decay_t<type>>{ {}, std::forward<decltype(p)>(p) }; }
 
 template<auto cnt, parser type> constexpr auto finc(type&& p) {
-	using inc_type = typename std::decay_t<type>::holder::template _seq_inc_rfield_val<cnt,std::decay_t<type>>;
-	return typename std::decay_t<type>::holder::template seq_inc_rfield_val<inc_type>{ inc_type{std::forward<decltype(p)>(p)} }; }
+	using p_type = std::decay_t<type>;
+	using inc_type = typename std::decay_t<type>::holder::template _seq_rfield_val<cnt>;
+	return typename std::decay_t<type>::holder::template seq_inc_rfield_val<p_type, inc_type>{ std::forward<decltype(p)>(p) }; }
 template<auto cnt, parser type> constexpr auto fnum(type&& p) {
 	using p_type = std::decay_t<type>;
-	using num_type = typename std::decay_t<type>::holder::template _seq_num_rfield_val<cnt>;
+	using num_type = typename std::decay_t<type>::holder::template _seq_rfield_val<cnt>;
 	return typename std::decay_t<type>::holder::template seq_num_rfield_val<p_type, num_type>{ std::forward<decltype(p)>(p) }; }
 template<string_literal msg, parser type> constexpr auto must(type&& p) {
 	return typename std::decay_t<type>::holder::template seq_error_parser<msg, std::decay_t<type>>{ std::forward<decltype(p)>(p) }; }
