@@ -32,19 +32,13 @@ template<ascip_details::parser... parsers> struct variant_parser : base_parser<v
 		else return _cur_ind<ind,cnt+1,cur+(!skip),tail...>();
 	}
 	template<auto ind> consteval static auto cur_ind() { return _cur_ind<ind,0,0,parsers...>(); }
-	//TODO: make current result with if constexpr with the this sequence: create, adl emplace, inner emplace
-	template<auto ind> constexpr auto& current_result(auto& result) const
-	requires requires{ create<1>(result); } {
-		if constexpr (cur_ind<ind>()<0) return result;
-		else return create<cur_ind<ind>()>(result);
-	}
-	template<auto ind> constexpr auto& current_result(auto& result) const
-	requires (requires{ result.template emplace<1>(); } && !requires{ create<1>(result); }) {
-		if constexpr (cur_ind<ind>()<0) return result;
-		else return result.template emplace<cur_ind<ind>()>();
-	}
 	template<auto ind> constexpr auto& current_result(auto& result) const {
-		return result;
+		constexpr auto cind = cur_ind<ind>();
+		if constexpr (cind<0) return result;
+		else if constexpr (requires{create<0>(result);}) return create<cind>(result);
+		else if constexpr (requires{emplace<0>(result);}) return emplace<cind>(result);
+		else if constexpr (requires{result.template emplace<0>();}) return result.template emplace<cind>();
+		else return result;
 	}
 	template<auto ind> constexpr auto parse_ind(auto&& ctx, auto& src, auto& result) const {
 		auto parse_ctx = make_ctx<variant_pos_tag>(variant_pos_value<ind>{}, ctx);
