@@ -329,6 +329,13 @@ constexpr auto init_with_get_inv(const src_t<src_args_t...>& src, args_t&&... ar
 	else return init_with_get_inv<init_t, inds..., sizeof...(inds)>(src, static_cast<args_t&&>(args)...);
 }
 
+template<auto cind> constexpr auto& variant_result(auto& result) {
+	if constexpr (cind<0) return result;
+	else if constexpr (requires{create<0>(result);}) return create<cind>(result);
+	else if constexpr (requires{emplace<0>(result);}) return emplace<cind>(result);
+	else if constexpr (requires{result.template emplace<0>();}) return result.template emplace<cind>();
+	else return result;
+}
 
        
 
@@ -1599,23 +1606,9 @@ template<ascip_details::parser... parsers> struct variant_parser : base_parser<v
 		else return _cur_ind<ind,cnt+1,cur+(!skip),tail...>();
 	}
 	template<auto ind> consteval static auto cur_ind() { return _cur_ind<ind,0,0,parsers...>(); }
-	//TODO: make current result with if constexpr with the this sequence: create, adl emplace, inner emplace
-	template<auto ind> constexpr auto& current_result(auto& result) const
-	requires requires{ create<1>(result); } {
-		if constexpr (cur_ind<ind>()<0) return result;
-		else return create<cur_ind<ind>()>(result);
-	}
-	template<auto ind> constexpr auto& current_result(auto& result) const
-	requires (requires{ result.template emplace<1>(); } && !requires{ create<1>(result); }) {
-		if constexpr (cur_ind<ind>()<0) return result;
-		else return result.template emplace<cur_ind<ind>()>();
-	}
-	template<auto ind> constexpr auto& current_result(auto& result) const {
-		return result;
-	}
 	template<auto ind> constexpr auto parse_ind(auto&& ctx, auto& src, auto& result) const {
 		auto parse_ctx = make_ctx<variant_pos_tag>(variant_pos_value<ind>{}, ctx);
-		auto prs = [&](auto&& r){ return get<ind>(seq).parse(parse_ctx, src, current_result<ind>(r)); };
+		auto prs = [&](auto&& r){ return get<ind>(seq).parse(parse_ctx, src, ascip_details::variant_result<cur_ind<ind>()>(r)); };
 		if constexpr (ind+1 == sizeof...(parsers)) return prs(result);
 		else {
 			auto parse_result = prs(ascip_details::type_any_eq_allow{});
@@ -1761,7 +1754,6 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		else return _cur_ind<ind,cnt+1,cur+(!skip),tail...>();
 	}
 	template<auto ind> consteval static auto cur_ind() {
-		/*
 		using cur_parser_t = std::decay_t<decltype(get<ind>(seq))>;
 		if constexpr (is_top_result_parser<cur_parser_t>()) return -1;
 		else {
@@ -1770,14 +1762,9 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 			(void)( ((ind==cnt)||(++cnt,cur+=!is_top_result_parser<parsers>(),false)) || ... );
 			return cur;
 		}
+		/*
 		*/
-		return _cur_ind<ind,0,0,parsers...>();
-	}
-	template<auto ind> constexpr static auto& cur_result(auto& result) {
-		if constexpr (cur_ind<ind>() == -1) return result;
-		else if constexpr (requires{ create<1>(result); } ) return create<cur_ind<ind>()>(result);
-		else if constexpr (requires{ result.template emplace<1>(); } ) return result.template emplace<cur_ind<ind>()>();
-		else return result;
+		//return _cur_ind<ind,0,0,parsers...>();
 	}
 	constexpr auto move_result(auto& result) const {
 		if constexpr (std::is_same_v<decltype(result), ascip_details::type_any_eq_allow&>) return result;
@@ -1790,7 +1777,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		}
 		else if constexpr (!is_term<ind>()) return parse_term<ind-1>(ctx, src, result);
 		else {
-			auto cur = get<ind>(seq).parse(ctx, src, cur_result<ind>(result));
+			auto cur = get<ind>(seq).parse(ctx, src, ascip_details::variant_result<cur_ind<ind>()>(result));
 			if(0 <= cur) return cur;
 			if constexpr (ind==0) return cur;
 			else return parse_term<ind-1>(ctx, src, result);
@@ -1813,7 +1800,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 				auto cur = move_result(result);
 				if constexpr (!std::is_same_v<decltype(result), ascip_details::type_any_eq_allow&>)
 					search_in_ctx<rvariant_copied_result_tag>(ctx) = &cur;
-				src += get<ind>(seq).parse(ctx, src, cur_result<ind>(result));
+				src += get<ind>(seq).parse(ctx, src, ascip_details::variant_result<cur_ind<ind>()>(result));
 				pr = get<ind>(seq).parse(ctx, src, result_for_check);
 			}
 			auto total_shift = shift + (prev_pr*(prev_pr>0));

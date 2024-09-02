@@ -267,6 +267,13 @@ constexpr auto init_with_get_inv(const src_t<src_args_t...>& src, args_t&&... ar
 	else return init_with_get_inv<init_t, inds..., sizeof...(inds)>(src, static_cast<args_t&&>(args)...);
 }
 
+template<auto cind> constexpr auto& variant_result(auto& result) {
+	if constexpr (cind<0) return result;
+	else if constexpr (requires{create<0>(result);}) return create<cind>(result);
+	else if constexpr (requires{emplace<0>(result);}) return emplace<cind>(result);
+	else if constexpr (requires{result.template emplace<0>();}) return result.template emplace<cind>();
+	else return result;
+}
 
 #include "adl_methods.ipp"
 

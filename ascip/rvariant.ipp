@@ -105,12 +105,6 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		*/
 		return _cur_ind<ind,0,0,parsers...>();
 	}
-	template<auto ind> constexpr static auto& cur_result(auto& result) {
-		if constexpr (cur_ind<ind>() == -1) return result;
-		else if constexpr (requires{ create<1>(result); } ) return create<cur_ind<ind>()>(result);
-		else if constexpr (requires{ result.template emplace<1>(); } ) return result.template emplace<cur_ind<ind>()>();
-		else return result;
-	}
 	constexpr auto move_result(auto& result) const {
 		if constexpr (std::is_same_v<decltype(result), ascip_details::type_any_eq_allow&>) return result;
 		else return maker(result);
@@ -122,7 +116,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		}
 		else if constexpr (!is_term<ind>()) return parse_term<ind-1>(ctx, src, result);
 		else {
-			auto cur = get<ind>(seq).parse(ctx, src, cur_result<ind>(result));
+			auto cur = get<ind>(seq).parse(ctx, src, ascip_details::variant_result<cur_ind<ind>()>(result));
 			if(0 <= cur) return cur;
 			if constexpr (ind==0) return cur;
 			else return parse_term<ind-1>(ctx, src, result);
@@ -145,7 +139,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 				auto cur = move_result(result);
 				if constexpr (!std::is_same_v<decltype(result), ascip_details::type_any_eq_allow&>)
 					search_in_ctx<rvariant_copied_result_tag>(ctx) = &cur;
-				src += get<ind>(seq).parse(ctx, src, cur_result<ind>(result));
+				src += get<ind>(seq).parse(ctx, src, ascip_details::variant_result<cur_ind<ind>()>(result));
 				pr = get<ind>(seq).parse(ctx, src, result_for_check);
 			}
 			auto total_shift = shift + (prev_pr*(prev_pr>0));
