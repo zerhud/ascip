@@ -15,16 +15,12 @@ constexpr auto operator()(auto act) const {
 	};
 }
 
+//NOTE: the clang has trouble for some reason with the following operators
+
 constexpr auto operator!() const {
 	return negate_parser<parser>{ static_cast<const parser&>(*this) };
 }
-constexpr auto operator+()const{ return unary_list_parser<parser>{ static_cast<const parser&>(*this) }; }
-constexpr auto operator*()const{ return -( +(static_cast<const parser&>(*this)) ); }
-
 template<ascip_details::parser right> constexpr auto operator%(const right& r) const {
 	return binary_list_parser( static_cast<const parser&>(*this), r ); }
 constexpr auto operator%(char r)const{ return binary_list_parser( static_cast<const parser&>(*this), value_parser{r} ); }
-
-template<ascip_details::parser right> constexpr auto operator-(const right& r)const{
-	return different_parser( static_cast<const parser&>(*this), r ); }
 

@@ -110,6 +110,13 @@ template<parser p> constexpr auto operator--(p&& l,int) {
 	return typename std::decay_t<p>::holder::template seq_dec_rfield_after<std::decay_t<p>>{ std::forward<p>(l) }; }
 template<parser p> constexpr auto operator-(p&& _p) {
 	return typename std::decay_t<p>::holder::template opt_parser<std::decay_t<p>>{ _p }; }
+template<parser p> constexpr auto operator+(p&& _p) {
+	return typename std::decay_t<p>::holder::template unary_list_parser<std::decay_t<p>>{ _p }; }
+template<parser p> constexpr auto operator*(p&& _p) {
+	return -( +(std::forward<decltype(_p)>(_p)) ); }
+
+template<parser left, parser right> constexpr auto operator-(left&& l, right&& r) {
+	return typename std::decay_t<left>::holder::different_parser( std::forward<decltype(l)>(l), std::forward<decltype(r)>(r)); }
 
 constexpr auto operator|(ascip_details::variant_parser auto&& left, ascip_details::parser auto&& right) {
 	return std::decay_t<decltype(left)>::mk(std::forward<decltype(left)>(left), std::forward<decltype(right)>(right)); }

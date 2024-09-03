@@ -451,6 +451,13 @@ template<parser p> constexpr auto operator--(p&& l,int) {
 	return typename std::decay_t<p>::holder::template seq_dec_rfield_after<std::decay_t<p>>{ std::forward<p>(l) }; }
 template<parser p> constexpr auto operator-(p&& _p) {
 	return typename std::decay_t<p>::holder::template opt_parser<std::decay_t<p>>{ _p }; }
+template<parser p> constexpr auto operator+(p&& _p) {
+	return typename std::decay_t<p>::holder::template unary_list_parser<std::decay_t<p>>{ _p }; }
+template<parser p> constexpr auto operator*(p&& _p) {
+	return -( +(std::forward<decltype(_p)>(_p)) ); }
+
+template<parser left, parser right> constexpr auto operator-(left&& l, right&& r) {
+	return typename std::decay_t<left>::holder::different_parser( std::forward<decltype(l)>(l), std::forward<decltype(r)>(r)); }
 
 constexpr auto operator|(ascip_details::variant_parser auto&& left, ascip_details::parser auto&& right) {
 	return std::decay_t<decltype(left)>::mk(std::forward<decltype(left)>(left), std::forward<decltype(right)>(right)); }
@@ -749,18 +756,14 @@ constexpr auto operator()(auto act) const {
 	};
 }
 
+//NOTE: the clang has trouble for some reason with the following operators
+
 constexpr auto operator!() const {
 	return negate_parser<parser>{ static_cast<const parser&>(*this) };
 }
-constexpr auto operator+()const{ return unary_list_parser<parser>{ static_cast<const parser&>(*this) }; }
-constexpr auto operator*()const{ return -( +(static_cast<const parser&>(*this)) ); }
-
 template<ascip_details::parser right> constexpr auto operator%(const right& r) const {
 	return binary_list_parser( static_cast<const parser&>(*this), r ); }
 constexpr auto operator%(char r)const{ return binary_list_parser( static_cast<const parser&>(*this), value_parser{r} ); }
-
-template<ascip_details::parser right> constexpr auto operator-(const right& r)const{
-	return different_parser( static_cast<const parser&>(*this), r ); }
 
 };
 
