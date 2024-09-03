@@ -168,6 +168,8 @@ template<typename type> concept parser = requires(type& p, type_result_for_parse
 	p.parse(make_test_ctx<1,2,3,4,5,6,7,8,' ','c','o','c','e','p','t',' ',1,2,3,4>(p), make_source(p), r) < 0; };
 template<typename type> concept nonparser = !parser<type>;
 template<typename type> concept optional = requires(type& p){ p.has_value(); *p; p.emplace(); };
+template<typename type> concept variant_parser = parser<std::decay_t<type>> &&
+		is_specialization_of<std::decay_t<type>, std::decay_t<type>::holder::template variant_parser>;
 
 constexpr bool is_in_concept_check(auto&& ctx) {
 	return exists_in_ctx<parser_concept_check_tag>(ctx);

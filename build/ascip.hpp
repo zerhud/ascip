@@ -230,6 +230,8 @@ template<typename type> concept parser = requires(type& p, type_result_for_parse
 	p.parse(make_test_ctx<1,2,3,4,5,6,7,8,' ','c','o','c','e','p','t',' ',1,2,3,4>(p), make_source(p), r) < 0; };
 template<typename type> concept nonparser = !parser<type>;
 template<typename type> concept optional = requires(type& p){ p.has_value(); *p; p.emplace(); };
+template<typename type> concept variant_parser = parser<std::decay_t<type>> &&
+		is_specialization_of<std::decay_t<type>, std::decay_t<type>::holder::template variant_parser>;
 
 constexpr bool is_in_concept_check(auto&& ctx) {
 	return exists_in_ctx<parser_concept_check_tag>(ctx);
@@ -450,6 +452,23 @@ template<parser p> constexpr auto operator--(p&& l,int) {
 template<parser p> constexpr auto operator-(p&& _p) {
 	return typename std::decay_t<p>::holder::template opt_parser<std::decay_t<p>>{ _p }; }
 
+constexpr auto operator|(ascip_details::variant_parser auto&& left, ascip_details::parser auto&& right) {
+	return std::decay_t<decltype(left)>::mk(std::forward<decltype(left)>(left), std::forward<decltype(right)>(right)); }
+constexpr auto operator|(auto&& left, ascip_details::parser auto&& right) {
+	return typename std::decay_t<decltype(left)>::holder::variant_parser( std::forward<decltype(left)>(left), std::forward<decltype(right)>(right) ); }
+constexpr auto operator|(auto&& left, ascip_details::nonparser auto&& right) {
+	using holder = std::decay_t<decltype(left)>::holder;
+	using left_type = std::decay_t<decltype(left)>;
+	if constexpr (ascip_details::variant_parser<decltype(left)>) return std::forward<decltype(left)>(left).clang_crash_workaround(right);
+	else return typename holder::template variant_parser<left_type>(std::forward<decltype(left)>(left)).clang_crash_workaround(right);
+}
+/*
+constexpr auto operator|(auto&& left, ascip_details::nonparser auto&& right) {
+	using holder = std::decay_t<decltype(left)>::holder;
+	auto r = typename holder::value_parser(static_cast<decltype(right)&&>(right));
+	return std::forward<decltype(left)>(left) | std::move(r);
+}
+*/
 
 } // namespace ascip_details
 
@@ -720,6 +739,9 @@ template<typename parser> struct base_parser : ascip_details::adl_tag {
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          https://www.boost.org/LICENSE_1_0.txt)
 
+// operator() cannnot to be nob-member:
+// https://en.cppreference.com/w/cpp/language/operators
+// there will be a bug if the type_in_base will not match the final operator
 constexpr auto operator()(auto act) const {
 	return semact_parser<type_in_base, decltype(auto(act))>{ {},
 		static_cast<decltype(act)&&>(act),
@@ -727,12 +749,6 @@ constexpr auto operator()(auto act) const {
 	};
 }
 
-constexpr auto operator|(const ascip_details::parser auto& p2) const {
-	return variant_parser( static_cast<const parser&>(*this), p2 );
-}
-constexpr auto operator|(const ascip_details::nonparser auto& p2) const {
-	return variant_parser( static_cast<const parser&>(*this), value_parser(p2) );
-}
 constexpr auto operator!() const {
 	return negate_parser<parser>{ static_cast<const parser&>(*this) };
 }
@@ -1592,6 +1608,14 @@ template<auto val> struct variant_pos_value{ constexpr static auto pos = val; };
 template<ascip_details::parser... parsers> struct variant_parser : base_parser<variant_parser<parsers...>> {
 	using self_type = variant_parser<parsers...>;
 	tuple<parsers...> seq;
+
+	template<typename... left, ascip_details::parser right>
+	constexpr static auto mk(variant_parser<left...> l, right&& r) {
+		return [&]<auto... inds>(std::index_sequence<inds...>){
+			return variant_parser<left..., std::decay_t<right>>{ std::move(get<inds>(l.seq))..., std::forward<decltype(r)>(r) };
+		}(std::make_index_sequence<sizeof...(left)>{});
+	}
+
 	constexpr variant_parser(const variant_parser& other) : seq(other.seq) {}
 	constexpr variant_parser(variant_parser&& other) : seq(std::move(other.seq)) {}
 	constexpr explicit variant_parser( parsers... l ) : seq( std::forward<parsers>(l)... ) {}
@@ -1630,10 +1654,9 @@ template<ascip_details::parser... parsers> struct variant_parser : base_parser<v
 		}
 	}
 
-	template<ascip_details::parser right>
-	constexpr auto operator|(const right& p2) const {
-		return ascip_details::init_with_get<variant_parser<parsers..., right>>(seq, p2); }
-	constexpr auto operator|(char p2) { return *this | value_parser( p2 ); }
+	constexpr auto clang_crash_workaround(auto r) {
+		return std::move(*this) | value_parser(r);
+	}
 };
 
 template<ascip_details::parser... parsers>
@@ -1645,6 +1668,8 @@ constexpr static bool test_variant() {
 	constexpr const auto run_parse = [](const auto& p, auto&& src, auto& r) ->decltype(auto(r)) {
 		return p.parse(make_test_ctx(), make_source(src), r);
 	};
+	static_assert( ascip_details::variant_parser<variant_parser<char_parser<'a'>, char_parser<'b'>>> );
+	static_assert( ((void)static_cast<const variant_parser<char_parser<'a'>, char_parser<'b'>, char_parser<'c'>>&>(char_<'a'> | char_<'b'> | char_<'c'>),1) );
 
 	static_assert( ({ char r;run_parse(char_<'a'>|char_<'b'>, "a", r);r;}) == 'a' );
 	static_assert( ({ char r;run_parse(char_<'a'>|'b', "b", r);r;}) == 'b' );

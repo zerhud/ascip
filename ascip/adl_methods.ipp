@@ -111,3 +111,22 @@ template<parser p> constexpr auto operator--(p&& l,int) {
 template<parser p> constexpr auto operator-(p&& _p) {
 	return typename std::decay_t<p>::holder::template opt_parser<std::decay_t<p>>{ _p }; }
 
+constexpr auto operator|(ascip_details::variant_parser auto&& left, ascip_details::parser auto&& right) {
+	return std::decay_t<decltype(left)>::mk(std::forward<decltype(left)>(left), std::forward<decltype(right)>(right)); }
+constexpr auto operator|(auto&& left, ascip_details::parser auto&& right) {
+	return typename std::decay_t<decltype(left)>::holder::variant_parser( std::forward<decltype(left)>(left), std::forward<decltype(right)>(right) ); }
+constexpr auto operator|(auto&& left, ascip_details::nonparser auto&& right) {
+	using holder = std::decay_t<decltype(left)>::holder;
+	using left_type = std::decay_t<decltype(left)>;
+	if constexpr (ascip_details::variant_parser<decltype(left)>) return std::forward<decltype(left)>(left).clang_crash_workaround(right);
+	else return typename holder::template variant_parser<left_type>(std::forward<decltype(left)>(left)).clang_crash_workaround(right);
+}
+/*
+#ifndef __clang__ // clang crashes here
+constexpr auto operator|(auto&& left, ascip_details::nonparser auto&& right) {
+	using holder = std::decay_t<decltype(left)>::holder;
+	auto r = typename holder::value_parser(static_cast<decltype(right)&&>(right));
+	return std::forward<decltype(left)>(left) | std::move(r);
+}
+#endif
+*/

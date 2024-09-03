@@ -5,6 +5,9 @@
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          https://www.boost.org/LICENSE_1_0.txt)
 
+// operator() cannnot to be nob-member:
+// https://en.cppreference.com/w/cpp/language/operators
+// there will be a bug if the type_in_base will not match the final operator
 constexpr auto operator()(auto act) const {
 	return semact_parser<type_in_base, decltype(auto(act))>{ {},
 		static_cast<decltype(act)&&>(act),
@@ -12,12 +15,6 @@ constexpr auto operator()(auto act) const {
 	};
 }
 
-constexpr auto operator|(const ascip_details::parser auto& p2) const {
-	return variant_parser( static_cast<const parser&>(*this), p2 );
-}
-constexpr auto operator|(const ascip_details::nonparser auto& p2) const {
-	return variant_parser( static_cast<const parser&>(*this), value_parser(p2) );
-}
 constexpr auto operator!() const {
 	return negate_parser<parser>{ static_cast<const parser&>(*this) };
 }

@@ -18,6 +18,14 @@ template<auto val> struct variant_pos_value{ constexpr static auto pos = val; };
 template<ascip_details::parser... parsers> struct variant_parser : base_parser<variant_parser<parsers...>> {
 	using self_type = variant_parser<parsers...>;
 	tuple<parsers...> seq;
+
+	template<typename... left, ascip_details::parser right>
+	constexpr static auto mk(variant_parser<left...> l, right&& r) {
+		return [&]<auto... inds>(std::index_sequence<inds...>){
+			return variant_parser<left..., std::decay_t<right>>{ std::move(get<inds>(l.seq))..., std::forward<decltype(r)>(r) };
+		}(std::make_index_sequence<sizeof...(left)>{});
+	}
+
 	constexpr variant_parser(const variant_parser& other) : seq(other.seq) {}
 	constexpr variant_parser(variant_parser&& other) : seq(std::move(other.seq)) {}
 	constexpr explicit variant_parser( parsers... l ) : seq( std::forward<parsers>(l)... ) {}
@@ -56,10 +64,9 @@ template<ascip_details::parser... parsers> struct variant_parser : base_parser<v
 		}
 	}
 
-	template<ascip_details::parser right>
-	constexpr auto operator|(const right& p2) const {
-		return ascip_details::init_with_get<variant_parser<parsers..., right>>(seq, p2); }
-	constexpr auto operator|(char p2) { return *this | value_parser( p2 ); }
+	constexpr auto clang_crash_workaround(auto r) {
+		return std::move(*this) | value_parser(r);
+	}
 };
 
 template<ascip_details::parser... parsers>
@@ -71,6 +78,8 @@ constexpr static bool test_variant() {
 	constexpr const auto run_parse = [](const auto& p, auto&& src, auto& r) ->decltype(auto(r)) {
 		return p.parse(make_test_ctx(), make_source(src), r);
 	};
+	static_assert( ascip_details::variant_parser<variant_parser<char_parser<'a'>, char_parser<'b'>>> );
+	static_assert( ((void)static_cast<const variant_parser<char_parser<'a'>, char_parser<'b'>, char_parser<'c'>>&>(char_<'a'> | char_<'b'> | char_<'c'>),1) );
 #ifndef __clang__
 	static_assert( ({ char r;run_parse(char_<'a'>|char_<'b'>, "a", r);r;}) == 'a' );
 	static_assert( ({ char r;run_parse(char_<'a'>|'b', "b", r);r;}) == 'b' );
