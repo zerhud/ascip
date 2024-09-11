@@ -30,8 +30,7 @@ struct rvariant_rreq_parser : base_parser<rvariant_rreq_parser<stop_ind>> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const requires (!is_in_concept_check(decltype(auto(ctx)){})) {
 		if(!src) return 0;
 		auto* var = search_in_ctx<rvariant_stack_tag>(ctx);
-		auto* croped_ctx = search_in_ctx<rvariant_crop_ctx_tag>(ctx);
-		auto nctx = make_ctx<rvariant_crop_ctx_tag>(croped_ctx, *croped_ctx);
+		auto nctx = crop_ctx<rvariant_crop_ctx_tag>(ctx);
 		return var->template parse_without_prep<stop_ind+1>(nctx, src, result);
 	}
 };
@@ -42,8 +41,7 @@ constexpr static struct rvariant_req_parser : base_parser<rvariant_req_parser> {
 		if constexpr (is_in_concept_check(decltype(auto(ctx)){})) return 0;
 		else {
 			auto* var = search_in_ctx<rvariant_stack_tag>(ctx);
-			auto* croped_ctx = search_in_ctx<rvariant_crop_ctx_tag>(ctx);
-			auto nctx = make_ctx<rvariant_crop_ctx_tag>(croped_ctx, *croped_ctx);
+			auto nctx = crop_ctx<rvariant_crop_ctx_tag>(ctx);
 			return var->parse(nctx, src, result);
 		}
 	}
