@@ -2079,7 +2079,9 @@ constexpr static bool test_lists() {
 //          https://www.boost.org/LICENSE_1_0.txt)
 
 constexpr static auto call_err_method(auto& method, auto& ctx, auto src, auto& result, auto message) {
-	if constexpr (requires{ { method(result,src,0,message) } -> std::same_as<void>; })
+	if constexpr (requires{ { method(ctx, src, result) } -> std::same_as<parse_result>; })
+		return method(ctx, src, result);
+	else if constexpr (requires{ { method(result,src,0,message) } -> std::same_as<void>; })
 		return (method(
 			result,
 			src, //*search_in_ctx<seq_src_stack_tag>(ctx),
@@ -2361,7 +2363,10 @@ constexpr static bool test_seq_simple_case() {
 		 }).parse(make_test_ctx(), make_source("ab"), r);
 	l;}) == 'u');
 	static_assert(
-		test_parser_parse_r_str(char_<'a'> >> char_<'b'> >> [](auto&&...){return 1;}, "ab", 3, 'a', 'b'),
+		test_parser_parse_r_str(char_<'a'> >> char_<'b'> >> [](auto& result, auto src, auto line, auto msg){return 1;}, "ab", 3, 'a', 'b'),
+		"lambda value is added to position" );
+	static_assert(
+		test_parser_parse_r_str(char_<'a'> >> [](auto&& ctx, auto src, auto& result){return 1;}, "a", 2, 'a'),
 		"lambda value is added to position" );
 
 	return true;
