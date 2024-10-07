@@ -4,6 +4,13 @@
 
 using parser = ascip<std::tuple>;
 
+struct single_parser {
+	char f;
+	constexpr static auto gram() {
+		return parser::nop >> fnum<0>(parser::char_<'a'>);
+	}
+};
+
 struct single_field {
 	char f;
 
@@ -27,8 +34,15 @@ struct neasted_field {
 
 static_assert( !neasted_field::gram().is_struct_requires_pd );
 static_assert( single_field::gram().is_struct_requires_pd );
+static_assert( single_parser::gram().is_struct_requires_pd );
+static_assert( parser::inject_skipping(single_parser::gram(), +parser::space).is_struct_requires_pd );
 static_assert( parser::inject_skipping(single_field::gram(), +parser::space).is_struct_requires_pd );
 static_assert( (parser::char_<'a'> >> parser::sfs >> parser::char_<'b'>).is_struct_requires_pd );
+static_assert( []{
+	single_parser r;
+	auto pr = parse(single_parser::gram(), +parser::space, parser::make_source("a"), r) ;
+	return  (pr==1) + 2*(r.f=='a');
+}() == 3 );
 static_assert( []{
 	single_field r;
 	auto pr = parse(single_field::gram(), +parser::space, parser::make_source("ba"), r) ;

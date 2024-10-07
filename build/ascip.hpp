@@ -1045,6 +1045,12 @@ constexpr static bool test_exists_in() {
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          https://www.boost.org/LICENSE_1_0.txt)
 
+constexpr static struct nop_parser : base_parser<nop_parser> {
+	constexpr parse_result parse(auto&&, const auto&, auto&) const {
+		return 0;
+	}
+} nop {} ;
+
 template<auto sym> struct char_parser : base_parser<char_parser<sym>> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		const bool ok = src() == sym;
