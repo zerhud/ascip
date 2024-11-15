@@ -11,7 +11,7 @@
     let
       pkgs = import nixpkgs { inherit system; config.allowUnfree = true; };
       tref = params.cppbm.packages."${system}".tref;
-      der = pkgs.gcc13Stdenv.mkDerivation {
+      der = pkgs.gcc14Stdenv.mkDerivation {
         name = "ascip";
         buildInputs = [ tref ];
         nativeBuildInputs = [pkgs.clang_17];
