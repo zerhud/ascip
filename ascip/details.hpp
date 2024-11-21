@@ -7,6 +7,33 @@
 
 namespace ascip_details {
 
+template<typename,auto...> struct seq_type {};
+template<typename t> struct type_holder { using type = t; t operator+() const ; };
+template<typename type, auto ind> struct tuple_value { type value; };
+template<typename... types> struct inner_tuple {
+	consteval static auto mk_storage_type() {
+		return []<typename fucky_clang,auto... inds>(seq_type<fucky_clang,inds...>){
+			struct storage : tuple_value<types, inds>... {};
+			return type_holder<storage>{};
+		}(
+#if __has_builtin(__integer_pack)
+			seq_type<unsigned, __integer_pack(sizeof...(types))...>{}
+#else
+			__make_integer_seq<seq_type, unsigned, sizeof...(types)>{}
+#endif
+		);
+	}
+
+	using storage_type = decltype(+mk_storage_type());
+	storage_type storage;
+
+	constexpr inner_tuple(auto&&... args) : storage(std::forward<decltype(args)>(args)...) {}
+
+	template<auto ind> constexpr auto& get(inner_tuple& t) {
+		return []<typename type>(tuple_value<type, ind>& v){return v.value;}(t.storage);
+	}
+};
+
 template<typename type>
 struct val_resetter {
 	type* val;
