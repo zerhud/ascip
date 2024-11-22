@@ -49,6 +49,14 @@ constexpr static struct cur_shift_parser : base_parser<cur_shift_parser> {
 		}
 	}
 } cur_shift{};
+template<ascip_details::parser parser>
+struct use_seq_result_parser : base_parser<use_seq_result_parser<parser>> {
+	parser p;
+	constexpr parse_result parse(auto&& ctx, auto src, auto&) const {
+		auto& result = *search_in_ctx<seq_result_stack_tag>(ctx);
+		return p.parse(ctx, src, result);
+	}
+};
 template<auto ind, auto ctx_chunk_size, auto ctx_result_pos>
 struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind, ctx_chunk_size, ctx_result_pos>> {
 	static_assert( ctx_chunk_size > ctx_result_pos, "we need to extract result from ctx"  );

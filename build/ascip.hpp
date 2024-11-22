@@ -17,6 +17,33 @@
 
 namespace ascip_details {
 
+template<typename,auto...> struct seq_type {};
+template<typename t> struct type_holder { using type = t; t operator+() const ; };
+template<typename type, auto ind> struct tuple_value { type value; };
+template<typename... types> struct inner_tuple {
+	consteval static auto mk_storage_type() {
+		return []<typename fucky_clang,auto... inds>(seq_type<fucky_clang,inds...>){
+			struct storage : tuple_value<types, inds>... {};
+			return type_holder<storage>{};
+		}(
+
+			seq_type<unsigned, __integer_pack(sizeof...(types))...>{}
+
+
+
+		);
+	}
+
+	using storage_type = decltype(+mk_storage_type());
+	storage_type storage;
+
+	constexpr inner_tuple(auto&&... args) : storage(std::forward<decltype(args)>(args)...) {}
+
+	template<auto ind> constexpr auto& get(inner_tuple& t) {
+		return []<typename type>(tuple_value<type, ind>& v){return v.value;}(t.storage);
+	}
+};
+
 template<typename type>
 struct val_resetter {
 	type* val;
@@ -371,6 +398,9 @@ template<typename result, parser type> constexpr auto check(type&& p) {
 template<typename result, parser type> constexpr auto cast(type&& p){
 	return typename std::decay_t<type>::holder::template cast_parser<result, std::decay_t<type>>{ {}, std::forward<decltype(p)>(p) }; }
 
+template<parser type> constexpr auto use_seq_result(type&& p) {
+	using ptype = std::decay_t<decltype(p)>;
+	return typename ptype::holder::template use_seq_result_parser<ptype>{ {}, std::forward<decltype(p)>(p) }; }
 template<auto cnt, parser type> constexpr auto finc(type&& p) {
 	using p_type = std::decay_t<type>;
 	using inc_type = typename std::decay_t<type>::holder::template _seq_rfield_val<cnt>;
@@ -1602,15 +1632,6 @@ constexpr static bool test_different() {
 	return true;
 }
 
-template<ascip_details::parser type> struct reqursion_crop_parser : base_parser<reqursion_crop_parser<type>> {
-	type p;
-	struct crop_tag {};
-	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		if constexpr ( ascip_details::is_in_concept_check(decltype(auto(ctx)){}) ) return 0;
-		else return p.parse(static_cast<decltype(ctx)&&>(ctx), src, check_result(result));
-	}
-};
-
        
 
 //          Copyright Hudyaev Alexey 2023.
@@ -2137,6 +2158,14 @@ constexpr static struct cur_shift_parser : base_parser<cur_shift_parser> {
 		}
 	}
 } cur_shift{};
+template<ascip_details::parser parser>
+struct use_seq_result_parser : base_parser<use_seq_result_parser<parser>> {
+	parser p;
+	constexpr parse_result parse(auto&& ctx, auto src, auto&) const {
+		auto& result = *search_in_ctx<seq_result_stack_tag>(ctx);
+		return p.parse(ctx, src, result);
+	}
+};
 template<auto ind, auto ctx_chunk_size, auto ctx_result_pos>
 struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind, ctx_chunk_size, ctx_result_pos>> {
 	static_assert( ctx_chunk_size > ctx_result_pos, "we need to extract result from ctx"  );

@@ -25,6 +25,9 @@ template<typename result, parser type> constexpr auto check(type&& p) {
 template<typename result, parser type> constexpr auto cast(type&& p){
 	return typename std::decay_t<type>::holder::template cast_parser<result, std::decay_t<type>>{ {}, std::forward<decltype(p)>(p) }; }
 
+template<parser type> constexpr auto use_seq_result(type&& p) {
+	using ptype = std::decay_t<decltype(p)>;
+	return typename ptype::holder::template use_seq_result_parser<ptype>{ {}, std::forward<decltype(p)>(p) }; }
 template<auto cnt, parser type> constexpr auto finc(type&& p) {
 	using p_type = std::decay_t<type>;
 	using inc_type = typename std::decay_t<type>::holder::template _seq_rfield_val<cnt>;
