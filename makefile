@@ -14,6 +14,7 @@ base_tests = $(basename $(subst tests/,,$(1)))
 .PHONY: all clean test
 
 all: test $(build_path)/ascip.hpp examples_gcc examples_clang $(build_path)/ascip.hpp
+	@echo -e "\e[7;32mAll Done\e[0m"
 
 $(build_path): makefile
 	mkdir -p $(build_path)
