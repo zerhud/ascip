@@ -2211,14 +2211,6 @@ template<ascip_details::parser parser, typename val> struct seq_num_rfield_val :
 
 	constexpr static auto value = val::num_val;
 };
-template<typename type> constexpr static auto inc_field_val() {
-	if constexpr (ascip_details::is_specialization_of<type, seq_inc_rfield_val>) return type::value;
-	else return 0;
-}
-template<typename type> constexpr static auto num_field_val() {
-	if constexpr (ascip_details::is_specialization_of<type, seq_num_rfield_val>) return type::value;
-	else return 0;
-}
 
 constexpr static struct seq_inc_rfield : base_parser<seq_inc_rfield> {constexpr parse_result parse(auto&&,auto,auto&)const {return 0;} } sfs{} ;
 template<ascip_details::parser parser> struct seq_inc_rfield_after : base_parser<seq_inc_rfield_after<parser>> {
@@ -2285,6 +2277,20 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 		 (is_num_field_val<types> + ...)
 		) > 0;
 	constexpr static bool is_struct_requires_pd = is_struct_requires<parsers...>;
+
+	template<typename type, template<typename...>class tmpl> constexpr static int grab_num_val() { 
+		int val = 0;
+		exists_in((type*)nullptr, [&val](const auto* p){
+			constexpr bool is_num = ascip_details::is_specialization_of<std::decay_t<decltype(*p)>, tmpl>;
+			if constexpr (is_num) val = std::decay_t<decltype(*p)>::value;
+			return is_num;
+		}, [](const auto* p) {
+			return requires{ p->seq; } && !requires{ static_cast<const com_seq_parser<concrete, parsers...>*>(p); };
+		});
+		return val;
+	}
+	template<typename type> constexpr static int num_field_val() { return grab_num_val<type, seq_num_rfield_val>(); }
+	template<typename type> constexpr static auto inc_field_val() { return grab_num_val<type, seq_inc_rfield_val>(); }
 
 	constexpr auto on_error(auto val) const { return static_cast<const concrete*>(this)->on_error(val); }
 
