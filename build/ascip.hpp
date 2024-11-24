@@ -2803,18 +2803,26 @@ template<typename skip_type>
 struct injection_mutator {
 	struct context{ };
 	struct in_lexeme_context{ };
+	struct in_lexeme_context_deep{ };
+	template<typename ctx> constexpr static bool check_inside_lexeme() {
+		using t = std::decay_t<ctx>;
+		return std::is_same_v<t, in_lexeme_context> || std::is_same_v<t,  in_lexeme_context_deep>;
+	}
 	constexpr static auto create_ctx(){ return context{}; }
 	constexpr static auto create_ctx(auto&& src, auto&& ctx) {
-		if constexpr (ascip_details::is_specialization_of<std::decay_t<decltype(src)>, lexeme_parser>)
-			return in_lexeme_context{ };
-		else if constexpr (ascip_details::is_specialization_of<std::decay_t<decltype(src)>, skip_parser>)
+		if constexpr (ascip_details::is_specialization_of<std::decay_t<decltype(src)>, skip_parser>)
 			return context{};
+		else if constexpr (ascip_details::is_specialization_of<std::decay_t<decltype(src)>, lexeme_parser>) {
+			if constexpr (check_inside_lexeme<decltype(ctx)>()) return in_lexeme_context_deep{};
+			else return in_lexeme_context{ };
+		}
 		else return ctx;
 	}
 
 	template<typename type>
 	constexpr static auto apply(auto&& p, auto& ctx) {
-		constexpr const bool is_inside_lexeme = std::is_same_v<in_lexeme_context,std::decay_t<decltype(ctx)>>;
+		constexpr const bool is_inside_lexeme = check_inside_lexeme<decltype(ctx)>();
+		constexpr const bool is_inside_lexeme_deep = std::is_same_v<std::decay_t<decltype(ctx)>, in_lexeme_context_deep>;
 		constexpr const bool is_parser_lexeme = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, lexeme_parser>;
 		constexpr const bool is_parser_skip = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, skip_parser>;
 
@@ -2836,7 +2844,7 @@ struct injection_mutator {
 			|| is_inc_seq_parser
 			;
 
-		if constexpr (is_parser_lexeme && is_inside_lexeme) return p.p;
+		if constexpr (is_parser_lexeme && is_inside_lexeme_deep) return p.p;
 		else if constexpr (is_parser_lexeme)
 			return injected_parser<skip_type, std::decay_t<decltype(p.p)>>( skip_type{}, std::move(p.p) );
 		else if constexpr (is_inside_lexeme || is_parser_for_skip) return p;
@@ -2849,7 +2857,10 @@ struct injection_mutator {
 template<ascip_details::parser parser, ascip_details::parser skipper>
 constexpr static auto inject_skipping(parser&& to, skipper&& what) {
 	using mutator = injection_mutator<std::decay_t<skipper>>;
-	return transform<mutator>(std::move(to));
+	auto ret = transform<mutator>(std::move(to));
+	if constexpr(ascip_details::is_specialization_of<std::decay_t<decltype(ret)>, injected_parser>)
+		return ret.b;
+	else return ret;
 }
 template<ascip_details::parser p1, ascip_details::parser p2> constexpr static auto make_injected(const p1& l, const p2& r) {
 	return typename p1::holder::template injected_parser<p1, p2>( l, r ); }
@@ -2881,11 +2892,18 @@ constexpr static bool test_seq_injection() {
 	using p2_t = decltype(auto(p2));
 	using inj_t = injected_parser<p2_t,p1_t>;
 
-	(void)static_cast<const inj_t&>(inject_skipping(p1, p2));
+	(void)static_cast<const p1_t&>(inject_skipping(p1, p2));
 	(void)static_cast<const opt_seq_parser<inj_t, inj_t>&>(inject_skipping(p1 >> p1, p2));
 
 	(void)static_cast<const opt_seq_parser<p1_t, p1_t, p1_t>&>(inject_skipping(lexeme(p1 >> p1 >> p1), p2));
 	(void)static_cast<const opt_seq_parser<p1_t, opt_seq_parser<p1_t, p1_t>>&>(inject_skipping(lexeme(p1 >> lexeme(p1 >> p1)), p2));
+	(void)static_cast<const opt_seq_parser<p1_t, injected_parser<p2_t, opt_seq_parser<p1_t, p1_t>>>&>(inject_skipping(lexeme(p1 >> skip(lexeme(p1 >> p1))), p2));
+	(void)static_cast<const opt_seq_parser<p1_t, injected_parser<p2_t, opt_seq_parser<inj_t, inj_t>>>&>(inject_skipping(lexeme(p1 >> skip(lexeme(skip(p1 >> p1)))), p2));
+	(void)static_cast<const opt_seq_parser<inj_t, injected_parser<p2_t, opt_seq_parser<p1_t, p1_t>>>&>(inject_skipping(lexeme(p1) >> lexeme(p1 >> p1), p2));
+	static_assert( []{
+		//inject_skipping(lexeme(p1 >> skip(p1 >> p1)), p2).foo();
+		return true;
+	}() );
 	(void)static_cast<const opt_seq_parser<p1_t, opt_seq_parser<inj_t, inj_t>>&>(
 			inject_skipping(lexeme(p1 >> skip(p1 >> p1)), p2));
 
@@ -2953,6 +2971,8 @@ constexpr static bool test_seq_injection() {
 
 	(void)static_cast<const binary_list_parser<inj_t, inj_t>&>(inject_skipping( p1 % p1, p2 ));
 
+	/*
+	*/
 	return true;
 }
 constexpr static bool test_injection() {

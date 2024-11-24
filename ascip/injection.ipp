@@ -138,24 +138,13 @@ constexpr static bool test_seq_injection() {
 	using inj_t = injected_parser<p2_t,p1_t>;
 
 	(void)static_cast<const p1_t&>(inject_skipping(p1, p2));
-	/*
 	(void)static_cast<const opt_seq_parser<inj_t, inj_t>&>(inject_skipping(p1 >> p1, p2));
 
-	static_assert( []{
-		//inject_skipping(lexeme(p1 >> p1 >> p1), p2).foo();
-		inject_skipping(lexeme(p1), p2).foo();
-	return true; }() );
-	*/
-	//(void)static_cast<const opt_seq_parser<p1_t, p1_t, p1_t>&>(inject_skipping(lexeme(p1 >> p1 >> p1), p2));
-	//(void)static_cast<const opt_seq_parser<p1_t, opt_seq_parser<p1_t, p1_t>>&>(inject_skipping(lexeme(p1 >> lexeme(p1 >> p1)), p2));
-	//(void)static_cast<const opt_seq_parser<p1_t, opt_seq_parser<p1_t, p1_t>>&>(inject_skipping(lexeme(p1 >> skip(lexeme(p1 >> p1))), p2));
-	//(void)static_cast<const opt_seq_parser<p1_t, opt_seq_parser<inj_t, inj_t>>&>(inject_skipping(lexeme(p1 >> skip(lexeme(skip(p1 >> p1)))), p2));
-	//(void)static_cast<const opt_seq_parser<inj_t, injected_parser<p2_t, opt_seq_parser<p1_t, p1_t>>>&>(inject_skipping(lexeme(p1) >> lexeme(p1 >> p1), p2));
-	/*
-	static_assert( []{
-		inject_skipping(lexeme(p1) >> lexeme(p1 >> p1), p2).foo();
-		return true;
-	}() );
+	(void)static_cast<const opt_seq_parser<p1_t, p1_t, p1_t>&>(inject_skipping(lexeme(p1 >> p1 >> p1), p2));
+	(void)static_cast<const opt_seq_parser<p1_t, opt_seq_parser<p1_t, p1_t>>&>(inject_skipping(lexeme(p1 >> lexeme(p1 >> p1)), p2));
+	(void)static_cast<const opt_seq_parser<p1_t, injected_parser<p2_t, opt_seq_parser<p1_t, p1_t>>>&>(inject_skipping(lexeme(p1 >> skip(lexeme(p1 >> p1))), p2));
+	(void)static_cast<const opt_seq_parser<p1_t, injected_parser<p2_t, opt_seq_parser<inj_t, inj_t>>>&>(inject_skipping(lexeme(p1 >> skip(lexeme(skip(p1 >> p1)))), p2));
+	(void)static_cast<const opt_seq_parser<inj_t, injected_parser<p2_t, opt_seq_parser<p1_t, p1_t>>>&>(inject_skipping(lexeme(p1) >> lexeme(p1 >> p1), p2));
 	(void)static_cast<const opt_seq_parser<p1_t, opt_seq_parser<inj_t, inj_t>>&>(
 			inject_skipping(lexeme(p1 >> skip(p1 >> p1)), p2));
 
@@ -223,7 +212,6 @@ constexpr static bool test_seq_injection() {
 #endif
 	(void)static_cast<const binary_list_parser<inj_t, inj_t>&>(inject_skipping( p1 % p1, p2 ));
 
-	*/
 	return true;
 }
 constexpr static bool test_injection() {
