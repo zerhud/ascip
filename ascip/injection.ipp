@@ -94,7 +94,7 @@ struct injection_mutator {
 			return injected_parser<skip_type, std::decay_t<decltype(p.p)>>( skip_type{}, std::move(p.p) );
 		else if constexpr (is_inside_lexeme || is_parser_for_skip) return p;
 		else if constexpr (is_parser_skip) return p.p;
-		else if constexpr ( requires{ p.p; }) return p;
+		else if constexpr ( requires{ p.p; } /*&& !requires{ p.act; }*/ ) return p; //TODO: why? realy remove all wrappers?
 		else return injected_parser<skip_type, std::decay_t<decltype(p)>>( skip_type{}, std::move(p) );
 	}
 };
@@ -147,6 +147,10 @@ constexpr static bool test_seq_injection() {
 	(void)static_cast<const opt_seq_parser<inj_t, injected_parser<p2_t, opt_seq_parser<p1_t, p1_t>>>&>(inject_skipping(lexeme(p1) >> lexeme(p1 >> p1), p2));
 	(void)static_cast<const opt_seq_parser<p1_t, opt_seq_parser<inj_t, inj_t>>&>(
 			inject_skipping(lexeme(p1 >> skip(p1 >> p1)), p2));
+
+	constexpr auto lambda_ret_val = [](auto&v){return &v;};
+	using lambda_ret_val_t = std::decay_t<decltype(lambda_ret_val)>;
+	(void)static_cast<const semact_parser<injected_parser<p2_t, opt_seq_parser<p1_t, opt_seq_parser<inj_t, inj_t>>>, lambda_ret_val_t>&>(inject_skipping(lexeme(p1 >> skip(p1 >> lexeme(p1)))(lambda_ret_val), p2));
 
 	(void)static_cast<const variant_parser<inj_t,inj_t>&>(inject_skipping( p1|p1, p2 ));
 	(void)static_cast<const variant_parser<inj_t,inj_t,inj_t>&>(inject_skipping( p1|p1|p1, p2 ));

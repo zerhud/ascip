@@ -110,8 +110,8 @@ constexpr static auto transform(rvariant_parser<type, parsers...>&& src, auto& c
 template<typename mutator, typename parser, typename act_t>
 constexpr static auto transform(semact_parser<parser, act_t>&& src, auto& ctx) {
 	auto nctx = mutator::create_ctx(src, ctx);
-	auto np = transform_apply<mutator>( std::move(src.p), nctx );
-	return semact_parser<std::decay_t<decltype(np)>, std::decay_t<decltype(src.act)>>{ {}, std::move(src.act), std::move(np) };
+	auto np = transform<mutator>( std::move(src.p), nctx );
+	return transform_apply<mutator>( semact_parser<std::decay_t<decltype(np)>, std::decay_t<decltype(src.act)>>{ {}, std::move(src.act), std::move(np) }, nctx );
 }
 
 

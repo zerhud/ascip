@@ -2656,8 +2656,8 @@ constexpr static auto transform(rvariant_parser<type, parsers...>&& src, auto& c
 template<typename mutator, typename parser, typename act_t>
 constexpr static auto transform(semact_parser<parser, act_t>&& src, auto& ctx) {
 	auto nctx = mutator::create_ctx(src, ctx);
-	auto np = transform_apply<mutator>( std::move(src.p), nctx );
-	return semact_parser<std::decay_t<decltype(np)>, std::decay_t<decltype(src.act)>>{ {}, std::move(src.act), std::move(np) };
+	auto np = transform<mutator>( std::move(src.p), nctx );
+	return transform_apply<mutator>( semact_parser<std::decay_t<decltype(np)>, std::decay_t<decltype(src.act)>>{ {}, std::move(src.act), std::move(np) }, nctx );
 }
 
 
@@ -2849,7 +2849,7 @@ struct injection_mutator {
 			return injected_parser<skip_type, std::decay_t<decltype(p.p)>>( skip_type{}, std::move(p.p) );
 		else if constexpr (is_inside_lexeme || is_parser_for_skip) return p;
 		else if constexpr (is_parser_skip) return p.p;
-		else if constexpr ( requires{ p.p; }) return p;
+		else if constexpr ( requires{ p.p; } /*&& !requires{ p.act; }*/ ) return p;
 		else return injected_parser<skip_type, std::decay_t<decltype(p)>>( skip_type{}, std::move(p) );
 	}
 };
@@ -2900,12 +2900,12 @@ constexpr static bool test_seq_injection() {
 	(void)static_cast<const opt_seq_parser<p1_t, injected_parser<p2_t, opt_seq_parser<p1_t, p1_t>>>&>(inject_skipping(lexeme(p1 >> skip(lexeme(p1 >> p1))), p2));
 	(void)static_cast<const opt_seq_parser<p1_t, injected_parser<p2_t, opt_seq_parser<inj_t, inj_t>>>&>(inject_skipping(lexeme(p1 >> skip(lexeme(skip(p1 >> p1)))), p2));
 	(void)static_cast<const opt_seq_parser<inj_t, injected_parser<p2_t, opt_seq_parser<p1_t, p1_t>>>&>(inject_skipping(lexeme(p1) >> lexeme(p1 >> p1), p2));
-	static_assert( []{
-		//inject_skipping(lexeme(p1 >> skip(p1 >> p1)), p2).foo();
-		return true;
-	}() );
 	(void)static_cast<const opt_seq_parser<p1_t, opt_seq_parser<inj_t, inj_t>>&>(
 			inject_skipping(lexeme(p1 >> skip(p1 >> p1)), p2));
+
+	constexpr auto lambda_ret_val = [](auto&v){return &v;};
+	using lambda_ret_val_t = std::decay_t<decltype(lambda_ret_val)>;
+	(void)static_cast<const semact_parser<injected_parser<p2_t, opt_seq_parser<p1_t, opt_seq_parser<inj_t, inj_t>>>, lambda_ret_val_t>&>(inject_skipping(lexeme(p1 >> skip(p1 >> lexeme(p1)))(lambda_ret_val), p2));
 
 	(void)static_cast<const variant_parser<inj_t,inj_t>&>(inject_skipping( p1|p1, p2 ));
 	(void)static_cast<const variant_parser<inj_t,inj_t,inj_t>&>(inject_skipping( p1|p1|p1, p2 ));
@@ -2971,8 +2971,6 @@ constexpr static bool test_seq_injection() {
 
 	(void)static_cast<const binary_list_parser<inj_t, inj_t>&>(inject_skipping( p1 % p1, p2 ));
 
-	/*
-	*/
 	return true;
 }
 constexpr static bool test_injection() {
