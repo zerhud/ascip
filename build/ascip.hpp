@@ -2849,7 +2849,7 @@ struct injection_mutator {
 			return injected_parser<skip_type, std::decay_t<decltype(p.p)>>( skip_type{}, std::move(p.p) );
 		else if constexpr (is_inside_lexeme || is_parser_for_skip) return p;
 		else if constexpr (is_parser_skip) return p.p;
-		else if constexpr ( requires{ p.p; } /*&& !requires{ p.act; }*/ ) return p;
+		else if constexpr ( requires{ p.p; } ) return p;
 		else return injected_parser<skip_type, std::decay_t<decltype(p)>>( skip_type{}, std::move(p) );
 	}
 };
