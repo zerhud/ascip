@@ -4,6 +4,7 @@
 //          https://www.boost.org/LICENSE_1_0.txt)
 
 #include "ascip.hpp"
+#include <tuple>
 
 void test_val_resetter() {
 	static_assert( []{
@@ -52,6 +53,31 @@ constexpr void test_context() {
 		auto ctx1 = make_ctx<t1_t>(1, make_ctx<t1_t>(2, make_ctx<t2_t>(3)));
 		auto ctx2 = remove_from_ctx<t1_t>(ctx1);
 		return (search_in_ctx<t1_t>(ctx1)==1) + (2*(search_in_ctx<t1_t>(ctx2)==2)); }() == 3 );
+}
+
+constexpr void context_parsers() {
+	using p = ascip<std::tuple>;
+	struct tag {};
+	static_assert( []{
+		char r;
+		int r_inner;
+		char val=3;
+		parse(add_to_ctx<tag>(&val,
+			p::char_<'a'> >>
+			exec_before<tag>([&](auto* val, auto& p){r_inner=p*(*val);return &p;}, p::char_<'b'>)
+		), p::make_source("ab"), r);
+		return r_inner;
+	}() == 'a'*3 );
+	static_assert( []{
+		char r;
+		int r_inner;
+		char val=3;
+		parse(add_to_ctx<tag>(&val,
+			p::char_<'a'> >>
+			exec_after<tag>([&](auto* val, auto& p){r_inner=p*(*val);}, p::char_<'b'>)
+		), p::make_source("ab"), r);
+		return r_inner;
+	}() == 'b'*3 );
 }
 
 

@@ -63,6 +63,18 @@ template<parser type> constexpr auto rv_result(type&& p) {
 	using ptype = std::decay_t<decltype(p)>;
 	return typename ptype::holder::template rvariant_top_result_parser<ptype>{ {}, std::forward<decltype(p)>(p) }; }
 
+template<typename tag, typename value_type, parser type> constexpr auto add_to_ctx(value_type&& value, type&& p) {
+	using ptype = std::decay_t<decltype(p)>;
+	return typename ptype::holder::template ctx_change_parser<type, tag, value_type>{ {}, std::forward<decltype(value)>(value), std::forward<decltype(p)>(p) }; }
+template<typename tag, parser type> constexpr auto exec_before(auto&& act, type&& p) {
+	using ptype = std::decay_t<decltype(p)>;
+	using act_type = std::decay_t<decltype(act)>;
+	return typename ptype::holder::template exec_before_parser<type, tag, act_type>{ {}, std::forward<decltype(act)>(act), std::forward<decltype(p)>(p) }; }
+template<typename tag, parser type> constexpr auto exec_after(auto&& act, type&& p) {
+	using ptype = std::decay_t<decltype(p)>;
+	using act_type = std::decay_t<decltype(act)>;
+	return typename ptype::holder::template exec_after_parser<type, tag, act_type>{ {}, std::forward<decltype(act)>(act), std::forward<decltype(p)>(p) }; }
+
 // ===============================
 //          parse part
 // ===============================

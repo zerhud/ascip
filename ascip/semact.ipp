@@ -52,3 +52,34 @@ constexpr static bool test_semact() {
 #endif
 	return true;
 }
+
+template<typename parser, typename tag, typename value_type> struct ctx_change_parser : base_parser<ctx_change_parser<parser, tag, value_type>> {
+	value_type value;
+	[[no_unique_address]] parser p;
+
+	constexpr const parse_result parse(auto&& ctx, auto src, auto& result) const {
+		auto new_ctx = make_ctx<tag>(value, ctx);
+		return p.parse(new_ctx, src, result);
+	}
+};
+
+template<typename parser, typename tag, typename act_type> struct exec_before_parser : base_parser<exec_before_parser<parser, tag, act_type>> {
+	act_type act;
+	[[no_unique_address]] parser p;
+
+	constexpr const parse_result parse(auto&& ctx, auto src, auto& result) const {
+		auto* new_result = act(search_in_ctx<tag>(ctx), result);
+		return p.parse(ctx, src, *new_result);
+	}
+};
+
+template<typename parser, typename tag, typename act_type> struct exec_after_parser : base_parser<exec_after_parser<parser, tag, act_type>> {
+	act_type act;
+	[[no_unique_address]] parser p;
+
+	constexpr const parse_result parse(auto&& ctx, auto src, auto& result) const {
+		auto ret = p.parse(ctx, src, result);
+		act(search_in_ctx<tag>(ctx), result);
+		return ret;
+	}
+};
