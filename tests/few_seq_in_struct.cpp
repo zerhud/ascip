@@ -25,6 +25,16 @@ static_assert( []{
 	;
 }() == 31 );
 
+constexpr auto ab_req = (p::char_<'a'>|'b') >> -(p::_char<'('> >> p::req<1> >> p::_char<')'>);
+static_assert( []{
+	char r1;
+	auto r = parse(ab_req, +p::space, p::make_source("a ( b )"), r1);
+	return
+	    (r==7)
+	+ 2*(r1=='b')
+	;
+}() == 3 );
+
 int main(int,char**) {
 	return 0;
 }
