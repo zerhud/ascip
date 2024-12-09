@@ -44,7 +44,6 @@ here is a list of available parsers. you can find examples below
 - `()` with lambda for the semantic action (semact) or for create the result. if the functor inside `()` receaves reference to the parser result and returns reference or pointer it's a result maker. in other case it's a semact. the semact can to receave nothing, or the returned value by parser and the result, or the returned value by parser, the parsing context, the source and the result.
 - `as` method for treat some parser as value
 - `omit` method for skip value
-- `cur_pos` just stores to result current position, parse nothing
 - `>>` for sequence parser
 - `>` for sequence parser. it causes an error if the parser fails with a message "unknown" (see must method).
 - `check` method checks that the parser got as a result exactly required type
@@ -52,6 +51,7 @@ here is a list of available parsers. you can find examples below
 - `rv` method for parse reverse variant with left recursion. see example below. the result will be created same way as in the `|` operator.
 
 with sequence parser can be used
+- `cur_pos` just stores to result current position, parse nothing
 - `cur_shift` for store to its result current shift position from sequence start
 - `req<number>` for call the sequence (or parent sequence) recursively. the req parser also can be combined with `()` operator with lambda for create recursion result value.
 - `++` prefix or postfix for increase result's field number to store the parser result. prefix `++` will increase the number for current parser and postfix `++` - for next parser.
