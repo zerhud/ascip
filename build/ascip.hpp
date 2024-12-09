@@ -19,6 +19,10 @@ namespace ascip_details {
 
 template<typename,auto...> struct seq_type {};
 template<typename t> struct type_holder { using type = t; t operator+() const ; };
+template<typename t> constexpr bool operator==(type_holder<t>, type_holder<t>){ return true; }
+template<typename l, typename r> constexpr bool operator==(type_holder<r>, type_holder<l>){ return false; }
+template<typename t> constexpr auto type_c = type_holder<t>{};
+template<typename t> constexpr auto type_dc = type_holder<std::decay_t<t>>{};
 template<typename type, auto ind> struct tuple_value { type value; };
 template<typename... types> struct inner_tuple {
 	consteval static auto mk_storage_type() {
@@ -89,6 +93,15 @@ constexpr auto crop_ctx(auto&& ctx) {
 	auto* cropped = search_in_ctx<tag>(ctx);
 	return make_ctx<tag>(cropped, *cropped);
 }
+constexpr auto count_in_ctx(auto tag, auto&& ctx) {
+	constexpr auto cur_tag = type_dc<typename decltype(+type_dc<decltype(ctx)>)::tag_t>;
+	if constexpr(!requires{ctx.next();}) return tag == cur_tag;
+	else return (tag == cur_tag) + count_in_ctx(tag, ctx.next());
+}
+template<typename tag>
+constexpr auto count_in_ctx(auto&& ctx) {
+	return count_in_ctx(type_c<tag>, std::forward<decltype(ctx)>(ctx));
+}
 template<typename tag>
 constexpr bool exists_in_ctx(auto&& ctx) {
 	using ctx_type = std::decay_t<std::remove_pointer_t<decltype(ctx)>>;
@@ -123,18 +136,44 @@ constexpr auto& by_ind_from_ctx(auto&& ctx) {
 
 template<typename tag>
 constexpr auto remove_from_ctx(auto&& ctx) {
-	using cur_t = decltype(auto(ctx));
-	constexpr const bool last = !requires{ ctx.next(); };
-	constexpr const bool match = std::is_same_v<typename decltype(auto(ctx))::tag_t, tag>;
+	constexpr auto cur_tag = type_dc<typename decltype(+type_dc<decltype(ctx)>)::tag_t>;
+	constexpr bool last = !requires{ ctx.next(); };
+	constexpr bool match = std::is_same_v<typename decltype(auto(ctx))::tag_t, tag>;
 	if constexpr (match) {
 		//NOTE: cannot yet remove the last one
 		auto next_ctx = ctx.next();
 		return make_ctx<typename decltype(auto(next_ctx))::tag_t>(next_ctx.v, next_ctx.next());
 	}
 	else {
-		if constexpr (last) return make_ctx<cur_t::tag_t>(ctx.v);
-		else return make_ctx<typename cur_t::tag_t>(ctx.v, ctx.next());
+		if constexpr (last) return make_ctx<decltype(+cur_tag)>(ctx.v);
+		else return make_ctx<decltype(+cur_tag)>(ctx.v, ctx.next());
 	}
+}
+
+template<typename tag>
+constexpr auto replace_by_tag(auto&& val, auto&& ctx) {
+	constexpr bool last = !requires{ ctx.next(); };
+	if constexpr (std::is_same_v<typename decltype(auto(ctx))::tag_t, tag>) {
+		if constexpr (last) return make_ctx<tag>(std::forward<decltype(val)>(val));
+		else return make_ctx<tag>(std::forward<decltype(val)>(val), replace_by_tag<tag>(std::forward<decltype(val)>(val), ctx.next()));
+	}
+	else {
+		if constexpr (last) return ctx;
+		else return replace_by_tag<tag>(std::forward<decltype(val)>(val), ctx.next());
+	}
+}
+
+constexpr auto replace_by_tag_and_val_type(auto tag, auto&& val, auto&& ctx) {
+	constexpr auto cur_tag = type_dc<typename decltype(+type_dc<decltype(ctx)>)::tag_t>;
+	if constexpr(tag == cur_tag && type_dc<decltype(val)> == type_dc<decltype(ctx.v)>) {
+		ctx.v = std::forward<decltype(val)>(val);
+	}
+	if constexpr(!requires{ctx.next();}) return ctx;
+	else return replace_by_tag_and_val_type(tag, std::forward<decltype(val)>(val), ctx.next());
+}
+template<typename tag_type, typename value_type>
+constexpr auto replace_by_tag_and_val_type(value_type&& val, auto&& ctx) {
+	return replace_by_tag_and_val_type(type_dc<tag_type>, std::forward<decltype(val)>(val), std::forward<decltype(ctx)>(ctx));
 }
 
        

@@ -16,6 +16,9 @@ void test_val_resetter() {
 		return val; }() == 10 );
 }
 
+//TODO: can't we use tuple instead of linked list as context?
+//      with tuple some methods don't need to be recursive - the [](auto...){} can to be used
+//      also instead of make_context the push_back and push_front can to be used
 constexpr void test_context() {
 	using ascip_details::make_ctx;
 	using ascip_details::ctx_not_found;
@@ -36,8 +39,12 @@ constexpr void test_context() {
 	}()==2, "can find in 2 deep context" );
 	static_assert( []{ v1_t v1; v3_t v3;
 		auto ctx3 = make_ctx<t3_t>(v3, make_ctx<t1_t>(v1));
-		return exists_in_ctx<t3_t>(ctx3) && exists_in_ctx<t1_t>(ctx3) && !exists_in_ctx<t2_t>(ctx3);
-	}()==true, "exists_in_ctx by tag only" );
+		return exists_in_ctx<t3_t>(ctx3) + 2*exists_in_ctx<t1_t>(ctx3) + 4*!exists_in_ctx<t2_t>(ctx3);
+	}()==7, "exists_in_ctx by tag only" );
+	static_assert( [] {
+		auto ctx = make_ctx<t2_t>(v2_t{}, make_ctx<t2_t>(v2_t{}, make_ctx<t1_t>(v1_t{})));
+		return (count_in_ctx<t1_t>(ctx)==1) + 2*(count_in_ctx<t2_t>(ctx)==2) + 4*(count_in_ctx<t3_t>(ctx)==0);
+	}() == 7 );
 	static_assert( []{ v1_t v1; v2_t v2;
 		auto ctx2 = make_ctx<t1_t>(v2, make_ctx<t1_t>(v1));
 		return by_ind_from_ctx<0,t1_t>(ctx2).v;
@@ -53,6 +60,33 @@ constexpr void test_context() {
 		auto ctx1 = make_ctx<t1_t>(1, make_ctx<t1_t>(2, make_ctx<t2_t>(3)));
 		auto ctx2 = remove_from_ctx<t1_t>(ctx1);
 		return (search_in_ctx<t1_t>(ctx1)==1) + (2*(search_in_ctx<t1_t>(ctx2)==2)); }() == 3 );
+	//TODO: no test for  replace_by_tag and replace_by_tag_and_val_type replaces all found values, not only first or last one
+	static_assert( [] {
+		constexpr v1_t v1;
+		auto ctx = make_ctx<t1_t>(v1);
+		auto ctx_r = replace_by_tag<t1_t>(v2_t{}, ctx);
+		auto ctx_rr = replace_by_tag<t2_t>(v3_t{}, make_ctx<t2_t>(v2_t{}, ctx));
+		auto ctx_nr = replace_by_tag<t4_t>(v4_t{}, make_ctx<t2_t>(v2_t{}, ctx));
+		return
+		  (search_in_ctx<t1_t>(ctx_r).v==v2_t{}.v)
+		+ 2*(search_in_ctx<t2_t>(ctx_rr).v==v3_t{}.v)
+		+ 4*!exists_in_ctx<t4_t>(ctx_nr)
+		+ 8*(count_in_ctx<t2_t>(ctx_rr)==1)
+		;
+	}() == 15 );
+	static_assert( [] {
+		auto ctx = make_ctx<t2_t>(v2_t{}, make_ctx<t1_t>(v1_t{}));
+		v1_t new_v{7};
+		v2_t new_v_wrong{11};
+		auto ctx_r = replace_by_tag_and_val_type<t1_t>(new_v, ctx);
+		auto ctx_nr_t = replace_by_tag_and_val_type<t4_t>(new_v, ctx);
+		auto ctx_nr_v = replace_by_tag_and_val_type<t1_t>(new_v_wrong, ctx);
+		return
+		  (search_in_ctx<t1_t>(ctx_r).v==7)
+		+ 2*!exists_in_ctx<t4_t>(ctx_nr_t)
+		+ 4*!exists_in_ctx<t4_t>(ctx_nr_v)
+		;
+	}() == 7 );
 }
 
 constexpr void context_parsers() {
