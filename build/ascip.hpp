@@ -2205,24 +2205,13 @@ struct use_seq_result_parser : base_parser<use_seq_result_parser<parser>> {
 template<auto ind, auto ctx_chunk_size, auto ctx_result_pos>
 struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind, ctx_chunk_size, ctx_result_pos>> {
 	static_assert( ctx_chunk_size > ctx_result_pos, "we need to extract result from ctx"  );
-	constexpr auto& extract_result(auto& ctx) const {
-		return *by_ind_from_ctx<ind, seq_result_stack_tag>(ctx);
-	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr( ascip_details::is_in_concept_check(decltype(auto(ctx)){})  ) return 0;
 		else if constexpr (ascip_details::is_in_reqursion_check(decltype(auto(ctx)){})) {
-			return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse(ctx, static_cast<decltype(src)&&>(src), extract_result(ctx)) : -1;
+			return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse(ctx, static_cast<decltype(src)&&>(src), result) : -1;
 		} else {
 			auto new_ctx = make_ctx<ascip_details::in_req_flag>(true, ctx);
-			return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse(new_ctx, static_cast<decltype(src)&&>(src), extract_result(new_ctx)) : -1;
-		}
-	}
-	constexpr auto parse_with_user_result(auto&& ctx, auto src, auto& result) const {
-		if constexpr (ascip_details::is_in_reqursion_check(decltype(auto(ctx)){})) {
-			return !!src ? by_ind_from_ctx<ind,seq_stack_tag>(ctx)->parse(ctx, static_cast<decltype(src)&&>(src), result) : -1;
-		} else {
-			auto new_ctx = make_ctx<ascip_details::in_req_flag>(true, ctx);
-			return !!src ? by_ind_from_ctx<ind,seq_stack_tag>(new_ctx)->parse(new_ctx, static_cast<decltype(src)&&>(src), result) : -1;
+			return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse(new_ctx, static_cast<decltype(src)&&>(src), result) : -1;
 		}
 	}
 };
@@ -2497,13 +2486,13 @@ constexpr static bool test_seq_req() {
 	struct semact_req_tester { char n='z'; semact_req_tester* ptr=nullptr; };
 	static_assert( []{
 		semact_req_tester r, r2; char ok='u';
-		auto p=((char_<'a'>|'b')++ >> -(_char<'('> >> req<1>([&r2,&ok](auto& r){ok='o';return &r2;}) >> _char<')'>));
+		auto p=((char_<'a'>|'b')++ >> -(_char<'('> >> use_seq_result(req<1>([&r2,&ok](auto& r){ok='o';return &r2;})) >> _char<')'>));
 		p.parse(make_test_ctx(), make_source("a(b)"), r);
 		return r.n * (r2.n == 'b') * (ok=='o');
 	}() == 'a', "check semact for create value");
 	static_assert( []{
 		semact_req_tester r;
-		auto p=(char_<'a'>++ >> -(omit(char_<'('>) >> req<1>([](auto& r){r=new semact_req_tester('b');return r;}) >> omit(char_<')'>)));
+		auto p=(char_<'a'>++ >> -(omit(char_<'('>) >> use_seq_result(req<1>([](auto& r){r=new semact_req_tester('b');return r;})) >> omit(char_<')'>)));
 		p.parse(make_test_ctx(), make_source("a(a)"), r);
 		char ret = r.ptr->n * (r.ptr->ptr == nullptr);
 		delete r.ptr;
@@ -2553,17 +2542,12 @@ constexpr static bool test_seq_shift_pos() {
 		abcd.parse(make_test_ctx(), make_source("abcd"), r);
 		return r.i.shift1 + r.shift2;
 	}() == 6, "can parse current shift");
-	constexpr auto ab_req = (char_<'a'>|'b')++ >> -(_char<'('> >> req<1> >> _char<')'> >> ++cur_shift) >> ++cur_shift;
+	constexpr auto ab_req = (char_<'a'>|'b') >> -use_seq_result(_char<'('> >> use_seq_result(req<1>) >> _char<')'> >> ++cur_shift) >> ++cur_shift;
 	static_assert( [&]{
-		struct { char a='z'; struct { char b; int shift1;} i; int shift2; } r;
+		struct { char a='z'; int shift; } r;
 		ab_req.parse(make_test_ctx(), make_source("a(b)"), r);
-		return r.i.shift1;
-	}() == 3, "can parse current shift in reqursion");
-	static_assert( [&]{
-		struct { char a='z'; struct { char b; int shift1;} i; int shift2; } r;
-		ab_req.parse(make_test_ctx(), make_source("a(b)"), r);
-		return r.shift2;
-	}() == 4, "can parse current shift in reqursion");
+		return (r.a=='b') + 2*(r.shift==4);
+	}() == 3, "can parse current shift in reqursion (the last brace is included)");
 	return true;
 }
 
