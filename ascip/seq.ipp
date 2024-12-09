@@ -11,20 +11,19 @@ constexpr static auto call_err_method(auto& method, auto& ctx, auto src, auto& r
 	else if constexpr (requires{ { method(result,src,0,message) } -> std::same_as<void>; })
 		return (method(
 			result,
-			src, //*search_in_ctx<seq_src_stack_tag>(ctx),
+			src,
 			search_in_ctx<ascip_details::new_line_count_tag>(ctx),
 			message
 			), -1);
 	else return method(
 			result,
-			src, //*search_in_ctx<seq_src_stack_tag>(ctx),
+			src,
 			search_in_ctx<ascip_details::new_line_count_tag>(ctx),
 			message
 			);
 }
 
 struct seq_stack_tag{};
-struct seq_src_stack_tag{};
 struct seq_shift_stack_tag{};
 struct seq_result_stack_tag{};
 //TODO: dose we realy need the pos parser?
@@ -222,11 +221,9 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 	constexpr auto parse_with_modified_ctx(auto&& ctx, auto src, auto& result) const {
 		const concrete* _self = static_cast<const concrete*>(this);
 		ascip_details::type_any_eq_allow fake_r;
-		auto cur_ctx = make_ctx<seq_src_stack_tag>(&src,
-		  make_ctx<seq_result_stack_tag>(&result,
-		    make_ctx<seq_stack_tag>(this,
-		      ascip_details::make_ctx<concrete>(&src, ctx)
-		    )
+		auto cur_ctx = make_ctx<seq_result_stack_tag>(&result,
+		  make_ctx<seq_stack_tag>(this,
+		    ascip_details::make_ctx<concrete>(&src, ctx)
 		  )
 		);
 		return parse_and_store_shift<0,0>(cur_ctx, src, result);
