@@ -213,25 +213,21 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 	template<auto find, auto pind>
 	constexpr auto parse_and_store_shift(auto&& ctx, auto src, auto& result) const -> decltype(0) {
 		//static_assert - exists concrete in ctx
-		auto* old_shift = search_in_ctx<seq_shift_stack_tag>(ctx);
 		auto cur_shift = 0;
-		search_in_ctx<seq_shift_stack_tag>(ctx) = &cur_shift;
-		auto ret = parse_seq<find, pind, parsers...>(static_cast<decltype(ctx)&&>(ctx), src, result);
+		auto [new_ctx, old_shift] = add_or_replace<seq_shift_stack_tag>(&cur_shift, ctx);
+		auto ret = parse_seq<find, pind, parsers...>(new_ctx, src, result);
 		search_in_ctx<seq_shift_stack_tag>(ctx) = old_shift;
 		return ret;
 	}
 	constexpr auto parse_with_modified_ctx(auto&& ctx, auto src, auto& result) const {
 		const concrete* _self = static_cast<const concrete*>(this);
 		ascip_details::type_any_eq_allow fake_r;
-		auto shift_store = 0;
-		auto cur_ctx = make_ctx<seq_shift_stack_tag>(&shift_store,
-		      make_ctx<seq_src_stack_tag>(&src, 
-			make_ctx<seq_result_stack_tag>(&result,
-			  make_ctx<seq_stack_tag>(this,
-			    ascip_details::make_ctx<concrete>(&src, ctx)
-			  )
-			)
-		      )
+		auto cur_ctx = make_ctx<seq_src_stack_tag>(&src,
+		  make_ctx<seq_result_stack_tag>(&result,
+		    make_ctx<seq_stack_tag>(this,
+		      ascip_details::make_ctx<concrete>(&src, ctx)
+		    )
+		  )
 		);
 		return parse_and_store_shift<0,0>(cur_ctx, src, result);
 	}

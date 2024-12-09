@@ -73,7 +73,9 @@ template<typename tag, typename val, typename next_ctx> struct context_ptr {
 	constexpr bool has_next() const {return _next!=nullptr; } constexpr next_ctx& next() {return *_next;}
 };
 template<typename tag, typename val> struct last_context { using tag_t = tag; val v; };
-constexpr const struct  ctx_not_found_type {} ctx_not_found;
+constexpr struct ctx_not_found_type {
+	constexpr const ctx_not_found_type& operator=(const ctx_not_found_type&)const{return *this;}
+} ctx_not_found;
 
 template<typename tag, typename value>
 constexpr auto make_ctx(value&& val) {
@@ -152,14 +154,15 @@ constexpr auto remove_from_ctx(auto&& ctx) {
 
 template<typename tag>
 constexpr auto replace_by_tag(auto&& val, auto&& ctx) {
+	constexpr auto cur_tag = type_dc<typename decltype(+type_dc<decltype(ctx)>)::tag_t>;
 	constexpr bool last = !requires{ ctx.next(); };
-	if constexpr (std::is_same_v<typename decltype(auto(ctx))::tag_t, tag>) {
+	if constexpr (type_dc<tag> == cur_tag) {
 		if constexpr (last) return make_ctx<tag>(std::forward<decltype(val)>(val));
 		else return make_ctx<tag>(std::forward<decltype(val)>(val), replace_by_tag<tag>(std::forward<decltype(val)>(val), ctx.next()));
 	}
 	else {
 		if constexpr (last) return ctx;
-		else return replace_by_tag<tag>(std::forward<decltype(val)>(val), ctx.next());
+		else return make_ctx<decltype(+cur_tag)>(ctx.v, replace_by_tag<tag>(std::forward<decltype(val)>(val), ctx.next()));
 	}
 }
 
@@ -174,6 +177,19 @@ constexpr auto replace_by_tag_and_val_type(auto tag, auto&& val, auto&& ctx) {
 template<typename tag_type, typename value_type>
 constexpr auto replace_by_tag_and_val_type(value_type&& val, auto&& ctx) {
 	return replace_by_tag_and_val_type(type_dc<tag_type>, std::forward<decltype(val)>(val), std::forward<decltype(ctx)>(ctx));
+}
+
+template<typename tag> constexpr auto add_or_replace(auto&& val, auto&& ctx) {
+	constexpr auto cur_tag = type_dc<typename decltype(+type_dc<decltype(ctx)>)::tag_t>;
+	if constexpr(exists_in_ctx<tag>(std::decay_t<decltype(ctx)>{})) {
+		auto new_ctx = replace_by_tag<tag>(std::forward<decltype(val)>(val), std::forward<decltype(ctx)>(ctx));
+		struct {decltype(new_ctx) ctx; decltype(search_in_ctx<tag>(ctx)) old; } ret{std::move(new_ctx), search_in_ctx<tag>(ctx)};
+		return ret;
+	} else {
+		auto new_ctx = make_ctx<tag>(std::forward<decltype(val)>(val), std::forward<decltype(ctx)>(ctx));
+		struct {decltype(new_ctx) ctx; ctx_not_found_type old; } ret{std::move(new_ctx), ctx_not_found};
+		return ret;
+	}
 }
 
        
@@ -2358,25 +2374,21 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 	template<auto find, auto pind>
 	constexpr auto parse_and_store_shift(auto&& ctx, auto src, auto& result) const -> decltype(0) {
 		//static_assert - exists concrete in ctx
-		auto* old_shift = search_in_ctx<seq_shift_stack_tag>(ctx);
 		auto cur_shift = 0;
-		search_in_ctx<seq_shift_stack_tag>(ctx) = &cur_shift;
-		auto ret = parse_seq<find, pind, parsers...>(static_cast<decltype(ctx)&&>(ctx), src, result);
+		auto [new_ctx, old_shift] = add_or_replace<seq_shift_stack_tag>(&cur_shift, ctx);
+		auto ret = parse_seq<find, pind, parsers...>(new_ctx, src, result);
 		search_in_ctx<seq_shift_stack_tag>(ctx) = old_shift;
 		return ret;
 	}
 	constexpr auto parse_with_modified_ctx(auto&& ctx, auto src, auto& result) const {
 		const concrete* _self = static_cast<const concrete*>(this);
 		ascip_details::type_any_eq_allow fake_r;
-		auto shift_store = 0;
-		auto cur_ctx = make_ctx<seq_shift_stack_tag>(&shift_store,
-		      make_ctx<seq_src_stack_tag>(&src, 
+		auto cur_ctx = make_ctx<seq_src_stack_tag>(&src,
 			make_ctx<seq_result_stack_tag>(&result,
 			  make_ctx<seq_stack_tag>(this,
 			    ascip_details::make_ctx<concrete>(&src, ctx)
 			  )
 			)
-		      )
 		);
 		return parse_and_store_shift<0,0>(cur_ctx, src, result);
 	}

@@ -71,9 +71,10 @@ constexpr void test_context() {
 		  (search_in_ctx<t1_t>(ctx_r).v==v2_t{}.v)
 		+ 2*(search_in_ctx<t2_t>(ctx_rr).v==v3_t{}.v)
 		+ 4*!exists_in_ctx<t4_t>(ctx_nr)
-		+ 8*(count_in_ctx<t2_t>(ctx_rr)==1)
+		+ 8*exists_in_ctx<t2_t>(ctx_nr)
+		+ 16*(count_in_ctx<t2_t>(ctx_rr)==1)
 		;
-	}() == 15 );
+	}() == 31 );
 	static_assert( [] {
 		auto ctx = make_ctx<t2_t>(v2_t{}, make_ctx<t1_t>(v1_t{}));
 		v1_t new_v{7};
@@ -87,6 +88,16 @@ constexpr void test_context() {
 		+ 4*!exists_in_ctx<t4_t>(ctx_nr_v)
 		;
 	}() == 7 );
+	static_assert( [] {
+		auto ctx = make_ctx<t2_t>(v2_t{}, make_ctx<t1_t>(v1_t{}));
+		auto [ctx_a, ctx_a_old] = add_or_replace<t3_t>(v3_t{}, ctx);
+		auto [ctx_r, cxt_r_old] = add_or_replace<t2_t>(v2_t{7}, ctx);
+		return (search_in_ctx<t3_t>(ctx_a).v==v3_t{}.v)
+		+ 2*std::is_same_v<ascip_details::ctx_not_found_type, decltype(ctx_a_old)>
+		+ 4*(cxt_r_old.v == v2_t{}.v)
+		+ 8*(search_in_ctx<t2_t>(ctx_r).v==7)
+		;
+	}() == 15 );
 }
 
 constexpr void context_parsers() {

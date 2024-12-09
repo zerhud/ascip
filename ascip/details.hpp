@@ -63,7 +63,9 @@ template<typename tag, typename val, typename next_ctx> struct context_ptr {
 	constexpr bool has_next() const {return _next!=nullptr; } constexpr next_ctx& next() {return *_next;}
 };
 template<typename tag, typename val> struct last_context { using tag_t = tag; val v; };
-constexpr const struct  ctx_not_found_type {} ctx_not_found;
+constexpr struct ctx_not_found_type {
+	constexpr const ctx_not_found_type& operator=(const ctx_not_found_type&)const{return *this;}
+} ctx_not_found;
 
 template<typename tag, typename value>
 constexpr auto make_ctx(value&& val) {
@@ -142,14 +144,15 @@ constexpr auto remove_from_ctx(auto&& ctx) {
 
 template<typename tag>
 constexpr auto replace_by_tag(auto&& val, auto&& ctx) {
+	constexpr auto cur_tag = type_dc<typename decltype(+type_dc<decltype(ctx)>)::tag_t>;
 	constexpr bool last = !requires{ ctx.next(); };
-	if constexpr (std::is_same_v<typename decltype(auto(ctx))::tag_t, tag>) {
+	if constexpr (type_dc<tag> == cur_tag) {
 		if constexpr (last) return make_ctx<tag>(std::forward<decltype(val)>(val));
 		else return make_ctx<tag>(std::forward<decltype(val)>(val), replace_by_tag<tag>(std::forward<decltype(val)>(val), ctx.next()));
 	}
 	else {
 		if constexpr (last) return ctx;
-		else return replace_by_tag<tag>(std::forward<decltype(val)>(val), ctx.next());
+		else return make_ctx<decltype(+cur_tag)>(ctx.v, replace_by_tag<tag>(std::forward<decltype(val)>(val), ctx.next()));
 	}
 }
 
@@ -164,6 +167,19 @@ constexpr auto replace_by_tag_and_val_type(auto tag, auto&& val, auto&& ctx) {
 template<typename tag_type, typename value_type>
 constexpr auto replace_by_tag_and_val_type(value_type&& val, auto&& ctx) {
 	return replace_by_tag_and_val_type(type_dc<tag_type>, std::forward<decltype(val)>(val), std::forward<decltype(ctx)>(ctx));
+}
+
+template<typename tag> constexpr auto add_or_replace(auto&& val, auto&& ctx) {
+	constexpr auto cur_tag = type_dc<typename decltype(+type_dc<decltype(ctx)>)::tag_t>;
+	if constexpr(exists_in_ctx<tag>(std::decay_t<decltype(ctx)>{})) {
+		auto new_ctx = replace_by_tag<tag>(std::forward<decltype(val)>(val), std::forward<decltype(ctx)>(ctx));
+		struct {decltype(new_ctx) ctx; decltype(search_in_ctx<tag>(ctx)) old; } ret{std::move(new_ctx), search_in_ctx<tag>(ctx)};
+		return ret;
+	} else {
+		auto new_ctx = make_ctx<tag>(std::forward<decltype(val)>(val), std::forward<decltype(ctx)>(ctx));
+		struct {decltype(new_ctx) ctx; ctx_not_found_type old; } ret{std::move(new_ctx), ctx_not_found};
+		return ret;
+	}
 }
 
 #include "static_string.ipp"
