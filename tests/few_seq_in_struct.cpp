@@ -35,6 +35,14 @@ static_assert( []{
 	;
 }() == 3 );
 
+static_assert( [] {
+	char r1;
+	auto r = parse(p::char_<'a'> >> (p::char_<'b'> | (p::char_<'r'> >> p::req<1>)), p::make_source("arab"), r1);
+	return (r==4)
+	+ 2*(r1=='b')
+	;
+}() == 3, "can use reqursion with | parser" );
+
 int main(int,char**) {
 	return 0;
 }
