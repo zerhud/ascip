@@ -305,20 +305,37 @@ constexpr bool is_in_concept_check(auto&& ctx) {
 	return exists_in_ctx<parser_concept_check_tag>(ctx);
 }
 
-struct in_req_flag{ };
 struct err_handler_tag{};
 struct new_line_count_tag{};
-constexpr bool is_in_reqursion_check(auto&& ctx) {
-	return exists_in_ctx<in_req_flag>(ctx);
-}
+struct shift_count_tag{};
 
-constexpr void count_new_line(auto& ctx, auto sym, auto& r) {
+constexpr void count_new_line(auto& ctx, auto sym, [[maybe_unused]] auto& r) {
 	constexpr bool need_count_new_lines =
 		   exists_in_ctx<new_line_count_tag>(decltype(auto(ctx)){})
 		&& !std::is_same_v<std::decay_t<decltype(r)>, type_any_eq_allow>
 		;
 	if constexpr (need_count_new_lines)
 		search_in_ctx<new_line_count_tag>(ctx) += (sym == '\n');
+}
+
+constexpr auto make_shift_resetter(auto& ctx, auto val) {
+	using ctx_type = std::decay_t<decltype(ctx)>;
+	using shift_type = std::decay_t<decltype(search_in_ctx<shift_count_tag>(ctx))>;
+	static_assert( requires(shift_type& v){v = val;}, "cannot store the value in context as shift value" );
+	struct resetter {
+		ctx_type& ctx;
+		shift_type old;
+
+		constexpr explicit resetter(ctx_type& ctx, shift_type val)
+		: ctx(ctx), old(search_in_ctx<shift_count_tag>(ctx))
+		{
+			search_in_ctx<shift_count_tag>(ctx) = val;
+		}
+		constexpr ~resetter() noexcept {
+			search_in_ctx<shift_count_tag>(ctx) = old;
+		}
+	};
+	return resetter( ctx, val );
 }
 
 namespace { // tuple
@@ -850,10 +867,10 @@ constexpr auto operator%(char r)const{ return binary_list_parser( static_cast<co
 
 };
 
-constexpr static auto make_test_ctx() { return ascip_details::make_ctx<ascip_details::new_line_count_tag>(1); }
+constexpr static auto make_test_ctx() { return make_ctx<ascip_details::shift_count_tag>(0, ascip_details::make_ctx<ascip_details::new_line_count_tag>(1)); }
 constexpr static auto make_test_ctx(auto err_handler){ return make_ctx<ascip_details::err_handler_tag>(err_handler, make_test_ctx()); }
 //template<auto... i> friend constexpr auto make_test_ctx(const base_parser<auto>&) { return ascip_details::make_ctx<ascip_details::parser_concept_check_tag>(1); }
-template<auto... i, typename parser_param> friend constexpr auto make_test_ctx(const base_parser<parser_param>&) { return ascip_details::make_ctx<ascip_details::parser_concept_check_tag>(1); }
+template<auto... i, typename parser_param> friend constexpr auto make_test_ctx(const base_parser<parser_param>&) { return ascip_details::make_ctx<ascip_details::parser_concept_check_tag>(1, make_test_ctx()); }
 // ^^ implemented for ascip_details::parser concept 
 
        
@@ -2212,7 +2229,6 @@ constexpr static auto call_err_method(auto& method, auto& ctx, auto src, auto& r
 }
 
 struct seq_stack_tag{};
-struct seq_shift_stack_tag{};
 struct seq_result_stack_tag{};
 //TODO: dose we realy need the pos parser?
 constexpr static struct cur_pos_parser : base_parser<cur_pos_parser> {
@@ -2231,7 +2247,7 @@ constexpr static struct cur_shift_parser : base_parser<cur_shift_parser> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr (ascip_details::is_in_concept_check(decltype(auto(ctx)){})) return 0;
 		else {
-			ascip_details::eq(result, *search_in_ctx<seq_shift_stack_tag>(ctx));
+			ascip_details::eq(result, search_in_ctx<ascip_details::shift_count_tag>(ctx));
 			return 0;
 		}
 	}
@@ -2381,7 +2397,7 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 		auto ret = call_parse<cur_field>(cur, ctx, src, result);
 		src += ret * (0 <= ret);
 		//NOTE: check src and return  ret if no more data exists?
-		*search_in_ctx<seq_shift_stack_tag>(ctx) += ret * (0 <= ret);
+		search_in_ctx<ascip_details::shift_count_tag>(ctx) += ret * (0 <= ret);
 		if constexpr (pind+1 == sizeof...(parsers)) return ret; 
 		else {
 			if( ret < 0 ) return on_error(ret);
@@ -2390,22 +2406,13 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 			return ret + req;
 		}
 	}
-
-	template<auto find, auto pind>
-	constexpr auto parse_and_store_shift(auto&& ctx, auto src, auto& result) const -> decltype(0) {
-		//static_assert - exists concrete in ctx
-		auto cur_shift = 0;
-		auto [new_ctx, old_shift] = add_or_replace<seq_shift_stack_tag>(&cur_shift, ctx);
-		auto ret = parse_seq<find, pind, parsers...>(new_ctx, src, result);
-		search_in_ctx<seq_shift_stack_tag>(ctx) = old_shift;
-		return ret;
-	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if(!src) return -1;
 		if constexpr (ascip_details::is_in_concept_check(decltype(auto(ctx)){})) return 0;
 		else {
-			auto ctx_this = add_or_replace_by_tag_and_val_type<seq_stack_tag>(this, ctx);
-			return parse_and_store_shift<0,0>( add_or_replace_by_tag_and_val_type<seq_result_stack_tag>(&result, ctx_this), src, result);
+			auto ctx_this = add_or_replace_by_tag_and_val_type<seq_result_stack_tag>(&result, add_or_replace_by_tag_and_val_type<seq_stack_tag>(this, ctx));
+			auto shift_resetter = ascip_details::make_shift_resetter(ctx_this, 0);
+			return parse_seq<0, 0, parsers...>(ctx_this, src, result);
 		}
 	}
 

@@ -256,6 +256,26 @@ constexpr void count_new_line(auto& ctx, auto sym, [[maybe_unused]] auto& r) {
 		search_in_ctx<new_line_count_tag>(ctx) += (sym == '\n');
 }
 
+constexpr auto make_shift_resetter(auto& ctx, auto val) {
+	using ctx_type = std::decay_t<decltype(ctx)>;
+	using shift_type = std::decay_t<decltype(search_in_ctx<shift_count_tag>(ctx))>;
+	static_assert( requires(shift_type& v){v = val;}, "cannot store the value in context as shift value" );
+	struct resetter {
+		ctx_type& ctx;
+		shift_type old;
+
+		constexpr explicit resetter(ctx_type& ctx, shift_type val)
+		: ctx(ctx), old(search_in_ctx<shift_count_tag>(ctx))
+		{
+			search_in_ctx<shift_count_tag>(ctx) = val;
+		}
+		constexpr ~resetter() noexcept {
+			search_in_ctx<shift_count_tag>(ctx) = old;
+		}
+	};
+	return resetter( ctx, val );
+}
+
 namespace { // tuple
 	template<auto ind, typename t> struct tuple_base { t val;
 		constexpr tuple_base() {}

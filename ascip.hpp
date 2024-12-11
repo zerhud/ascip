@@ -56,10 +56,10 @@ template<typename parser> struct base_parser : ascip_details::adl_tag {
 #include "ascip/operators.ipp"
 };
 
-constexpr static auto make_test_ctx() { return ascip_details::make_ctx<ascip_details::new_line_count_tag>(1); }
+constexpr static auto make_test_ctx() { return make_ctx<ascip_details::shift_count_tag>(0, ascip_details::make_ctx<ascip_details::new_line_count_tag>(1)); }
 constexpr static auto make_test_ctx(auto err_handler){ return make_ctx<ascip_details::err_handler_tag>(err_handler, make_test_ctx()); }
 //template<auto... i> friend constexpr auto make_test_ctx(const base_parser<auto>&) { return ascip_details::make_ctx<ascip_details::parser_concept_check_tag>(1); }
-template<auto... i, typename parser_param> friend constexpr auto make_test_ctx(const base_parser<parser_param>&) { return ascip_details::make_ctx<ascip_details::parser_concept_check_tag>(1); }
+template<auto... i, typename parser_param> friend constexpr auto make_test_ctx(const base_parser<parser_param>&) { return ascip_details::make_ctx<ascip_details::parser_concept_check_tag>(1, make_test_ctx()); }
 // ^^ implemented for ascip_details::parser concept 
 
 #include "ascip/test_utils.ipp"
