@@ -86,8 +86,40 @@ constexpr void test_context() {
 		  (search_in_ctx<t1_t>(ctx_r).v==7)
 		+ 2*!exists_in_ctx<t4_t>(ctx_nr_t)
 		+ 4*!exists_in_ctx<t4_t>(ctx_nr_v)
+		+ 8*exists_in_ctx<t2_t>(ctx_nr_v)
 		;
-	}() == 7 );
+	}() == 15 );
+	static_assert( [] {
+		using ascip_details::type_dc;
+		auto _ctx = make_ctx<t2_t>(v2_t{}, make_ctx<t1_t>(v1_t{}));
+		auto _ctx2 = make_ctx<t1_t>(v3_t{}, _ctx);
+		auto ctx = type_dc<decltype(_ctx)>;
+		auto ctx2 = type_dc<decltype(_ctx2)>;
+		return
+		  !exists_in_ctx_constexpr(ascip_details::type_c<t1_t>, type_dc<v2_t>, ctx)
+		+ 2*exists_in_ctx_constexpr(ascip_details::type_c<t2_t>, type_dc<v2_t>, ctx)
+		+ 4*exists_in_ctx_constexpr(ascip_details::type_c<t1_t>, type_dc<v3_t&>, ctx2)
+		;
+	}() == 7);
+	static_assert( [] {
+		using ascip_details::type_dc;
+		return exists_in_ctx_constexpr(type_dc<t1_t>, type_dc<v1_t>, type_dc<decltype(make_ctx<t1_t>(v2_t{}, make_ctx<t2_t>(v2_t{}, make_ctx<t1_t>(v1_t{}))))>);
+	}() );
+	static_assert( [] {
+		using ascip_details::type_dc;
+		auto ctx = make_ctx<t2_t>(v2_t{}, make_ctx<t1_t>(v1_t{}));
+		v1_t new_v{7};
+		v2_t new_v_wrong{11};
+		auto ctx_r = add_or_replace_by_tag_and_val_type<t1_t>(new_v, ctx);
+		auto ctx_nr_t = add_or_replace_by_tag_and_val_type<t4_t>(new_v, ctx);
+		auto ctx_nr_v = add_or_replace_by_tag_and_val_type<t1_t>(new_v_wrong, ctx);
+		auto ctx_rd = add_or_replace_by_tag_and_val_type<t1_t>(v1_t{3}, ctx_nr_v);
+		return (search_in_ctx<t1_t>(ctx_r).v==7)
+		+ 2*(search_in_ctx<t4_t>(ctx_nr_t).v==7)
+		+ 4*(search_in_ctx<t1_t>(ctx_nr_v).v==11)
+		+ 8*(by_ind_from_ctx<1, t1_t>(ctx_rd).v==3)
+		;
+	}() == 15 );
 	static_assert( [] {
 		auto ctx = make_ctx<t2_t>(v2_t{}, make_ctx<t1_t>(v1_t{}));
 		auto [ctx_a, ctx_a_old] = add_or_replace<t3_t>(v3_t{}, ctx);

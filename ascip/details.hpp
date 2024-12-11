@@ -67,6 +67,15 @@ constexpr struct ctx_not_found_type {
 	constexpr const ctx_not_found_type& operator=(const ctx_not_found_type&)const{return *this;}
 } ctx_not_found;
 
+constexpr decltype(auto) apply_ctx(auto& ctx, auto&& fnc, auto&&... params) {
+	if constexpr (!requires{ctx.next();}) return fnc(std::forward<decltype(params)>(params)..., ctx);
+	else return apply_ctx(ctx.next(), std::forward<decltype(fnc)>(fnc), std::forward<decltype(params)>(params)..., ctx);
+}
+constexpr decltype(auto) apply_ctx_constexpr(auto ctx, auto&& fnc, auto&&... params) {
+	if constexpr (!requires{typename decltype(+ctx)::next_t;}) return fnc(params..., ctx);
+	else return apply_ctx_constexpr(type_dc<typename decltype(+ctx)::next_t>, std::forward<decltype(fnc)>(fnc), params..., ctx);
+}
+
 template<typename tag, typename value>
 constexpr auto make_ctx(value&& val) {
 	return last_context<tag, decltype(auto(val))>{ static_cast<value&&>(val) };
@@ -85,14 +94,14 @@ constexpr auto crop_ctx(auto&& ctx) {
 	auto* cropped = search_in_ctx<tag>(ctx);
 	return make_ctx<tag>(cropped, *cropped);
 }
-constexpr auto count_in_ctx(auto tag, auto&& ctx) {
-	constexpr auto cur_tag = type_dc<typename decltype(+type_dc<decltype(ctx)>)::tag_t>;
-	if constexpr(!requires{ctx.next();}) return tag == cur_tag;
-	else return (tag == cur_tag) + count_in_ctx(tag, ctx.next());
+constexpr auto count_in_ctx(auto tag, [[maybe_unused]] auto ctx) {
+	constexpr auto cur_tag = type_dc<typename decltype(+ctx)::tag_t>;
+	if constexpr(!requires{typename decltype(+ctx)::next_t;}) return tag == cur_tag;
+	else return (tag == cur_tag) + count_in_ctx(tag, type_dc<typename decltype(+ctx)::next_t>);
 }
 template<typename tag>
 constexpr auto count_in_ctx(auto&& ctx) {
-	return count_in_ctx(type_c<tag>, std::forward<decltype(ctx)>(ctx));
+	return count_in_ctx(type_c<tag>, type_dc<decltype(ctx)>);
 }
 template<typename tag>
 constexpr bool exists_in_ctx(auto&& ctx) {
@@ -156,24 +165,42 @@ constexpr auto replace_by_tag(auto&& val, auto&& ctx) {
 	}
 }
 
-constexpr auto replace_by_tag_and_val_type(auto tag, auto&& val, auto&& ctx) {
-	constexpr auto cur_tag = type_dc<typename decltype(+type_dc<decltype(ctx)>)::tag_t>;
-	if constexpr(tag == cur_tag && type_dc<decltype(val)> == type_dc<decltype(ctx.v)>) {
-		ctx.v = std::forward<decltype(val)>(val);
-	}
-	if constexpr(!requires{ctx.next();}) return ctx;
-	else return replace_by_tag_and_val_type(tag, std::forward<decltype(val)>(val), ctx.next());
+constexpr auto& replace_by_tag_and_val_type(auto tag, auto&& val, auto& ctx) {
+	auto replace = [&](auto& p) {
+		if constexpr (tag == type_c<typename decltype(+type_dc<decltype(p)>)::tag_t> && type_dc<decltype(p.v)> == type_dc<decltype(val)>) {p.v = val;}
+	};
+	apply_ctx(ctx, [&](auto&... params) {
+		( (replace(params),0) || ... );
+	});
+	return ctx;
 }
-template<typename tag_type, typename value_type>
-constexpr auto replace_by_tag_and_val_type(value_type&& val, auto&& ctx) {
+template<typename tag_type>
+constexpr auto& replace_by_tag_and_val_type(auto&& val, auto& ctx) {
 	return replace_by_tag_and_val_type(type_dc<tag_type>, std::forward<decltype(val)>(val), std::forward<decltype(ctx)>(ctx));
+}
+constexpr bool exists_in_ctx_constexpr(auto tag, auto val, auto ctx) {
+	auto check = [&]([[maybe_unused]] auto p) -> bool {
+		return val == type_dc<decltype(decltype(+p){}.v)> && tag == type_dc<typename decltype(+p)::tag_t>;
+	};
+	return apply_ctx_constexpr(ctx, [&](auto&... params) {
+		return ( check(params) + ... );
+	});
+}
+constexpr auto add_or_replace_by_tag_and_val_type(auto tag, auto&& val, auto&& ctx) {
+	if constexpr (exists_in_ctx_constexpr(tag, type_dc<decltype(val)>, type_dc<decltype(ctx)>))
+		return replace_by_tag_and_val_type(tag, std::forward<decltype(val)>(val), ctx);
+	else return make_ctx<decltype(+tag)>(std::forward<decltype(val)>(val), std::forward<decltype(ctx)>(ctx));
+}
+template<typename tag_type>
+constexpr auto add_or_replace_by_tag_and_val_type(auto&& val, auto&& ctx) {
+	return add_or_replace_by_tag_and_val_type(type_c<tag_type>, std::forward<decltype(val)>(val), std::forward<decltype(ctx)>(ctx));
 }
 
 template<typename tag> constexpr auto add_or_replace(auto&& val, auto&& ctx) {
 	constexpr auto cur_tag = type_dc<typename decltype(+type_dc<decltype(ctx)>)::tag_t>;
 	if constexpr(exists_in_ctx<tag>(std::decay_t<decltype(ctx)>{})) {
 		auto new_ctx = replace_by_tag<tag>(std::forward<decltype(val)>(val), std::forward<decltype(ctx)>(ctx));
-		struct {decltype(new_ctx) ctx; decltype(search_in_ctx<tag>(ctx)) old; } ret{std::move(new_ctx), search_in_ctx<tag>(ctx)};
+		struct {decltype(new_ctx) ctx; std::decay_t<decltype(search_in_ctx<tag>(ctx))> old; } ret{std::move(new_ctx), search_in_ctx<tag>(ctx)};
 		return ret;
 	} else {
 		auto new_ctx = make_ctx<tag>(std::forward<decltype(val)>(val), std::forward<decltype(ctx)>(ctx));
