@@ -49,17 +49,8 @@ template<ascip_details::parser... parsers> struct variant_parser : base_parser<v
 		}
 	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		if constexpr (exists_in_ctx<self_type>(decltype(auto(ctx)){})) 
-			return parse_ind<0>(ctx, src, result);
-		else {
-			auto variant_ctx =
-				make_ctx<variant_stack_result_tag>(&result,
-					make_ctx<variant_stack_tag>(this, ctx)
-				)
-			;
-			auto nctx = make_ctx<self_type>(&variant_ctx, variant_ctx);
-			return parse_ind<0>(nctx, src, result);
-		}
+		auto nctx = add_or_replace_by_tag_and_val_type<variant_stack_result_tag>(&result, ctx);
+		return parse_ind<0>(nctx, src, result);
 	}
 
 	constexpr auto clang_crash_workaround(auto r) {
