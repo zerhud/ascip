@@ -205,7 +205,8 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 		if(!src) return -1;
 		if constexpr (ascip_details::is_in_concept_check(decltype(auto(ctx)){})) return 0;
 		else {
-			auto ctx_this = add_or_replace_by_tag_and_val_type<seq_result_stack_tag>(&result, add_or_replace_by_tag_and_val_type<seq_stack_tag>(this, ctx));
+			auto ctx_this = add_or_replace_by_tag_and_val_type<seq_result_stack_tag>(&result,
+			    add_or_replace_by_tag_and_val_type<seq_stack_tag>(static_cast<const concrete*>(this), ctx));
 			auto shift_resetter = ascip_details::make_shift_resetter(ctx_this, 0);
 			return parse_seq<0, 0, parsers...>(ctx_this, src, result);
 		}
