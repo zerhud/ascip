@@ -61,12 +61,7 @@ struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind, ctx_chunk_si
 	static_assert( ctx_chunk_size > ctx_result_pos, "we need to extract result from ctx"  );
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr( ascip_details::is_in_concept_check(decltype(auto(ctx)){})  ) return 0;
-		else if constexpr (ascip_details::is_in_reqursion_check(decltype(auto(ctx)){})) {
-			return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse(ctx, static_cast<decltype(src)&&>(src), result) : -1;
-		} else {
-			auto new_ctx = make_ctx<ascip_details::in_req_flag>(true, ctx);
-			return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse(new_ctx, static_cast<decltype(src)&&>(src), result) : -1;
-		}
+		else return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse(ctx, static_cast<decltype(src)&&>(src), result) : -1;
 	}
 };
 template<auto ind> constexpr static auto req = seq_reqursion_parser<ind, 4, 1>{};
@@ -185,7 +180,6 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 		return p.parse(ctx, src, result);
 	}
 	template<auto find> constexpr auto call_parse(auto& p, auto&& ctx, auto src, auto& result) const requires (!ascip_details::parser<decltype(auto(p))>) {
-		auto& prev_src = *search_in_ctx<concrete>(ctx);
 		return call_err_method(p, ctx, src, result, "unknown");
 	}
 	template<auto find, auto pind, typename cur_t, typename... tail> constexpr auto parse_seq(auto&& ctx, auto src, auto& result) const {
@@ -218,23 +212,12 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 		search_in_ctx<seq_shift_stack_tag>(ctx) = old_shift;
 		return ret;
 	}
-	constexpr auto parse_with_modified_ctx(auto&& ctx, auto src, auto& result) const {
-		const concrete* _self = static_cast<const concrete*>(this);
-		ascip_details::type_any_eq_allow fake_r;
-		auto cur_ctx = make_ctx<seq_result_stack_tag>(&result,
-		  make_ctx<seq_stack_tag>(this,
-		    ascip_details::make_ctx<concrete>(&src, ctx)
-		  )
-		);
-		return parse_and_store_shift<0,0>(cur_ctx, src, result);
-	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if(!src) return -1;
 		if constexpr (ascip_details::is_in_concept_check(decltype(auto(ctx)){})) return 0;
 		else {
-			if constexpr (exists_in_ctx<concrete>(decltype(auto(ctx)){}))
-				return parse_and_store_shift<0,0>(static_cast<decltype(ctx)&&>(ctx), src, result);
-			else return parse_with_modified_ctx(static_cast<decltype(ctx)&&>(ctx), src, result);
+			auto ctx_this = add_or_replace_by_tag_and_val_type<seq_stack_tag>(this, ctx);
+			return parse_and_store_shift<0,0>( add_or_replace_by_tag_and_val_type<seq_result_stack_tag>(&result, ctx_this), src, result);
 		}
 	}
 
