@@ -18,8 +18,6 @@
  * use seq operators in adl instead on base parser - we cannot use it on all parsers (+(++p) for example)
  * seq with left seq operator - it was hard to implement in adl at the time and there was no reason to do so, so it's a part of seq structure
  * transfom method - use it for trnasform parser with mutator structure. ussage: inject skipping parser, add stop number in right reqursion
- * variant_pos_tag - used for get variant position from context. there is no easy way to get it from type or by this.
- *   (lambda works as unique type only from free function, inside a template<...> struct {...}; it doesn't)
  * error handling:
  *   must<"name">(parser) catches semantic errors, calls lambda passed in parse method (via ctx)
  *   check result method - semact parser checks result with user method and returns user result (user also can throw error)

@@ -804,8 +804,6 @@ constexpr void test () {
  * use seq operators in adl instead on base parser - we cannot use it on all parsers (+(++p) for example)
  * seq with left seq operator - it was hard to implement in adl at the time and there was no reason to do so, so it's a part of seq structure
  * transfom method - use it for trnasform parser with mutator structure. ussage: inject skipping parser, add stop number in right reqursion
- * variant_pos_tag - used for get variant position from context. there is no easy way to get it from type or by this.
- *   (lambda works as unique type only from free function, inside a template<...> struct {...}; it doesn't)
  * error handling:
  *   must<"name">(parser) catches semantic errors, calls lambda passed in parse method (via ctx)
  *   check result method - semact parser checks result with user method and returns user result (user also can throw error)
@@ -1744,7 +1742,6 @@ template<ascip_details::parser parser> struct use_variant_result_parser : base_p
 		return p.parse(std::forward<decltype(ctx)>(ctx), std::move(src), result);
 	}
 };
-template<auto val> struct variant_pos_value{ constexpr static auto pos = val; };
 template<ascip_details::parser... parsers> struct variant_parser : base_parser<variant_parser<parsers...>> {
 	using self_type = variant_parser<parsers...>;
 	tuple<parsers...> seq;
@@ -1771,8 +1768,7 @@ template<ascip_details::parser... parsers> struct variant_parser : base_parser<v
 	}
 	template<auto ind> consteval static auto cur_ind() { return _cur_ind<ind,0,0,parsers...>(); }
 	template<auto ind> constexpr auto parse_ind(auto&& ctx, auto& src, auto& result) const {
-		auto parse_ctx = make_ctx<variant_pos_tag>(variant_pos_value<ind>{}, ctx);
-		auto prs = [&](auto&& r){ return get<ind>(seq).parse(parse_ctx, src, ascip_details::variant_result<cur_ind<ind>()>(r)); };
+		auto prs = [&](auto&& r){ return get<ind>(seq).parse(ctx, src, ascip_details::variant_result<cur_ind<ind>()>(r)); };
 		if constexpr (ind+1 == sizeof...(parsers)) return prs(result);
 		else {
 			auto parse_result = prs(ascip_details::type_any_eq_allow{});
