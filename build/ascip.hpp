@@ -2163,9 +2163,8 @@ struct use_seq_result_parser : base_parser<use_seq_result_parser<parser>> {
 		return p.parse(ctx, src, result);
 	}
 };
-template<auto ind, auto ctx_chunk_size, auto ctx_result_pos>
-struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind, ctx_chunk_size, ctx_result_pos>> {
-	static_assert( ctx_chunk_size > ctx_result_pos, "we need to extract result from ctx"  );
+template<auto ind>
+struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind>> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr( ascip_details::is_in_concept_check(decltype(auto(ctx)){})  ) return 0;
 		else if constexpr (ascip_details::is_in_reqursion_check(decltype(auto(ctx)){})) {
@@ -2176,7 +2175,7 @@ struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind, ctx_chunk_si
 		}
 	}
 };
-template<auto ind> constexpr static auto req = seq_reqursion_parser<ind, 4, 1>{};
+template<auto ind> constexpr static auto req = seq_reqursion_parser<ind>{};
 
 template<auto cnt> struct _seq_rfield_val { constexpr static auto num_val = cnt; };
 template<ascip_details::parser parser, typename val> struct seq_inc_rfield_val : base_parser<seq_inc_rfield_val<parser, val>> {
