@@ -147,14 +147,10 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		return parse_without_prep<0>(make_ctx<rvariant_crop_ctx_tag>(&nctx, nctx), src, result);
 	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		if constexpr (!exists_in_ctx<rvariant_stack_tag>(decltype(auto(ctx)){}))
-			return parse_with_prep(ctx, src, result);
-		else  {
-			using rv_stack_type = std::decay_t<decltype(search_in_ctx<rvariant_stack_tag>(decltype(auto(ctx)){}))>;
-			if constexpr ( std::is_same_v<rv_stack_type, std::decay_t<decltype(this)>> )
-				return parse_without_prep<0>(ctx, src, result);
-			else return parse_with_prep(ctx, src, result);
-		}
+        using rv_stack_type = std::decay_t<decltype(search_in_ctx<rvariant_stack_tag>(decltype(auto(ctx)){}))>;
+        if constexpr ( std::is_same_v<rv_stack_type, std::decay_t<decltype(this)>> )
+            return parse_without_prep<0>(ctx, src, result);
+        else return parse_with_prep(ctx, src, result);
 	}
 };
 #ifdef __clang__
