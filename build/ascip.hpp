@@ -1733,7 +1733,6 @@ constexpr static bool test_variant() {
 //          https://www.boost.org/LICENSE_1_0.txt)
 
 
-struct rvariant_rerun_tag {};
 struct rvariant_stack_tag {};
 struct rvariant_crop_ctx_tag {};
 struct rvariant_copied_result_tag {};
@@ -1871,13 +1870,8 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		using copied_result_type = decltype(move_result(result));
 		auto nctx =
 			make_ctx<rvariant_copied_result_tag>((copied_result_type*)nullptr,
-			make_ctx<rvariant_stack_tag>(this,
-			make_ctx<rvariant_rerun_tag>(&ctx, ctx)));
+			make_ctx<rvariant_stack_tag>(this, ctx));
 		return parse_without_prep<0>(make_ctx<rvariant_crop_ctx_tag>(&nctx, nctx), src, result);
-	}
-	constexpr parse_result parse_rerun(auto&& ctx, auto src, auto& result) const {
-		auto* rerun_ctx = search_in_ctx<rvariant_rerun_tag>(ctx);
-		return parse_with_prep(*rerun_ctx, src, result);
 	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr (!exists_in_ctx<rvariant_stack_tag>(decltype(auto(ctx)){}))
@@ -1887,9 +1881,6 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 			if constexpr ( std::is_same_v<rv_stack_type, std::decay_t<decltype(this)>> )
 				return parse_without_prep<0>(ctx, src, result);
 			else return parse_with_prep(ctx, src, result);
-			//else return parse_with_prep(ctx, src, result);
-			//const bool is_in_neasted_rv = static_cast<const void*>(search_in_ctx<rvariant_stack_tag>(ctx)) != static_cast<const void*>(this);
-			//return is_in_neasted_rv ? parse_rerun(ctx, src, result) : parse_without_prep<0>(ctx, src, result);
 		}
 	}
 };
@@ -2117,20 +2108,19 @@ constexpr static auto call_err_method(auto& method, auto& ctx, auto src, auto& r
 	else if constexpr (requires{ { method(result,src,0,message) } -> std::same_as<void>; })
 		return (method(
 			result,
-			src, //*search_in_ctx<seq_src_stack_tag>(ctx),
+			src,
 			search_in_ctx<ascip_details::new_line_count_tag>(ctx),
 			message
 			), -1);
 	else return method(
 			result,
-			src, //*search_in_ctx<seq_src_stack_tag>(ctx),
+			src,
 			search_in_ctx<ascip_details::new_line_count_tag>(ctx),
 			message
 			);
 }
 
 struct seq_stack_tag{};
-struct seq_src_stack_tag{};
 struct seq_shift_stack_tag{};
 struct seq_result_stack_tag{};
 //TODO: dose we realy need the pos parser?
@@ -2330,13 +2320,11 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 		ascip_details::type_any_eq_allow fake_r;
 		auto shift_store = 0;
 		auto cur_ctx = make_ctx<seq_shift_stack_tag>(&shift_store,
-		      make_ctx<seq_src_stack_tag>(&src, 
-			make_ctx<seq_result_stack_tag>(&result,
-			  make_ctx<seq_stack_tag>(this,
+		  make_ctx<seq_result_stack_tag>(&result,
+		    make_ctx<seq_stack_tag>(this,
 			    ascip_details::make_ctx<concrete>(&src, ctx)
-			  )
-			)
-		      )
+		    )
+		  )
 		);
 		return parse_and_store_shift<0,0>(cur_ctx, src, result);
 	}
