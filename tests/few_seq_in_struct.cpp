@@ -28,22 +28,20 @@ static_assert( []{
 constexpr auto ab_req = (p::char_<'a'>|'b') >> -(p::_char<'('> >> p::req<1> >> p::_char<')'>);
 static_assert( []{
 	char r1;
-	auto r = parse(ab_req, +p::space, p::make_source("a ( b )"), r1);
+	const auto r = parse(ab_req, +p::space, p::make_source("a ( b )"), r1);
 	return
 	    (r==7)
 	+ 2*(r1=='b')
 	;
 }() == 3 );
 
-/*
 static_assert( [] {
 	char r1;
-	auto r = parse(p::char_<'a'> >> (p::char_<'b'> | (p::char_<'r'> >> p::req<1>)), p::make_source("arab"), r1);
+	const auto r = parse(p::char_<'a'> >> (p::char_<'b'> | (p::char_<'r'> >> p::req<1>)), p::make_source("arab"), r1);
 	return (r==4)
 	+ 2*(r1=='b')
 	;
-}() == 3, "can use reqursion with | parser" );
-*/
+}() == 3, "can use recursion with | parser" );
 
 int main(int,char**) {
 	return 0;

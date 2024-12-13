@@ -26,6 +26,7 @@ constexpr static auto call_err_method(auto& method, auto& ctx, auto src, auto& r
 struct seq_stack_tag{};
 struct seq_shift_stack_tag{};
 struct seq_result_stack_tag{};
+struct seq_crop_ctx_tag {};
 //TODO: dose we realy need the pos parser?
 constexpr static struct cur_pos_parser : base_parser<cur_pos_parser> {
 	constexpr parse_result parse(auto&&, auto src, auto& result) const {
@@ -59,9 +60,11 @@ struct use_seq_result_parser : base_parser<use_seq_result_parser<parser>> {
 template<auto ind>
 struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind>> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
+		//TODO: CLANG17: we cannot remove is_in_reqursion_check - clang fails to compile (gcc compiles normaly)
+		//               but the in_req_flag and is_in_reqursion_check dosen't use in any other classes (for now)
 		if constexpr( ascip_details::is_in_concept_check(decltype(auto(ctx)){})  ) return 0;
 		else if constexpr (ascip_details::is_in_reqursion_check(decltype(auto(ctx)){})) {
-			return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse(ctx, static_cast<decltype(src)&&>(src), result) : -1;
+			return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse_without_prep(crop_ctx<seq_crop_ctx_tag>(ctx), static_cast<decltype(src)&&>(src), result) : -1;
 		} else {
 			auto new_ctx = make_ctx<ascip_details::in_req_flag>(true, ctx);
 			return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse(new_ctx, static_cast<decltype(src)&&>(src), result) : -1;
@@ -187,7 +190,7 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 		auto& prev_src = *search_in_ctx<concrete>(ctx);
 		return call_err_method(p, ctx, src, result, "unknown");
 	}
-	template<auto find, auto pind, typename cur_t, typename... tail> constexpr auto parse_seq(auto&& ctx, auto src, auto& result) const {
+	template<auto find, auto pind, typename cur_t, typename... tail> constexpr parse_result parse_seq(auto&& ctx, auto src, auto& result) const {
 		//TODO: use -1 as last struct field, -2 as the field before last one and so on...
 		constexpr const auto cur_field =
 			( (find + is_inc_field_before<cur_t> + (-1*is_dec_field_before<cur_t>) + inc_field_val<cur_t>()) * !is_num_field_val<cur_t>)
@@ -209,7 +212,7 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 	}
 
 	template<auto find, auto pind>
-	constexpr auto parse_and_store_shift(auto&& ctx, auto src, auto& result) const -> decltype(0) {
+	constexpr parse_result parse_and_store_shift(auto&& ctx, auto src, auto& result) const {
 		//static_assert - exists concrete in ctx
 		auto* old_shift = search_in_ctx<seq_shift_stack_tag>(ctx);
 		auto cur_shift = 0;
@@ -229,7 +232,10 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 		    )
 		  )
 		);
-		return parse_and_store_shift<0,0>(cur_ctx, src, result);
+		return parse_and_store_shift<0,0>(make_ctx<seq_crop_ctx_tag>(&cur_ctx, cur_ctx), src, result);
+	}
+	constexpr parse_result parse_without_prep(auto&& ctx, auto src, auto& result) const {
+		return parse_seq<0, 0, parsers...>(std::forward<decltype(ctx)>(ctx), std::move(src), result);
 	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if(!src) return -1;
