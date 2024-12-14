@@ -75,11 +75,6 @@ constexpr auto make_ctx(value&& val, auto&& ctx) {
 			static_cast<value&&>(val), static_cast<decltype(ctx)&&>(ctx) };
 }
 template<typename tag>
-constexpr auto crop_ctx(auto&& ctx) {
-	auto* cropped = search_in_ctx<tag>(ctx);
-	return make_ctx<tag>(cropped, *cropped);
-}
-template<typename tag>
 constexpr bool exists_in_ctx(auto&& ctx) {
 	using ctx_type = std::decay_t<std::remove_pointer_t<decltype(ctx)>>;
 	if constexpr (std::is_same_v<typename ctx_type::tag_t, tag>) return true;
@@ -109,6 +104,12 @@ constexpr auto& by_ind_from_ctx(auto&& ctx) {
 	}
 	else if constexpr (requires{ ctx.next(); }) return by_ind_from_ctx<ind,tag,cur>(ctx.next());
 	else return ctx_not_found;
+}
+template<typename tag, auto ind=0>
+constexpr auto crop_ctx(auto&& ctx) {
+	auto* cropped = by_ind_from_ctx<ind, tag>(ctx);
+	static_assert( !std::is_same_v<std::decay_t<decltype(*cropped)>, decltype(ctx_not_found)>, "crop frame not found" );
+	return make_ctx<tag>(cropped, *cropped);
 }
 
 template<typename tag>

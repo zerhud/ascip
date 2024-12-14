@@ -85,11 +85,6 @@ constexpr auto make_ctx(value&& val, auto&& ctx) {
 			static_cast<value&&>(val), static_cast<decltype(ctx)&&>(ctx) };
 }
 template<typename tag>
-constexpr auto crop_ctx(auto&& ctx) {
-	auto* cropped = search_in_ctx<tag>(ctx);
-	return make_ctx<tag>(cropped, *cropped);
-}
-template<typename tag>
 constexpr bool exists_in_ctx(auto&& ctx) {
 	using ctx_type = std::decay_t<std::remove_pointer_t<decltype(ctx)>>;
 	if constexpr (std::is_same_v<typename ctx_type::tag_t, tag>) return true;
@@ -119,6 +114,12 @@ constexpr auto& by_ind_from_ctx(auto&& ctx) {
 	}
 	else if constexpr (requires{ ctx.next(); }) return by_ind_from_ctx<ind,tag,cur>(ctx.next());
 	else return ctx_not_found;
+}
+template<typename tag, auto ind=0>
+constexpr auto crop_ctx(auto&& ctx) {
+	auto* cropped = by_ind_from_ctx<ind, tag>(ctx);
+	static_assert( !std::is_same_v<std::decay_t<decltype(*cropped)>, decltype(ctx_not_found)>, "crop frame not found" );
+	return make_ctx<tag>(cropped, *cropped);
 }
 
 template<typename tag>
@@ -2157,7 +2158,7 @@ struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind>> {
 		//               but the in_req_flag and is_in_reqursion_check dosen't use in any other classes (for now)
 		if constexpr( ascip_details::is_in_concept_check(decltype(auto(ctx)){})  ) return 0;
 		else if constexpr (ascip_details::is_in_reqursion_check(decltype(auto(ctx)){})) {
-			return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse_without_prep(crop_ctx<seq_crop_ctx_tag>(ctx), static_cast<decltype(src)&&>(src), result) : -1;
+			return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse_without_prep(crop_ctx<seq_crop_ctx_tag, ind>(ctx), static_cast<decltype(src)&&>(src), result) : -1;
 		} else {
 			auto new_ctx = make_ctx<ascip_details::in_req_flag>(true, ctx);
 			return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse(new_ctx, static_cast<decltype(src)&&>(src), result) : -1;
