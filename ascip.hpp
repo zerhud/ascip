@@ -130,6 +130,7 @@ template<auto sym> struct tmpl {
 	constexpr static auto& quoted_string = holder::quoted_string;
 	constexpr static auto& dquoted_string = holder::dquoted_string;
 	constexpr static auto& squoted_string = holder::squoted_string;
+	constexpr static auto& rv_req = holder::rv_req<sym>;
 };
 template<auto sym> struct term : tmpl<sym> {};
 // c++ cannot use auto as string_literal

@@ -93,7 +93,7 @@ constexpr auto make_grammar() {
 	  , cast<binary_expr>(gh::rv_lreq >> th<'/'>::_char >> ++gh::rv_rreq(result_maker))
 	  , cast<binary_expr>(gh::rv_lreq >> th<'%'>::_char >> ++gh::rv_rreq(result_maker))
 	  , cast<binary_expr>(gh::rv_lreq >> gh::template lit<"**"> >> ++gh::rv_rreq(result_maker))
-	  , rv_result(th<'('>::_char >> gh::rv_req >> th<')'>::_char)
+	  , rv_result(th<'('>::_char >> th<0>::rv_req >> th<')'>::_char)
 	  , term
 	);
 	// use_variant_result:

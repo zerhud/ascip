@@ -35,16 +35,17 @@ struct rvariant_rreq_parser : base_parser<rvariant_rreq_parser<stop_ind>> {
 };
 template<auto stop_ind> constexpr static rvariant_rreq_parser<stop_ind> _rv_rreq{};
 constexpr static struct rvariant_rreq_pl_parser : base_parser<rvariant_rreq_pl_parser> { constexpr parse_result parse(auto&& ctx, auto src, auto& result) const { return 0; } } rv_rreq{};
-constexpr static struct rvariant_req_parser : base_parser<rvariant_req_parser> {
+template<auto ind> struct rvariant_req_parser : base_parser<rvariant_req_parser<ind>> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if constexpr (is_in_concept_check(decltype(auto(ctx)){})) return 0;
 		else {
-			auto* var = search_in_ctx<rvariant_stack_tag>(ctx);
-			auto nctx = crop_ctx<rvariant_crop_ctx_tag>(ctx);
+			auto* var = by_ind_from_ctx<ind, rvariant_stack_tag>(ctx);
+			auto nctx = crop_ctx<rvariant_crop_ctx_tag, ind>(ctx);
 			return var->parse(nctx, src, result);
 		}
 	}
-} rv_req{};
+} ;
+template<auto ind> constexpr static auto rv_req = rvariant_req_parser<ind>{};
 template<ascip_details::parser parser>
 struct rvariant_top_result_parser : base_parser<rvariant_top_result_parser<parser>> { parser p; };
 #ifdef __clang__
@@ -189,7 +190,7 @@ constexpr static auto test_rvariant_val(auto r, auto&& maker, auto pr, auto&& sr
 		, cast<dbl_expr>(rv_lreq++ >> lit<"**"> >> rv_rreq(rmaker))
 		, fp
 		, quoted_string
-		, rv_result(_char<'('> >> rv_req >> _char<')'>)
+		, rv_result(_char<'('> >> rv_req<0> >> _char<')'>)
 		) ;
 	auto cr = var.parse(make_test_ctx(), make_source(src), r);
 	cr /= (cr == pr);
