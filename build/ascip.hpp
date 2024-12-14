@@ -115,7 +115,7 @@ constexpr auto& by_ind_from_ctx(auto&& ctx) {
 	else if constexpr (requires{ ctx.next(); }) return by_ind_from_ctx<ind,tag,cur>(ctx.next());
 	else return ctx_not_found;
 }
-template<typename tag, auto ind=0>
+template<auto ind, typename tag>
 constexpr auto crop_ctx(auto&& ctx) {
 	auto* cropped = by_ind_from_ctx<ind, tag>(ctx);
 	static_assert( !std::is_same_v<std::decay_t<decltype(*cropped)>, decltype(ctx_not_found)>, "crop frame not found" );
@@ -1757,7 +1757,7 @@ struct rvariant_rreq_parser : base_parser<rvariant_rreq_parser<stop_ind>> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const requires (!is_in_concept_check(decltype(auto(ctx)){})) {
 		if(!src) return 0;
 		auto* var = search_in_ctx<rvariant_stack_tag>(ctx);
-		auto nctx = crop_ctx<rvariant_crop_ctx_tag>(ctx);
+		auto nctx = crop_ctx<0, rvariant_crop_ctx_tag>(ctx);
 		return var->template parse_without_prep<stop_ind+1>(nctx, src, result);
 	}
 };
@@ -1768,7 +1768,7 @@ template<auto ind> struct rvariant_req_parser : base_parser<rvariant_req_parser<
 		if constexpr (is_in_concept_check(decltype(auto(ctx)){})) return 0;
 		else {
 			auto* var = by_ind_from_ctx<ind, rvariant_stack_tag>(ctx);
-			auto nctx = crop_ctx<rvariant_crop_ctx_tag, ind>(ctx);
+			auto nctx = crop_ctx<ind, rvariant_crop_ctx_tag>(ctx);
 			return var->parse(nctx, src, result);
 		}
 	}
@@ -2159,7 +2159,7 @@ struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind>> {
 		//               but the in_req_flag and is_in_reqursion_check dosen't use in any other classes (for now)
 		if constexpr( ascip_details::is_in_concept_check(decltype(auto(ctx)){})  ) return 0;
 		else if constexpr (ascip_details::is_in_reqursion_check(decltype(auto(ctx)){})) {
-			return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse_without_prep(crop_ctx<seq_crop_ctx_tag, ind>(ctx), static_cast<decltype(src)&&>(src), result) : -1;
+			return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse_without_prep(crop_ctx<ind, seq_crop_ctx_tag>(ctx), static_cast<decltype(src)&&>(src), result) : -1;
 		} else {
 			auto new_ctx = make_ctx<ascip_details::in_req_flag>(true, ctx);
 			return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse(new_ctx, static_cast<decltype(src)&&>(src), result) : -1;

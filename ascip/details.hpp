@@ -105,7 +105,7 @@ constexpr auto& by_ind_from_ctx(auto&& ctx) {
 	else if constexpr (requires{ ctx.next(); }) return by_ind_from_ctx<ind,tag,cur>(ctx.next());
 	else return ctx_not_found;
 }
-template<typename tag, auto ind=0>
+template<auto ind, typename tag>
 constexpr auto crop_ctx(auto&& ctx) {
 	auto* cropped = by_ind_from_ctx<ind, tag>(ctx);
 	static_assert( !std::is_same_v<std::decay_t<decltype(*cropped)>, decltype(ctx_not_found)>, "crop frame not found" );
