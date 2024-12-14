@@ -40,7 +40,7 @@ template<auto ind> struct rvariant_req_parser : base_parser<rvariant_req_parser<
 		if constexpr (is_in_concept_check(decltype(auto(ctx)){})) return 0;
 		else {
 			auto* var = by_ind_from_ctx<ind, rvariant_stack_tag>(ctx);
-			auto nctx = crop_ctx<ind, rvariant_crop_ctx_tag>(ctx);
+			auto nctx = crop_ctx<0, rvariant_crop_ctx_tag>(ctx);
 			return var->parse(nctx, src, result);
 		}
 	}
