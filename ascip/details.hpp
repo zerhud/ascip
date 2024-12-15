@@ -162,12 +162,8 @@ constexpr bool is_in_concept_check(auto&& ctx) {
 	return exists_in_ctx<parser_concept_check_tag>(ctx);
 }
 
-struct in_req_flag{ };
 struct err_handler_tag{};
 struct new_line_count_tag{};
-constexpr bool is_in_reqursion_check(auto&& ctx) {
-	return exists_in_ctx<in_req_flag>(ctx);
-}
 
 constexpr void count_new_line(auto& ctx, auto sym, auto& r) {
 	constexpr bool need_count_new_lines =

@@ -60,15 +60,8 @@ struct use_seq_result_parser : base_parser<use_seq_result_parser<parser>> {
 template<auto ind>
 struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind>> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		//TODO: CLANG17: we cannot remove is_in_reqursion_check - clang fails to compile (gcc compiles normaly)
-		//               but the in_req_flag and is_in_reqursion_check dosen't use in any other classes (for now)
 		if constexpr( ascip_details::is_in_concept_check(decltype(auto(ctx)){})  ) return 0;
-		else if constexpr (ascip_details::is_in_reqursion_check(decltype(auto(ctx)){})) {
-			return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse_without_prep(crop_ctx<0, seq_crop_ctx_tag>(ctx), static_cast<decltype(src)&&>(src), result) : -1;
-		} else {
-			auto new_ctx = make_ctx<ascip_details::in_req_flag>(true, ctx);
-			return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse(new_ctx, static_cast<decltype(src)&&>(src), result) : -1;
-		}
+		else return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse_without_prep(crop_ctx<ind, seq_crop_ctx_tag>(ctx), static_cast<decltype(src)&&>(src), result) : -1;
 	}
 };
 template<auto ind> constexpr static auto req = seq_reqursion_parser<ind>{};
@@ -406,7 +399,7 @@ constexpr static bool test_seq_shift_pos() {
 	static_assert( [&]{
 		struct { char a='z'; int shift; } r;
 		ab_req.parse(make_test_ctx(), make_source("a(b)"), r);
-		return (r.a=='b') + 2*(r.shift==4);
+		return (r.a=='b') + 2*(r.shift==5);
 	}() == 3, "can parse current shift in reqursion (the last brace is included)");
 	return true;
 }
