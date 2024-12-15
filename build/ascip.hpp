@@ -1363,21 +1363,15 @@ template<typename parser, typename act_t> struct semact_parser : base_parser<sem
 			return p.parse(std::forward<decltype(ctx)>(ctx), std::move(src), result);
 		else if constexpr(requires{ act(result); requires std::is_pointer_v<decltype(act(result))>;} ) {
 			auto* nr = act(result);
-			if constexpr (requires{ p.parse_with_user_result(ctx,src,*nr); })
-				return p.parse_with_user_result(static_cast<decltype(ctx)&&>(ctx),src,*nr);
-			else return p.parse(ctx, src, *nr);
+			return p.parse(ctx, src, *nr);
 		}
 		else if constexpr (requires{ act(result); requires std::is_lvalue_reference_v<decltype(act(result))>; } ) {
 			auto& nr = act(result);
-			if constexpr (requires{ p.parse_with_user_result(ctx,src,nr); })
-				return p.parse_with_user_result(static_cast<decltype(ctx)&&>(ctx),src,nr);
-			else return p.parse(ctx, src, nr);
+			return p.parse(ctx, src, nr);
 		}
 		else if constexpr(requires{ act(result); } && !requires{act(0, ctx, src, result);} ) {
 			auto nr = act(result);
-			if constexpr (requires{ p.parse_with_user_result(ctx,src,nr); })
-				return p.parse_with_user_result(static_cast<decltype(ctx)&&>(ctx),src,nr);
-			else return p.parse(ctx, src, nr);
+			return p.parse(ctx, src, nr);
 		}
 		else {
 			auto ret = p.parse(ctx, src, result);
@@ -2749,11 +2743,6 @@ template<ascip_details::parser skip, ascip_details::parser base> struct injected
 		src += sr;
 		auto mr = src ? b.parse(ctx, src, result) : -1;
 		return (sr * (0<=mr)) + mr; // 0<=mr ? mr+sr : mr;
-	}
-
-	constexpr auto parse_with_user_result(auto&& ctx, auto src, auto& result) const
-	requires requires(const base& p){ p.parse_with_user_result(ctx, src, result); } {
-		return b.parse_with_user_result(std::forward<decltype(ctx)>(ctx), std::move(src), result);
 	}
 };
 template<typename t> lexeme_parser(t) -> lexeme_parser<t>;

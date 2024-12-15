@@ -34,11 +34,6 @@ template<ascip_details::parser skip, ascip_details::parser base> struct injected
 		auto mr = src ? b.parse(ctx, src, result) : -1;
 		return (sr * (0<=mr)) + mr; // 0<=mr ? mr+sr : mr;
 	}
-
-	constexpr auto parse_with_user_result(auto&& ctx, auto src, auto& result) const
-	requires requires(const base& p){ p.parse_with_user_result(ctx, src, result); } {
-		return b.parse_with_user_result(std::forward<decltype(ctx)>(ctx), std::move(src), result);
-	}
 };
 template<typename t> lexeme_parser(t) -> lexeme_parser<t>;
 template<typename t> skip_parser(t) -> skip_parser<t>;
