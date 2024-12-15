@@ -224,12 +224,8 @@ constexpr bool is_in_concept_check(auto&& ctx) {
 	return exists_in_ctx<parser_concept_check_tag>(ctx);
 }
 
-struct in_req_flag{ };
 struct err_handler_tag{};
 struct new_line_count_tag{};
-constexpr bool is_in_reqursion_check(auto&& ctx) {
-	return exists_in_ctx<in_req_flag>(ctx);
-}
 
 constexpr void count_new_line(auto& ctx, auto sym, auto& r) {
 	constexpr bool need_count_new_lines =
@@ -2155,15 +2151,8 @@ struct use_seq_result_parser : base_parser<use_seq_result_parser<parser>> {
 template<auto ind>
 struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind>> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		//TODO: CLANG17: we cannot remove is_in_reqursion_check - clang fails to compile (gcc compiles normaly)
-		//               but the in_req_flag and is_in_reqursion_check dosen't use in any other classes (for now)
 		if constexpr( ascip_details::is_in_concept_check(decltype(auto(ctx)){})  ) return 0;
-		//else if constexpr (ascip_details::is_in_reqursion_check(decltype(auto(ctx)){})) {
-		else	return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse_without_prep(crop_ctx<ind, seq_crop_ctx_tag>(ctx), static_cast<decltype(src)&&>(src), result) : -1;
-		//} else {
-			//auto new_ctx = make_ctx<ascip_details::in_req_flag>(true, ctx);
-			//return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse(new_ctx, static_cast<decltype(src)&&>(src), result) : -1;
-		//}
+		else return !!src ? by_ind_from_ctx<ind, seq_stack_tag>(ctx)->parse_without_prep(crop_ctx<ind, seq_crop_ctx_tag>(ctx), static_cast<decltype(src)&&>(src), result) : -1;
 	}
 };
 template<auto ind> constexpr static auto req = seq_reqursion_parser<ind>{};
