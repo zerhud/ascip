@@ -31,7 +31,7 @@ $(build_path)/ascip.hpp.d: makefile ascip.hpp | $(build_path)
 	gcc -fdirectives-only -DINCLUDE_STD=1 -E ascip.hpp -MM | sed 's#ascip.o: ascip.hpp#$(build_path)/ascip.hpp:#' > $(build_path)/ascip.hpp.d
 $(build_path)/ascip.hpp: makefile ascip.hpp $(build_path)/ascip.hpp.d | $(build_path)
 	gcc -fdirectives-only -DINCLUDE_STD=1 -E ascip.hpp 2>/dev/null |awk '/# 1 "ascip.hpp"/{DO_PRINT=1;} (DO_PRINT && !/#/){print;}' > $(build_path)/ascip.hpp
-$(build_path)/ascip_clang.hpp: makefile ascip.hpp $(build_path)/ascip.hpp.d | $(build_path)
+$(build_path)/ascip_clang.hpp: makefile ascip.hpp $(build_path)/ascip.hpp | $(build_path)
 	clang++ -fdirectives-only -DINCLUDE_STD=1 -E ascip.hpp 2>/dev/null |awk '/# 1 "ascip.hpp"/{DO_PRINT=1;} (DO_PRINT && !/#/){print;}' > $(build_path)/ascip_clang.hpp
 
 inc_file: $(build_path)/ascip.hpp

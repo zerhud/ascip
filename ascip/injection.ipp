@@ -128,6 +128,7 @@ constexpr static bool test_injection_parser() {
 }
 template<auto p1, auto p2>
 constexpr static bool test_seq_injection() {
+//TODO: test something like skip(++lexeme(parser))([](auto& v){return &v;})
 	using p1_t = decltype(auto(p1));
 	using p2_t = decltype(auto(p2));
 	using inj_t = injected_parser<p2_t,p1_t>;
