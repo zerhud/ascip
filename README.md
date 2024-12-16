@@ -49,6 +49,7 @@ here is a list of available parsers. you can find examples below
 - `check` method checks that the parser got as a result exactly required type
 - `cast` method try to `static_cast` gotten a result to the required type. it is useful for parse to struct with inheritance as a result due to language limitations. see example below.
 - `rv` method for parse reverse variant with left recursion. see example below. the result will be created same way as in the `|` operator.
+- `reparse` method for parse and shift source position no zero, so the next parser will start from the same place.
 
 with sequence parser can be used
 - `cur_pos` just stores to result current position, parse nothing
