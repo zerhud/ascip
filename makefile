@@ -13,7 +13,7 @@ base_tests = $(basename $(subst tests/,,$(1)))
 
 .PHONY: all clean test
 
-all: test $(build_path)/ascip.hpp examples_gcc examples_clang $(build_path)/ascip.hpp
+all: test $(build_path)/ascip.hpp examples_gcc examples_clang $(build_path)/ascip.hpp $(build_path)/ascip_clang.hpp
 	@echo -e "\e[7;32mAll Done\e[0m"
 
 $(build_path): makefile
@@ -31,6 +31,8 @@ $(build_path)/ascip.hpp.d: makefile ascip.hpp | $(build_path)
 	gcc -fdirectives-only -DINCLUDE_STD=1 -E ascip.hpp -MM | sed 's#ascip.o: ascip.hpp#$(build_path)/ascip.hpp:#' > $(build_path)/ascip.hpp.d
 $(build_path)/ascip.hpp: makefile ascip.hpp $(build_path)/ascip.hpp.d | $(build_path)
 	gcc -fdirectives-only -DINCLUDE_STD=1 -E ascip.hpp 2>/dev/null |awk '/# 1 "ascip.hpp"/{DO_PRINT=1;} (DO_PRINT && !/#/){print;}' > $(build_path)/ascip.hpp
+$(build_path)/ascip_clang.hpp: makefile ascip.hpp $(build_path)/ascip.hpp.d | $(build_path)
+	clang++ -fdirectives-only -DINCLUDE_STD=1 -E ascip.hpp 2>/dev/null |awk '/# 1 "ascip.hpp"/{DO_PRINT=1;} (DO_PRINT && !/#/){print;}' > $(build_path)/ascip_clang.hpp
 
 inc_file: $(build_path)/ascip.hpp
 
@@ -75,6 +77,6 @@ clean::
 	rm -f $(build_path)/main_test.d
 	rm -f $(build_path)/main_test
 	rm -f $(build_path)/main_test_clang
-	rm -f $(build_path)/ascip.hpp
+	rm -f $(build_path)/ascip{,_clang}.hpp
 	rm -f $(build_path)/ascip.hpp.d
 
