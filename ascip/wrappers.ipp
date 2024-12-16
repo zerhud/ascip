@@ -200,3 +200,25 @@ constexpr static bool test_different() {
 	return true;
 }
 
+template<ascip_details::parser parser> struct reparse_parser : base_parser<reparse_parser<parser>> {
+	parser p;
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
+		auto r = p.parse(static_cast<decltype(ctx)&&>(ctx), src, result);
+		return r * (r<0);
+	}
+};
+
+constexpr static bool test_reparse() {
+	static_assert( []{
+		char r;
+		auto p = (reparse(any) >> any).parse(make_test_ctx(), make_source("ab"), r);
+		return (p==1) + 2*(r=='a');
+	}() == 3);
+	static_assert( []{
+		char r='z';
+		auto p = (reparse(char_<'b'>) >> any).parse(make_test_ctx(), make_source("ab"), r);
+		return (p==-1) + 2*(r=='z');
+	}() == 3);
+	return true;
+}
+

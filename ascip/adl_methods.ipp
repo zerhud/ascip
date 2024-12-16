@@ -75,6 +75,10 @@ template<typename tag, parser type> constexpr auto exec_after(auto&& act, type&&
 	using act_type = std::decay_t<decltype(act)>;
 	return typename ptype::holder::template exec_after_parser<type, tag, act_type>{ {}, std::forward<decltype(act)>(act), std::forward<decltype(p)>(p) }; }
 
+template<parser type> constexpr auto reparse(type&& p) {
+	using ptype = std::decay_t<decltype(p)>;
+	return typename ptype::holder::template reparse_parser<ptype>{ {}, std::forward<decltype(p)>(p) }; }
+
 // ===============================
 //          parse part
 // ===============================

@@ -399,6 +399,10 @@ template<typename tag, parser type> constexpr auto exec_after(auto&& act, type&&
 	using act_type = std::decay_t<decltype(act)>;
 	return typename ptype::holder::template exec_after_parser<type, tag, act_type>{ {}, std::forward<decltype(act)>(act), std::forward<decltype(p)>(p) }; }
 
+template<parser type> constexpr auto reparse(type&& p) {
+	using ptype = std::decay_t<decltype(p)>;
+	return typename ptype::holder::template reparse_parser<ptype>{ {}, std::forward<decltype(p)>(p) }; }
+
 // ===============================
 //          parse part
 // ===============================
@@ -1620,6 +1624,28 @@ constexpr static bool test_different() {
 	return true;
 }
 
+template<ascip_details::parser parser> struct reparse_parser : base_parser<reparse_parser<parser>> {
+	parser p;
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
+		auto r = p.parse(static_cast<decltype(ctx)&&>(ctx), src, result);
+		return r * (r<0);
+	}
+};
+
+constexpr static bool test_reparse() {
+	static_assert( []{
+		char r;
+		auto p = (reparse(any) >> any).parse(make_test_ctx(), make_source("ab"), r);
+		return (p==1) + 2*(r=='a');
+	}() == 3);
+	static_assert( []{
+		char r='z';
+		auto p = (reparse(char_<'b'>) >> any).parse(make_test_ctx(), make_source("ab"), r);
+		return (p==-1) + 2*(r=='z');
+	}() == 3);
+	return true;
+}
+
        
 
 //          Copyright Hudyaev Alexey 2023.
@@ -2838,6 +2864,7 @@ constexpr static bool test_injection_parser() {
 }
 template<auto p1, auto p2>
 constexpr static bool test_seq_injection() {
+//TODO: test something like skip(++lexeme(parser))([](auto& v){return &v;})
 	using p1_t = decltype(auto(p1));
 	using p2_t = decltype(auto(p2));
 	using inj_t = injected_parser<p2_t,p1_t>;
@@ -2987,6 +3014,7 @@ constexpr static void test() {
 	static_assert( test_lists() );
 	static_assert( test_checkers() );
 	static_assert( test_different() );
+	static_assert( test_reparse() );
 	static_assert( test_semact() );
 	static_assert( test_seq() );
 	static_assert( test_injection() );
