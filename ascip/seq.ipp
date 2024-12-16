@@ -225,7 +225,7 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 		    )
 		  )
 		);
-		return parse_and_store_shift<0,0>(make_ctx<seq_crop_ctx_tag>(&cur_ctx, cur_ctx), src, result);
+		return parse_and_store_shift<0,0>(make_ctx<seq_crop_ctx_tag>(1, cur_ctx), src, result);
 	}
 	constexpr parse_result parse_without_prep(auto&& ctx, auto src, auto& result) const {
 		return parse_seq<0, 0, parsers...>(std::forward<decltype(ctx)>(ctx), std::move(src), result);

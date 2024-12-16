@@ -145,7 +145,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		auto nctx =
 			make_ctx<rvariant_copied_result_tag>((copied_result_type*)nullptr,
 			make_ctx<rvariant_stack_tag>(this, ctx));
-		return parse_without_prep<0>(make_ctx<rvariant_crop_ctx_tag>(&nctx, nctx), src, result);
+		return parse_without_prep<0>(make_ctx<rvariant_crop_ctx_tag>(1, nctx), src, result);
 	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
         using rv_stack_type = std::decay_t<decltype(search_in_ctx<rvariant_stack_tag>(decltype(auto(ctx)){}))>;

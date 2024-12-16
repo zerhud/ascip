@@ -107,19 +107,24 @@ constexpr auto& search_in_ctx(auto&& ctx) {
 	else return ctx_not_found;
 }
 template<auto ind, typename tag, auto cur=0>
-constexpr auto& by_ind_from_ctx(auto&& ctx) {
+constexpr auto& by_ind_from_ctx_frame(auto&& ctx) {
 	if constexpr (std::is_same_v<typename decltype(auto(ctx))::tag_t, tag>) {
-		if constexpr (ind == cur) return ctx.v;
-		else return by_ind_from_ctx<ind,tag,cur+1>(ctx.next());
+		if constexpr (ind == cur) return ctx;
+		else return by_ind_from_ctx_frame<ind,tag,cur+1>(ctx.next());
 	}
-	else if constexpr (requires{ ctx.next(); }) return by_ind_from_ctx<ind,tag,cur>(ctx.next());
+	else if constexpr (requires{ ctx.next(); }) return by_ind_from_ctx_frame<ind,tag,cur>(ctx.next());
 	else return ctx_not_found;
+}
+template<auto ind, typename tag, auto cur=0>
+constexpr auto& by_ind_from_ctx(auto&& ctx) {
+	auto& ret = by_ind_from_ctx_frame<ind,tag>(ctx);
+	if constexpr (requires{ret.v;}) return ret.v;
+	else return ret;
 }
 template<auto ind, typename tag>
 constexpr auto crop_ctx(auto&& ctx) {
-	auto* cropped = by_ind_from_ctx<ind, tag>(ctx);
-	static_assert( !std::is_same_v<std::decay_t<decltype(*cropped)>, decltype(ctx_not_found)>, "crop frame not found" );
-	return make_ctx<tag>(cropped, *cropped);
+	auto* cropped = &by_ind_from_ctx_frame<ind, tag>(ctx).next();
+	return make_ctx<tag>(1, *cropped);
 }
 
 template<typename tag>
@@ -1887,7 +1892,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		auto nctx =
 			make_ctx<rvariant_copied_result_tag>((copied_result_type*)nullptr,
 			make_ctx<rvariant_stack_tag>(this, ctx));
-		return parse_without_prep<0>(make_ctx<rvariant_crop_ctx_tag>(&nctx, nctx), src, result);
+		return parse_without_prep<0>(make_ctx<rvariant_crop_ctx_tag>(1, nctx), src, result);
 	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
         using rv_stack_type = std::decay_t<decltype(search_in_ctx<rvariant_stack_tag>(decltype(auto(ctx)){}))>;
@@ -2334,7 +2339,7 @@ template<typename concrete, typename... parsers> struct com_seq_parser : base_pa
 		    )
 		  )
 		);
-		return parse_and_store_shift<0,0>(make_ctx<seq_crop_ctx_tag>(&cur_ctx, cur_ctx), src, result);
+		return parse_and_store_shift<0,0>(make_ctx<seq_crop_ctx_tag>(1, cur_ctx), src, result);
 	}
 	constexpr parse_result parse_without_prep(auto&& ctx, auto src, auto& result) const {
 		return parse_seq<0, 0, parsers...>(std::forward<decltype(ctx)>(ctx), std::move(src), result);
