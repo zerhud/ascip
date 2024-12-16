@@ -7,9 +7,9 @@
 
 
 template<typename type> constexpr static auto mk_vec() { return factory_t{}.template mk_vec<type>(); }
-constexpr static auto mk_str() { return factory_t{}.template mk_str(); }
-constexpr static auto mk_str(auto&& v) { return factory_t{}.template mk_str(static_cast<decltype(v)&&>(v)); }
-constexpr static auto mk_sv(auto&& v) { return factory_t{}.template mk_sv(static_cast<decltype(v)&&>(v)); }
+constexpr static auto mk_str() { return factory_t{}.mk_str(); }
+constexpr static auto mk_str(auto&& v) { return factory_t{}.mk_str(static_cast<decltype(v)&&>(v)); }
+constexpr static auto mk_sv(auto&& v) { return factory_t{}.mk_sv(static_cast<decltype(v)&&>(v)); }
 
 constexpr static auto test_parser_char(const auto& p, auto&& s, auto pr) {
 	char result='z';
