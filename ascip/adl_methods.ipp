@@ -9,6 +9,12 @@
 struct adl_tag {};
 struct seq_tag {};
 
+// implemented for ascip_details::parser concept
+template<auto... i> constexpr auto make_test_ctx(const adl_tag&) { return ascip_details::make_ctx<parser_concept_check_tag>(1); }
+template<typename type>
+constexpr auto make_source(const adl_tag&, type& typed) { return type::holder::make_source(typed.source_symbol); }
+
+
 template<typename value_t, ascip_details::parser parser_t> constexpr static auto as( parser_t&& p, value_t&& val ){
 	using ptype = std::decay_t<decltype(p)>;
 	using valtype = std::decay_t<decltype(val)>;

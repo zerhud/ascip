@@ -82,6 +82,23 @@ static_assert( [] {
 	//TODO: GCC15: GCCBUG: cannot use dynamic_cast here: the operation will be failed, clang17 compiles normally
 }() == 15);
 
+struct external_parser : p::base_parser<external_parser> {
+	constexpr auto mk_parser() const {
+		return p::char_<'i'> >> p::char_<'n'>;
+	}
+	constexpr p::parse_result parse(auto&& ctx, auto src, auto& result) const {
+		return mk_parser().parse(std::forward<decltype(ctx)>(ctx), std::move(src), result);
+	}
+};
+
+static_assert( ascip_details::parser<external_parser> );
+
+static_assert( [] {
+	char r;
+	const auto p = parse(p::char_<'o'> >> +external_parser{}, +p::space, p::make_source("oinin"), r);
+	return (p==5) + 2*(r=='n');
+}() == 3 );
+
 int main(int,char**) {
 	return 0;
 }

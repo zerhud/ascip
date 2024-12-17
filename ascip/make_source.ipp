@@ -39,11 +39,6 @@ constexpr static auto make_source(const auto* vec) {
 	return ret;
 }
 
-// implemented for ascip_details::parser concept 
-//friend constexpr auto make_source(const base_parser<auto>& p) { return make_source(p.source_symbol); }
-template<typename param>
-friend constexpr auto make_source(const base_parser<param>& p) { return make_source(p.source_symbol); }
-
 constexpr static bool test_sources(auto&& s) {
 	(void)( !!s        || (throw 0, 1) );
 	(void)( s() == 'a' || (throw 1, 1) );

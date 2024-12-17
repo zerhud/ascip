@@ -219,7 +219,7 @@ template<typename type> concept string = requires(type& s){ s += typename type::
 template<typename type> concept string_view = requires(const type& s){ s.size(); s[0]; s.back(); };
 template<typename type> concept empbackable = requires(type& r){ emplace_back(r); } || requires(type& r){ r.emplace_back(); };
 template<typename type> concept parser = requires(type& p, type_result_for_parser_concept& r) {
-	p.parse(make_test_ctx<1,2,3,4,5,6,7,8,' ','c','o','c','e','p','t',' ',1,2,3,4>(p), make_source(p), r) < 0; };
+	p.parse(make_test_ctx<1,2,3,4,5,6,7,8,' ','c','o','c','e','p','t',' ',1,2,3,4>(p), make_source(p, p), r) < 0; };
 template<typename type> concept nonparser = !parser<type>;
 template<typename type> concept optional = requires(type& p){ p.has_value(); *p; p.emplace(); };
 template<typename type> concept variant_parser = parser<std::decay_t<type>> &&
@@ -337,6 +337,13 @@ template<auto cind> constexpr auto& variant_result(auto& result) {
 
 struct adl_tag {};
 struct seq_tag {};
+
+// implemented for ascip_details::parser concept
+template<auto... i> constexpr auto make_test_ctx(const adl_tag&) { return ascip_details::make_ctx<parser_concept_check_tag>(1); }
+// implemented for ascip_details::parser concept
+template<typename type>
+constexpr auto make_source(const adl_tag&, type& typed) { return type::holder::make_source(typed.source_symbol); }
+
 
 template<typename value_t, ascip_details::parser parser_t> constexpr static auto as( parser_t&& p, value_t&& val ){
 	using ptype = std::decay_t<decltype(p)>;
@@ -775,8 +782,8 @@ constexpr auto operator%(char r)const{ return binary_list_parser( static_cast<co
 constexpr static auto make_test_ctx() { return ascip_details::make_ctx<ascip_details::new_line_count_tag>(1); }
 constexpr static auto make_test_ctx(auto err_handler){ return make_ctx<ascip_details::err_handler_tag>(err_handler, make_test_ctx()); }
 //template<auto... i> friend constexpr auto make_test_ctx(const base_parser<auto>&) { return ascip_details::make_ctx<ascip_details::parser_concept_check_tag>(1); }
-template<auto... i, typename parser_param> friend constexpr auto make_test_ctx(const base_parser<parser_param>&) { return ascip_details::make_ctx<ascip_details::parser_concept_check_tag>(1); }
-// ^^ implemented for ascip_details::parser concept 
+//template<auto... i, typename parser_param> friend constexpr auto make_test_ctx(const base_parser<parser_param>&) { return ascip_details::make_ctx<ascip_details::parser_concept_check_tag>(1); }
+// ^^ implemented for ascip_details::parser concept
 
        
 
@@ -876,11 +883,6 @@ constexpr static auto make_source(const auto* vec) {
 	} ret{ vec, ascip_details::strlen(vec) };
 	return ret;
 }
-
-// implemented for ascip_details::parser concept 
-//friend constexpr auto make_source(const base_parser<auto>& p) { return make_source(p.source_symbol); }
-template<typename param>
-friend constexpr auto make_source(const base_parser<param>& p) { return make_source(p.source_symbol); }
 
 constexpr static bool test_sources(auto&& s) {
 	(void)( !!s        || (throw 0, 1) );
