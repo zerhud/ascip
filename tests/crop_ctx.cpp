@@ -87,7 +87,7 @@ struct external_parser : p::base_parser<external_parser> {
 		return p::char_<'i'> >> p::char_<'n'>;
 	}
 	constexpr p::parse_result parse(auto&& ctx, auto src, auto& result) const {
-		return mk_parser().parse(std::forward<decltype(ctx)>(ctx), std::move(src), result);
+		return parse_with_ctx(ctx, mk_parser(), src, result);
 	}
 };
 

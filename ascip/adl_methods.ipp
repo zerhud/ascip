@@ -101,14 +101,24 @@ constexpr auto parse(auto&& parser, auto src, auto& result) {
 
 constexpr auto parse(auto&& parser, const auto& skip, auto src, auto& result) {
 	using parser_type = std::decay_t<decltype(parser)>;
-	auto ctx = parser_type::holder::make_test_ctx();
+	auto ctx = make_ctx<skip_parser_tag>( skip, parser_type::holder::make_test_ctx() );
 	return parser_type::holder::inject_skipping(auto(parser), std::forward<decltype(skip)>(skip)).parse(ctx, src, result);
 }
 
 constexpr auto parse(auto&& parser, auto&& skip, auto src, auto& result, const auto& err) {
 	using parser_type = std::decay_t<decltype(parser)>;
-	auto ctx = parser_type::holder::make_test_ctx(&err);
+	auto ctx = make_ctx<skip_parser_tag>( skip, parser_type::holder::make_test_ctx(&err) );
 	return parser_type::holder::inject_skipping(auto(parser), std::move(skip)).parse(ctx, src, result);
+}
+
+constexpr auto parse_with_ctx(const auto& ctx, auto&& parser, auto src, auto& result) {
+	auto err = search_in_ctx<ascip_details::err_handler_tag>(ctx);
+	auto skip = search_in_ctx<skip_parser_tag>(ctx);
+	constexpr bool skip_found = !std::is_same_v<ctx_not_found_type, decltype(skip)>;
+	constexpr bool err_found = !std::is_same_v<ctx_not_found_type, decltype(err)>;
+	if constexpr (!skip_found && !err_found) return parse(std::forward<decltype(parser)>(parser), src, result);
+	else if constexpr (skip_found && !err_found) return parse(std::forward<decltype(parser)>(parser), skip, src, result);
+	else return parse(std::forward<decltype(parser)>(parser), skip, src, result, err);
 }
 
 

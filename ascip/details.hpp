@@ -169,6 +169,7 @@ constexpr bool is_in_concept_check(auto&& ctx) {
 
 struct err_handler_tag{};
 struct new_line_count_tag{};
+struct skip_parser_tag{};
 
 constexpr void count_new_line(auto& ctx, auto sym, auto& r) {
 	constexpr bool need_count_new_lines =

@@ -231,6 +231,7 @@ constexpr bool is_in_concept_check(auto&& ctx) {
 
 struct err_handler_tag{};
 struct new_line_count_tag{};
+struct skip_parser_tag{};
 
 constexpr void count_new_line(auto& ctx, auto sym, auto& r) {
 	constexpr bool need_count_new_lines =
@@ -340,7 +341,6 @@ struct seq_tag {};
 
 // implemented for ascip_details::parser concept
 template<auto... i> constexpr auto make_test_ctx(const adl_tag&) { return ascip_details::make_ctx<parser_concept_check_tag>(1); }
-// implemented for ascip_details::parser concept
 template<typename type>
 constexpr auto make_source(const adl_tag&, type& typed) { return type::holder::make_source(typed.source_symbol); }
 
@@ -431,14 +431,24 @@ constexpr auto parse(auto&& parser, auto src, auto& result) {
 
 constexpr auto parse(auto&& parser, const auto& skip, auto src, auto& result) {
 	using parser_type = std::decay_t<decltype(parser)>;
-	auto ctx = parser_type::holder::make_test_ctx();
+	auto ctx = make_ctx<skip_parser_tag>( skip, parser_type::holder::make_test_ctx() );
 	return parser_type::holder::inject_skipping(auto(parser), std::forward<decltype(skip)>(skip)).parse(ctx, src, result);
 }
 
 constexpr auto parse(auto&& parser, auto&& skip, auto src, auto& result, const auto& err) {
 	using parser_type = std::decay_t<decltype(parser)>;
-	auto ctx = parser_type::holder::make_test_ctx(&err);
+	auto ctx = make_ctx<skip_parser_tag>( skip, parser_type::holder::make_test_ctx(&err) );
 	return parser_type::holder::inject_skipping(auto(parser), std::move(skip)).parse(ctx, src, result);
+}
+
+constexpr auto parse_with_ctx(const auto& ctx, auto&& parser, auto src, auto& result) {
+	auto err = search_in_ctx<ascip_details::err_handler_tag>(ctx);
+	auto skip = search_in_ctx<skip_parser_tag>(ctx);
+	constexpr bool skip_found = !std::is_same_v<ctx_not_found_type, decltype(skip)>;
+	constexpr bool err_found = !std::is_same_v<ctx_not_found_type, decltype(err)>;
+	if constexpr (!skip_found && !err_found) return parse(std::forward<decltype(parser)>(parser), src, result);
+	else if constexpr (skip_found && !err_found) return parse(std::forward<decltype(parser)>(parser), skip, src, result);
+	else return parse(std::forward<decltype(parser)>(parser), skip, src, result, err);
 }
 
 
