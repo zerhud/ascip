@@ -24,6 +24,31 @@ more information about [nix](https://nixos.wiki/wiki/Main_Page) and [nix flakes]
 there is no `make install` target.
 for install copy the `ascip.hpp` and `ascip` to directory where your compiler will find it,
 or pass `-I$(path_to_ascip_dir)` to compiler.
+## how to parse
+there is three steps:
+1. create a parser specialization
+2. create a data source
+3. use a parse method
+
+in most cases each step is just a single code line.
+### create a parser specialization
+for most cases the parser creation is just a `using parser = ascip<std::tuple>;` (or any other `tuple` can to be used).
+### create a data source
+in most cases just we can create a data source for parser with `parser::make_source()` method. for example, if all data is in a std::string_view object named `view` we can create the data source as `parser::make_source(view)`.
+
+there is a few requirements on source type:
+- it has to be lightweight copiable. the `parser::make_source()` method can work with `std::string`, but the parse process will be very slowly.
+- the `parser::make_source()` method just creates a wrapper for data. any type can to be used as data source if it
+- - has `operator()` returning a next char (the next call of the operators returns a next symbol)
+- - has `operator bool` true - there is a more input, false - there is no next character to parse
+- - has `operator+=(int)` increments current position of the source object 
+### use a parse method
+there is a few parse methods (`src` parameter is a data source described above). all methods returns count of parsed symbols or `-1` if parse fails:
+- `parse(parser, src)` try to parse `src` with a `parser` and returns count of parsed symbols
+- `parse(parser, src, result)` do the same as above and try to store result into the `result` parameter
+- `parse(parser, skip_parser, src, result)` do the same as above and skip all what corresponds to the `skip_parser`
+- `parse(parser, skip_parser, src, result, error_handler)` to the same as above and call the `error_handler` on error in parse (see the `>` parser)
+- `parse_with_ctx(ctx, parser, src, result)` tries to get the `skip_parser` and `error_handler` from context. the methods is for calling from external parser - a parser class created by user.
 ## parser list
 here is a list of available parsers. you can find examples below
 - `int_` an integer if it can to be stored to result
@@ -44,6 +69,7 @@ here is a list of available parsers. you can find examples below
 - `()` with lambda for the semantic action (semact) or for create the result. if the functor inside `()` receaves reference to the parser result and returns reference or pointer it's a result maker. in other case it's a semact. the semact can to receave nothing, or the returned value by parser and the result, or the returned value by parser, the parsing context, the source and the result.
 - `as` method for treat some parser as value
 - `omit` method for skip value
+- `add_to_ctx` and `from_ctx` methods allows to store value in context and get it later in inner parser.
 - `>>` for sequence parser
 - `>` for sequence parser. it causes an error if the parser fails with a message "unknown" (see must method).
 - `check` method checks that the parser got as a result exactly required type
