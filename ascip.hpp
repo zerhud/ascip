@@ -88,7 +88,7 @@ constexpr static void test() {
 	static_assert( space.test() );
 	static_assert( any.test() );
 	static_assert( int_.test() );
-	static_assert( uint_.test() );
+	static_assert( uint_<10>.test() );
 	static_assert( fp.test() );
 	static_assert( fp.test() );
 	static_assert( test_literal_parser() );
@@ -117,6 +117,7 @@ template<auto sym> struct tmpl {
 	constexpr static auto& space = holder::space;
 	constexpr static auto& any = holder::any;
 	constexpr static auto& int_ = holder::int_;
+	constexpr static auto& uint_ = holder::uint_<sym>;
 	constexpr static auto& lower = holder::lower;
 	constexpr static auto& upper = holder::upper;
 	constexpr static auto& alpha = holder::alpha;

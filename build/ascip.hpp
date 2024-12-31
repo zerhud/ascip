@@ -1239,18 +1239,35 @@ constexpr static struct any_parser : base_parser<any_parser> {
 	}
 } any {};
 
+template<auto base=10>
 struct int_base_parser {
-	constexpr static bool is_int(auto s) { return '0' <= s && s <= '9'; }
-	constexpr static int to_int(auto s) { return s - '0'; }
+	constexpr static bool is_int(auto s) {
+		constexpr bool is_0 = base <= 10;
+		return
+			   ('0' <= s && s <= '9')
+			|| (!is_0 && ('a' <= s && s <= ('a'+base-10)))
+			|| (!is_0 && ('A' <= s && s <= ('A'+base-10)))
+			;
+	}
+	constexpr static int to_int(auto s) {
+		const bool is_a = 'a' <= s && s <= 'z';
+		const bool is_A = 'A' <= s && s <= 'Z';
+		const bool is_0 = '0' <= s && s <= '9';
+		return
+			  is_0 * (s - '0')
+			+ is_a * (s - 'a' + 10)
+			+ is_A * (s - 'A' + 10)
+			;
+	}
 	constexpr bool next(auto cur, auto& result) const {
 		const bool isint = is_int(cur);
-		result *= (10*isint) + !isint;
+		result *= (base*isint) + !isint;
 		result += to_int(cur) * isint;
 		return isint;
 	}
 };
 
-constexpr static struct int_parser : base_parser<int_parser>, int_base_parser {
+constexpr static struct int_parser : base_parser<int_parser>, int_base_parser<> {
 	constexpr parse_result parse(auto&&, auto src, auto& _result)  const {
 		auto sign = src();
 		if(sign != '-' && sign != '+' && !this->is_int(sign)) return -1;
@@ -1300,7 +1317,7 @@ constexpr static struct int_parser : base_parser<int_parser>, int_base_parser {
 
 } int_ {};
 
-constexpr static struct uint_parser : base_parser<uint_parser>, int_base_parser {
+template<auto base> struct uint_parser : base_parser<uint_parser<base>>, int_base_parser<base> {
 	constexpr auto parse(auto&&, auto src, auto& result) const {
 		auto ret = 0;
 		while(src && this->next(src(), result)) ++ret;
@@ -1312,20 +1329,27 @@ constexpr static struct uint_parser : base_parser<uint_parser>, int_base_parser 
 
 		auto t = [](auto&& src, auto sym_cnt) {
 			int r=0;
-			uint_parser p{};
+			uint_parser<10> p{};
 			p.parse(make_test_ctx(), make_source(src), r) == sym_cnt || (throw __LINE__, 1);
 			return r;
 		};
 
-		static_assert( []{ int r=0; return uint_parser{}.parse(make_test_ctx(), make_source("+"), r); }() == -1 );
+		static_assert( []{ int r=0; return uint_parser<10>{}.parse(make_test_ctx(), make_source("+"), r); }() == -1 );
 		static_assert( t("1", 1) == 1 );
 		static_assert( t("2", 1) == 2 );
 		static_assert( t("0", 1) == 0 );
 		static_assert( t("103", 3) == 103 );
 
+		static_assert( []{ int r=0; uint_parser<16>{}.parse(make_test_ctx(), make_source("A"), r); return r; }() == 10 );
+		static_assert( []{ int r=0; uint_parser<16>{}.parse(make_test_ctx(), make_source("A3"), r); return r; }() == 163 );
+		static_assert( []{ int r=0; uint_parser<16>{}.parse(make_test_ctx(), make_source("FD"), r); return r; }() == 253 );
+		static_assert( []{ int r=0; return uint_parser<16>{}.parse(make_test_ctx(), make_source("FD"), r); }() == 2 );
+
 		return true;
 	}
-} uint_ {};
+} ;
+
+template<auto base=10> constexpr static auto uint_ = uint_parser<base>{};
 
 constexpr static struct float_point_parser : base_parser<float_point_parser> {
 	constexpr static auto pow(auto what, auto to) { const auto m = what; for(auto i=1;i<to;++i) what*=m; return what; }
@@ -3061,7 +3085,7 @@ constexpr static void test() {
 	static_assert( space.test() );
 	static_assert( any.test() );
 	static_assert( int_.test() );
-	static_assert( uint_.test() );
+	static_assert( uint_<10>.test() );
 	static_assert( fp.test() );
 	static_assert( fp.test() );
 	static_assert( test_literal_parser() );
@@ -3090,6 +3114,7 @@ template<auto sym> struct tmpl {
 	constexpr static auto& space = holder::space;
 	constexpr static auto& any = holder::any;
 	constexpr static auto& int_ = holder::int_;
+	constexpr static auto& uint_ = holder::uint_<sym>;
 	constexpr static auto& lower = holder::lower;
 	constexpr static auto& upper = holder::upper;
 	constexpr static auto& alpha = holder::alpha;
