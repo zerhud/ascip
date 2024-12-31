@@ -99,6 +99,14 @@ static_assert( [] {
 	return (p==5) + 2*(r=='n');
 }() == 3 );
 
+static_assert( []{
+	struct use_ctx_test_tag {};
+	char r;
+	int val;
+	const auto p = parse(add_to_ctx<use_ctx_test_tag>(7, p::char_<'a'> >> from_ctx<use_ctx_test_tag>([&](auto& r, auto& v){val = v;}, p::char_<'b'>)), +p::space, p::make_source("ab"), r);
+	return (p == 2) + 2*(r=='b') + 4*(val==7);
+}() == 7 );
+
 int main(int,char**) {
 	return 0;
 }

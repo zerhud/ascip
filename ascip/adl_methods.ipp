@@ -72,6 +72,10 @@ template<parser type> constexpr auto rv_result(type&& p) {
 template<typename tag, typename value_type, parser type> constexpr auto add_to_ctx(value_type&& value, type&& p) {
 	using ptype = std::decay_t<decltype(p)>;
 	return typename ptype::holder::template ctx_change_parser<type, tag, value_type>{ {}, std::forward<decltype(value)>(value), std::forward<decltype(p)>(p) }; }
+template<typename... tags, parser type> constexpr auto from_ctx(auto&& act, type&& p) {
+	using ptype = std::decay_t<decltype(p)>;
+	using act_type = std::decay_t<decltype(act)>;
+	return typename ptype::holder::template ctx_use_parser<act_type, ptype, tags...>{ {}, std::forward<decltype(act)>(act), std::forward<decltype(p)>(p) }; }
 template<typename tag, parser type> constexpr auto exec_before(auto&& act, type&& p) {
 	using ptype = std::decay_t<decltype(p)>;
 	using act_type = std::decay_t<decltype(act)>;
