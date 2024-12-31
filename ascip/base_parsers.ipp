@@ -197,10 +197,11 @@ constexpr static struct any_parser : base_parser<any_parser> {
 
 struct int_base_parser {
 	constexpr static bool is_int(auto s) { return '0' <= s && s <= '9'; }
+	constexpr static int to_int(auto s) { return s - '0'; }
 	constexpr bool next(auto cur, auto& result) const {
 		const bool isint = is_int(cur);
-		result += ((int)(cur - '0')) * isint;
-		result /= (!isint * 9) + 1;
+		result *= (10*isint) + !isint;
+		result += to_int(cur) * isint;
 		return isint;
 	}
 };
@@ -210,16 +211,16 @@ constexpr static struct int_parser : base_parser<int_parser>, int_base_parser {
 		auto sign = src();
 		if(sign != '-' && sign != '+' && !this->is_int(sign)) return -1;
 		int signer = -1*(sign=='-') + this->is_int(sign) + (sign=='+');
-		auto& result = ascip_details::eq(_result, this->is_int(sign) * (sign-'0'));
+		auto& result = ascip_details::eq(_result, this->is_int(sign) * this->to_int(sign));
 		auto ret = 1;
-		while(src && this->next(src(), result *= 10)) ++ret;
+		while(src && this->next(src(), result)) ++ret;
 		result *= signer;
 		bool bad_result = ((sign=='-')+(sign=='+')+(ret==1))==2;
 		return -1*bad_result + ret*!bad_result;
 	}
 	constexpr auto parse_without_preparation(auto src, auto& result) const {
 		auto ret = 0;
-		while(src && this->next(src(), result *= 10)) ++ret;
+		while(src && this->next(src(), result)) ++ret;
 		return ret;
 	}
 
@@ -261,7 +262,7 @@ constexpr static struct int_parser : base_parser<int_parser>, int_base_parser {
 constexpr static struct uint_parser : base_parser<uint_parser>, int_base_parser {
 	constexpr auto parse(auto&&, auto src, auto& result) const {
 		auto ret = 0;
-		while(src && this->next(src(), result *= 10)) ++ret;
+		while(src && this->next(src(), result)) ++ret;
 		return ret - (ret==0);
 	}
 
