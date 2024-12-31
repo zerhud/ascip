@@ -88,6 +88,7 @@ constexpr static void test() {
 	static_assert( space.test() );
 	static_assert( any.test() );
 	static_assert( int_.test() );
+	static_assert( uint_.test() );
 	static_assert( fp.test() );
 	static_assert( fp.test() );
 	static_assert( test_literal_parser() );

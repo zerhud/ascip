@@ -1239,7 +1239,7 @@ constexpr static struct any_parser : base_parser<any_parser> {
 	}
 } any {};
 
-constexpr static struct int_parser : base_parser<int_parser> {
+struct int_base_parser {
 	constexpr static bool is_int(auto s) { return '0' <= s && s <= '9'; }
 	constexpr bool next(auto cur, auto& result) const {
 		const bool isint = is_int(cur);
@@ -1247,20 +1247,23 @@ constexpr static struct int_parser : base_parser<int_parser> {
 		result /= (!isint * 9) + 1;
 		return isint;
 	}
+};
+
+constexpr static struct int_parser : base_parser<int_parser>, int_base_parser {
 	constexpr parse_result parse(auto&&, auto src, auto& _result)  const {
 		auto sign = src();
-		if(sign != '-' && sign != '+' && !is_int(sign)) return -1;
-		int signer = -1*(sign=='-') + is_int(sign) + (sign=='+');
-		auto& result = ascip_details::eq(_result, is_int(sign) * (sign-'0'));
+		if(sign != '-' && sign != '+' && !this->is_int(sign)) return -1;
+		int signer = -1*(sign=='-') + this->is_int(sign) + (sign=='+');
+		auto& result = ascip_details::eq(_result, this->is_int(sign) * (sign-'0'));
 		auto ret = 1;
-		while(src && next(src(), result *= 10)) ++ret;
+		while(src && this->next(src(), result *= 10)) ++ret;
 		result *= signer;
 		bool bad_result = ((sign=='-')+(sign=='+')+(ret==1))==2;
 		return -1*bad_result + ret*!bad_result;
 	}
 	constexpr auto parse_without_preparation(auto src, auto& result) const {
 		auto ret = 0;
-		while(src && next(src(), result *= 10)) ++ret;
+		while(src && this->next(src(), result *= 10)) ++ret;
 		return ret;
 	}
 
@@ -1295,6 +1298,33 @@ constexpr static struct int_parser : base_parser<int_parser> {
 	}
 
 } int_ {};
+
+constexpr static struct uint_parser : base_parser<uint_parser>, int_base_parser {
+	constexpr auto parse(auto&&, auto src, auto& result) const {
+		auto ret = 0;
+		while(src && this->next(src(), result *= 10)) ++ret;
+		return ret - (ret==0);
+	}
+
+	constexpr bool test() const {
+		uint_parser p; auto r=0;
+
+		auto t = [](auto&& src, auto sym_cnt) {
+			int r=0;
+			uint_parser p{};
+			p.parse(make_test_ctx(), make_source(src), r) == sym_cnt || (throw __LINE__, 1);
+			return r;
+		};
+
+		static_assert( []{ int r=0; return uint_parser{}.parse(make_test_ctx(), make_source("+"), r); }() == -1 );
+		static_assert( t("1", 1) == 1 );
+		static_assert( t("2", 1) == 2 );
+		static_assert( t("0", 1) == 0 );
+		static_assert( t("103", 3) == 103 );
+
+		return true;
+	}
+} uint_ {};
 
 constexpr static struct float_point_parser : base_parser<float_point_parser> {
 	constexpr static auto pow(auto what, auto to) { const auto m = what; for(auto i=1;i<to;++i) what*=m; return what; }
@@ -3030,6 +3060,7 @@ constexpr static void test() {
 	static_assert( space.test() );
 	static_assert( any.test() );
 	static_assert( int_.test() );
+	static_assert( uint_.test() );
 	static_assert( fp.test() );
 	static_assert( fp.test() );
 	static_assert( test_literal_parser() );
