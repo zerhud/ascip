@@ -52,6 +52,7 @@ there is a few parse methods (`src` parameter is a data source described above).
 ## parser list
 here is a list of available parsers. you can find examples below
 - `int_` an integer if it can to be stored to result
+- `uint_` an unsigned integer if it can to be stored to result, also notation can to be provied as template parameter, default is 10
 - `d10` or `digit` for parser 0-9
 - `lower` and `upper` for parse ascii lower or upper letters. and `letter` is a `lower` or `upper`.
 - `space` means spaces
