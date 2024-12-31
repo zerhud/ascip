@@ -71,6 +71,7 @@ here is a list of available parsers. you can find examples below
 - `as` method for treat some parser as value
 - `omit` method for skip value
 - `add_to_ctx` and `from_ctx` methods allows to store value in context and get it later in inner parser.
+- `result_from_ctx` methods allows to use value stored in context with mehtod `add_to_ctx` as result, the original result will be passed as first parametor to the action.
 - `>>` for sequence parser
 - `>` for sequence parser. it causes an error if the parser fails with a message "unknown" (see must method).
 - `check` method checks that the parser got as a result exactly required type

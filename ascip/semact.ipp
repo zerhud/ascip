@@ -60,8 +60,19 @@ template<typename parser, typename tag, typename value_type> struct ctx_change_p
 template<typename act_type, typename parser, typename... tags> struct ctx_use_parser : base_parser<ctx_use_parser<act_type, parser, tags...>> {
 	act_type act;
 	[[no_unique_address]] parser p;
+
 	constexpr const parse_result parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = p.parse(ctx, src, result);
+		if(-1 < ret) act(result, by_ind_from_ctx<0, tags>(ctx)...); 
+		return ret;
+	}
+};
+template<typename act_type, typename parser, typename... tags> struct ctx_use_as_result_parser : base_parser<ctx_use_as_result_parser<act_type, parser, tags...>> {
+	act_type act;
+	[[no_unique_address]] parser p;
+
+	constexpr const parse_result parse(auto&& ctx, auto src, auto& result) const {
+		auto ret = p.parse(ctx, src, by_ind_from_ctx<0, tags>(ctx)...);
 		if(-1 < ret) act(result, by_ind_from_ctx<0, tags>(ctx)...); 
 		return ret;
 	}

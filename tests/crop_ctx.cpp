@@ -106,6 +106,12 @@ static_assert( []{
 	const auto p = parse(add_to_ctx<use_ctx_test_tag>(7, p::char_<'a'> >> from_ctx<use_ctx_test_tag>([&](auto& r, auto& v){val = v;}, p::char_<'b'>)), +p::space, p::make_source("ab"), r);
 	return (p == 2) + 2*(r=='b') + 4*(val==7);
 }() == 7 );
+static_assert( []{
+	struct use_ctx_test_tag {};
+	char r;
+	const auto p = parse(add_to_ctx<use_ctx_test_tag>(0, p::char_<'a'> >> result_from_ctx<use_ctx_test_tag>([&](auto& r, auto& v){ r = v; }, p::uint_<>)), +p::space, p::make_source("a122"), r);
+	return (p == 4) + 2*(r=='z');
+}() == 3 );
 
 int main(int,char**) {
 	return 0;
