@@ -75,19 +75,19 @@ template<typename tag, typename value_type, parser type> constexpr auto add_to_c
 template<typename... tags, parser type> constexpr auto from_ctx(auto&& act, type&& p) {
 	using ptype = std::decay_t<decltype(p)>;
 	using act_type = std::decay_t<decltype(act)>;
-	return typename ptype::holder::template ctx_use_parser<act_type, ptype, tags...>{ {}, std::forward<decltype(act)>(act), std::forward<decltype(p)>(p) }; }
+	return typename ptype::holder::template ctx_use_parser<ptype, act_type, tags...>{ {}, std::forward<decltype(act)>(act), std::forward<decltype(p)>(p) }; }
 template<typename... tags, parser type> constexpr auto result_from_ctx(auto&& act, type&& p) {
 	using ptype = std::decay_t<decltype(p)>;
 	using act_type = std::decay_t<decltype(act)>;
-	return typename ptype::holder::template ctx_use_as_result_parser<act_type, ptype, tags...>{ {}, std::forward<decltype(act)>(act), std::forward<decltype(p)>(p) }; }
+	return typename ptype::holder::template ctx_use_as_result_parser<ptype, act_type, tags...>{ {}, std::forward<decltype(act)>(act), std::forward<decltype(p)>(p) }; }
 template<typename tag, parser type> constexpr auto exec_before(auto&& act, type&& p) {
 	using ptype = std::decay_t<decltype(p)>;
 	using act_type = std::decay_t<decltype(act)>;
-	return typename ptype::holder::template exec_before_parser<type, tag, act_type>{ {}, std::forward<decltype(act)>(act), std::forward<decltype(p)>(p) }; }
+	return typename ptype::holder::template exec_before_parser<type, act_type, tag>{ {}, std::forward<decltype(act)>(act), std::forward<decltype(p)>(p) }; }
 template<typename tag, parser type> constexpr auto exec_after(auto&& act, type&& p) {
 	using ptype = std::decay_t<decltype(p)>;
 	using act_type = std::decay_t<decltype(act)>;
-	return typename ptype::holder::template exec_after_parser<type, tag, act_type>{ {}, std::forward<decltype(act)>(act), std::forward<decltype(p)>(p) }; }
+	return typename ptype::holder::template exec_after_parser<type, act_type, tag>{ {}, std::forward<decltype(act)>(act), std::forward<decltype(p)>(p) }; }
 
 template<parser type> constexpr auto reparse(type&& p) {
 	using ptype = std::decay_t<decltype(p)>;

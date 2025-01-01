@@ -57,7 +57,7 @@ template<typename parser, typename tag, typename value_type> struct ctx_change_p
 	}
 };
 
-template<typename act_type, typename parser, typename... tags> struct ctx_use_parser : base_parser<ctx_use_parser<act_type, parser, tags...>> {
+template<typename parser, typename act_type, typename... tags> struct ctx_use_parser : base_parser<ctx_use_parser<parser, act_type, tags...>> {
 	act_type act;
 	[[no_unique_address]] parser p;
 
@@ -67,7 +67,7 @@ template<typename act_type, typename parser, typename... tags> struct ctx_use_pa
 		return ret;
 	}
 };
-template<typename act_type, typename parser, typename... tags> struct ctx_use_as_result_parser : base_parser<ctx_use_as_result_parser<act_type, parser, tags...>> {
+template<typename parser, typename act_type, typename... tags> struct ctx_use_as_result_parser : base_parser<ctx_use_as_result_parser<parser, act_type, tags...>> {
 	act_type act;
 	[[no_unique_address]] parser p;
 
@@ -78,7 +78,7 @@ template<typename act_type, typename parser, typename... tags> struct ctx_use_as
 	}
 };
 
-template<typename parser, typename tag, typename act_type> struct exec_before_parser : base_parser<exec_before_parser<parser, tag, act_type>> {
+template<typename parser, typename act_type, typename tag> struct exec_before_parser : base_parser<exec_before_parser<parser, act_type, tag>> {
 	act_type act;
 	[[no_unique_address]] parser p;
 
@@ -88,7 +88,7 @@ template<typename parser, typename tag, typename act_type> struct exec_before_pa
 	}
 };
 
-template<typename parser, typename tag, typename act_type> struct exec_after_parser : base_parser<exec_after_parser<parser, tag, act_type>> {
+template<typename parser, typename act_type, typename tag> struct exec_after_parser : base_parser<exec_after_parser<parser, act_type, tag>> {
 	act_type act;
 	[[no_unique_address]] parser p;
 

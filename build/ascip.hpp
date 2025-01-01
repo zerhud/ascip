@@ -405,19 +405,19 @@ template<typename tag, typename value_type, parser type> constexpr auto add_to_c
 template<typename... tags, parser type> constexpr auto from_ctx(auto&& act, type&& p) {
 	using ptype = std::decay_t<decltype(p)>;
 	using act_type = std::decay_t<decltype(act)>;
-	return typename ptype::holder::template ctx_use_parser<act_type, ptype, tags...>{ {}, std::forward<decltype(act)>(act), std::forward<decltype(p)>(p) }; }
+	return typename ptype::holder::template ctx_use_parser<ptype, act_type, tags...>{ {}, std::forward<decltype(act)>(act), std::forward<decltype(p)>(p) }; }
 template<typename... tags, parser type> constexpr auto result_from_ctx(auto&& act, type&& p) {
 	using ptype = std::decay_t<decltype(p)>;
 	using act_type = std::decay_t<decltype(act)>;
-	return typename ptype::holder::template ctx_use_as_result_parser<act_type, ptype, tags...>{ {}, std::forward<decltype(act)>(act), std::forward<decltype(p)>(p) }; }
+	return typename ptype::holder::template ctx_use_as_result_parser<ptype, act_type, tags...>{ {}, std::forward<decltype(act)>(act), std::forward<decltype(p)>(p) }; }
 template<typename tag, parser type> constexpr auto exec_before(auto&& act, type&& p) {
 	using ptype = std::decay_t<decltype(p)>;
 	using act_type = std::decay_t<decltype(act)>;
-	return typename ptype::holder::template exec_before_parser<type, tag, act_type>{ {}, std::forward<decltype(act)>(act), std::forward<decltype(p)>(p) }; }
+	return typename ptype::holder::template exec_before_parser<type, act_type, tag>{ {}, std::forward<decltype(act)>(act), std::forward<decltype(p)>(p) }; }
 template<typename tag, parser type> constexpr auto exec_after(auto&& act, type&& p) {
 	using ptype = std::decay_t<decltype(p)>;
 	using act_type = std::decay_t<decltype(act)>;
-	return typename ptype::holder::template exec_after_parser<type, tag, act_type>{ {}, std::forward<decltype(act)>(act), std::forward<decltype(p)>(p) }; }
+	return typename ptype::holder::template exec_after_parser<type, act_type, tag>{ {}, std::forward<decltype(act)>(act), std::forward<decltype(p)>(p) }; }
 
 template<parser type> constexpr auto reparse(type&& p) {
 	using ptype = std::decay_t<decltype(p)>;
@@ -1485,7 +1485,7 @@ template<typename parser, typename tag, typename value_type> struct ctx_change_p
 	}
 };
 
-template<typename act_type, typename parser, typename... tags> struct ctx_use_parser : base_parser<ctx_use_parser<act_type, parser, tags...>> {
+template<typename parser, typename act_type, typename... tags> struct ctx_use_parser : base_parser<ctx_use_parser<parser, act_type, tags...>> {
 	act_type act;
 	[[no_unique_address]] parser p;
 
@@ -1495,7 +1495,7 @@ template<typename act_type, typename parser, typename... tags> struct ctx_use_pa
 		return ret;
 	}
 };
-template<typename act_type, typename parser, typename... tags> struct ctx_use_as_result_parser : base_parser<ctx_use_as_result_parser<act_type, parser, tags...>> {
+template<typename parser, typename act_type, typename... tags> struct ctx_use_as_result_parser : base_parser<ctx_use_as_result_parser<parser, act_type, tags...>> {
 	act_type act;
 	[[no_unique_address]] parser p;
 
@@ -1506,7 +1506,7 @@ template<typename act_type, typename parser, typename... tags> struct ctx_use_as
 	}
 };
 
-template<typename parser, typename tag, typename act_type> struct exec_before_parser : base_parser<exec_before_parser<parser, tag, act_type>> {
+template<typename parser, typename act_type, typename tag> struct exec_before_parser : base_parser<exec_before_parser<parser, act_type, tag>> {
 	act_type act;
 	[[no_unique_address]] parser p;
 
@@ -1516,7 +1516,7 @@ template<typename parser, typename tag, typename act_type> struct exec_before_pa
 	}
 };
 
-template<typename parser, typename tag, typename act_type> struct exec_after_parser : base_parser<exec_after_parser<parser, tag, act_type>> {
+template<typename parser, typename act_type, typename tag> struct exec_after_parser : base_parser<exec_after_parser<parser, act_type, tag>> {
 	act_type act;
 	[[no_unique_address]] parser p;
 
@@ -2733,11 +2733,17 @@ constexpr static auto transform(rvariant_parser<type, parsers...>&& src, auto& c
 	auto nctx = mutator::create_ctx(src, ctx);
 	return transform_apply<mutator>( transform_apply_to_each<mutator,rvariant_parser,0>(std::move(src.seq),nctx,std::move(src.maker)), nctx );
 }
-template<typename mutator, typename parser, typename act_t>
-constexpr static auto transform(semact_parser<parser, act_t>&& src, auto& ctx) {
+template<typename mutator, template<typename...>class semact_wrapper, typename parser, typename act_t, typename... tags>
+constexpr static auto transform(semact_wrapper<parser, act_t, tags...>&& src, auto& ctx) requires requires{ src.act; src.p; } {
 	auto nctx = mutator::create_ctx(src, ctx);
 	auto np = transform<mutator>( std::move(src.p), nctx );
-	return transform_apply<mutator>( semact_parser<std::decay_t<decltype(np)>, std::decay_t<decltype(src.act)>>{ {}, std::move(src.act), std::move(np) }, nctx );
+	return transform_apply<mutator>( semact_wrapper<std::decay_t<decltype(np)>, std::decay_t<decltype(src.act)>, tags...>{ {}, std::move(src.act), std::move(np) }, nctx );
+}
+template<typename mutator, typename parser, typename tag, typename value_type>
+constexpr static auto transform(ctx_change_parser<parser, tag, value_type>&& src, auto& ctx) {
+	auto nctx = mutator::create_ctx(src, ctx);
+	auto np = transform<mutator>( std::move(src.p), nctx );
+	return transform_apply<mutator>( ctx_change_parser<decltype(np), tag, value_type>{ {}, std::move(src.value), std::move(np) }, nctx );
 }
 
 
@@ -2819,6 +2825,21 @@ constexpr static bool test_transform_modify_leaf() {
 	static_assert( std::is_same_v<
 			seq_inc_rfield_after<semact_parser<test_parser2, decltype(rv_maker)>>,
 			decltype( test_transform_t_to_p(test_parser{}(rv_maker)++) )
+			> );
+
+	struct tag1 {};
+	static_assert( std::is_same_v<
+			ctx_change_parser<test_parser2, tag1, int>,
+			decltype(test_transform_t_to_p( add_to_ctx<tag1>(1, test_parser{}) ))
+			> );
+	auto void_act = [](auto&&...){};
+	static_assert( std::is_same_v<
+			ctx_use_parser<test_parser2, decltype(void_act), tag1>,
+			decltype(test_transform_t_to_p( from_ctx<tag1>(void_act, test_parser{}) ))
+			> );
+	static_assert( std::is_same_v<
+			ctx_use_as_result_parser<test_parser2, decltype(void_act), tag1>,
+			decltype(test_transform_t_to_p( result_from_ctx<tag1>(void_act, test_parser{}) ))
 			> );
 
 	return true;
