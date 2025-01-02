@@ -6,6 +6,9 @@
 #include "ascip.hpp"
 #include <tuple>
 
+static_assert( []{ ascip_details::inner_tuple t{1, 'z'}; return get<1>(t); }() == 'z' );
+static_assert( []{ const ascip_details::inner_tuple t{1, 'z'}; return get<1>(t); }() == 'z' );
+
 void test_val_resetter() {
 	static_assert( []{
 		int val = 10;
