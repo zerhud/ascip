@@ -70,36 +70,3 @@ template<typename p> unary_list_parser(p) -> unary_list_parser<p>;
 template<typename l, typename r> binary_list_parser(l,r) -> binary_list_parser<l,r>;
 #endif
 
-constexpr static bool test_unary_list() {
-	test_parser_parse(mk_vec<char>(), *char_<'a'>, "", 0);
-	static_assert(test_parser_parse(mk_vec<char>(), *char_<'a'>, "", 0).size() == 0);
-	static_assert(test_parser_parse(mk_vec<char>(), *char_<'a'>, "aa", 2).size() == 2);
-	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), *char_<'a'>, "aa", 2), 'a', 'a' ));
-	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), +char_<'a'>, "aa", 2), 'a', 'a' ));
-	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), (+(char_<'a'> >> char_<'b'>))([](auto& r){return fwd(r);}), "abab", 4), 'a','b','a','b' ));
-	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), (+(char_<'a'> >> char_<'b'>))([](auto& r){return fwd(r);}), "", -1) ));
-
-#ifndef __clang__
-	static_assert( ({char r='z';char_<'a'>.parse(make_test_ctx(),make_source('b'),r);r;}) == 'z' );
-	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), +(!char_<'a'>), "bb", 2), 0x00, 0x00 ),
-			"!char_<'a'> parses but don't sore it's value, we have list with zeros (instead of infinit loop)");
-
-	static_assert(test_cmp_vec( test_parser_parse(mk_str(),+(char_<'a'>|char_<'b'>), "aab", 3), 'a', 'a', 'b' ));
-#endif
-
-	return true;
-}
-
-constexpr static bool test_binary_list() {
-	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), lower % ',', "a,b,c", 5), 'a', 'b', 'c' ));
-	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), lower % d10, "a1b2c", 5), 'a', 'b', 'c' ));
-	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), lower % d10, "a", 1), 'a' ));
-	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), lower % d10, "a1", 1), 'a' ));
-	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), lower % d10, "A1", -1) ));
-	static_assert(test_cmp_vec( test_parser_parse(mk_vec<char>(), ((lower >> lower) % ',')([](auto&r){return fwd(r);}), "ab,cd", 5), 'a','b','c','d' ));
-	return true;
-}
-
-constexpr static bool test_lists() {
-	return test_unary_list() && test_binary_list();
-}

@@ -13,6 +13,8 @@
 
 using p = ascip<>;
 
+constexpr auto& d10 = p::d10;
+constexpr auto& lower = p::lower;
 template<auto s> constexpr auto& char_ = p::char_<s>;
 template<auto s> constexpr auto& _char = p::_char<s>;
 constexpr auto make_test_ctx(auto&&... args) { return p::make_test_ctx(std::forward<decltype(args)>(args)...); }

@@ -99,7 +99,6 @@ constexpr static void test() {
 	static_assert( test_optional() );
 	static_assert( test_omit() );
 	static_assert( test_as() );
-	static_assert( test_lists() );
 	static_assert( test_checkers() );
 	static_assert( test_different() );
 	static_assert( test_reparse() );

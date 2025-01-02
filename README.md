@@ -65,7 +65,7 @@ here is a list of available parsers. you can find examples below
 - `operator !` for negate parser
 - `unary -` for parse optional value. if there is no value, the default constructor will be used.
 - `binary -` for parse one value except other
-- `*` and `+` for lists. `*` - zero or more times, `+` - one or mote times.
+- `*` and `+` for lists. `*` - zero or more times, `+` - one or mote times. the `fwd()` method can to be used for tell list parser to just pass the result to inner parser and don't emplace back to the result.
 - `%` for parse separated values
 - `()` with lambda for the semantic action (semact) or for create the result. if the functor inside `()` receaves reference to the parser result and returns reference or pointer it's a result maker. in other case it's a semact. the semact can to receave nothing, or the returned value by parser and the result, or the returned value by parser, the parsing context, the source and the result.
 - `as` method for treat some parser as value
