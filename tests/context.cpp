@@ -4,7 +4,6 @@
 //          https://www.boost.org/LICENSE_1_0.txt)
 
 #include "ascip.hpp"
-#include <tuple>
 
 static_assert( []{ ascip_details::inner_tuple t{1, 'z'}; return get<1>(t); }() == 'z' );
 static_assert( []{ const ascip_details::inner_tuple t{1, 'z'}; return get<1>(t); }() == 'z' );
@@ -59,7 +58,7 @@ constexpr void test_context() {
 }
 
 constexpr void context_parsers() {
-	using p = ascip<std::tuple>;
+	using p = ascip<>;
 	struct tag {};
 	static_assert( []{
 		char r;

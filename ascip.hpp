@@ -34,15 +34,15 @@
 namespace {
 
 
-template<template<typename...>class tuple, typename factory_t=void>
+template<typename factory_t=void>
 struct ascip {
 
-using holder = ascip<tuple, factory_t>;
+using holder = ascip<factory_t>;
 using parse_result = decltype(-1);
 
 template<typename parser> struct base_parser : ascip_details::adl_tag {
 	using type_in_base = parser;
-	using holder = ascip<tuple, factory_t>;
+	using holder = ascip<factory_t>;
 
 	constexpr static int start_context_arg = 1;
 	constexpr static const char* source_symbol = "ab";
@@ -150,11 +150,11 @@ template<ascip_details::string_literal v> struct sterm {
 #pragma GCC diagnostic ignored "-Wgnu-string-literal-operator-template"
 #endif
 
-template<typename factory_t, template<typename...>class tuple>
+template<typename factory_t>
 struct ascip_literals {
 template<typename char_t, char_t... chars>
 friend constexpr auto operator""_lex() {
-	return lexeme( omit( (... >> ascip<tuple, factory_t>::template char_<chars>) ) );
+	return lexeme( omit( (... >> ascip<factory_t>::template char_<chars>) ) );
 }
 }; // namespace ascip_literals
 

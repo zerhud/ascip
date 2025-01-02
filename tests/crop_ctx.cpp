@@ -5,11 +5,10 @@
 
 #include "ascip.hpp"
 
-#include <tuple>
 #include <vector>
 #include <memory>
 
-using p = ascip<std::tuple>;
+using p = ascip<>;
 
 struct base {virtual ~base() noexcept =default ;};
 struct content {

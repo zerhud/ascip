@@ -1,4 +1,3 @@
-#include <tuple>
 #include "ascip.hpp"
 
 
@@ -18,7 +17,7 @@ constexpr void example() {
     }() == 7 );
 }
 
-using parser = ascip<std::tuple>;
+using parser = ascip<>;
 
 int main(int,char**) {
     example<parser>();

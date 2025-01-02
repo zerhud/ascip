@@ -756,15 +756,15 @@ constexpr void test () {
 namespace {
 
 
-template<template<typename...>class tuple, typename factory_t=void>
+template<typename factory_t=void>
 struct ascip {
 
-using holder = ascip<tuple, factory_t>;
+using holder = ascip<factory_t>;
 using parse_result = decltype(-1);
 
 template<typename parser> struct base_parser : ascip_details::adl_tag {
 	using type_in_base = parser;
-	using holder = ascip<tuple, factory_t>;
+	using holder = ascip<factory_t>;
 
 	constexpr static int start_context_arg = 1;
 	constexpr static const char* source_symbol = "ab";
@@ -1770,7 +1770,7 @@ template<ascip_details::parser parser> struct use_variant_result_parser : base_p
 template<auto val> struct variant_pos_value{ constexpr static auto pos = val; };
 template<ascip_details::parser... parsers> struct variant_parser : base_parser<variant_parser<parsers...>> {
 	using self_type = variant_parser<parsers...>;
-	tuple<parsers...> seq;
+	ascip_details::inner_tuple<parsers...> seq;
 
 	template<typename... left, ascip_details::parser right>
 	constexpr static auto mk(variant_parser<left...> l, right&& r) {
@@ -1913,7 +1913,7 @@ constexpr static bool is_top_result_parser() {
 
 template<typename maker_type, ascip_details::parser... parsers>
 struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
-	tuple<parsers...> seq;
+	ascip_details::inner_tuple<parsers...> seq;
 	std::decay_t<maker_type> maker;
 	constexpr rvariant_parser( maker_type m, parsers... l ) : seq( std::forward<parsers>(l)... ), maker(std::forward<maker_type>(m)) {}
 
@@ -2336,10 +2336,10 @@ template<typename p> seq_inc_rfield_before(p) ->  seq_inc_rfield_before<p>;
 template<typename p> seq_dec_rfield_after(p) ->  seq_dec_rfield_after<p>;
 template<typename p> seq_dec_rfield_before(p) -> seq_dec_rfield_before<p>;
 template<typename concrete, typename... parsers> struct com_seq_parser : base_parser<concrete>, ascip_details::seq_tag {
-	tuple<parsers...> seq;
+	ascip_details::inner_tuple<parsers...> seq;
 
 	constexpr com_seq_parser() =default ;
-	constexpr com_seq_parser(tuple<parsers...> t) : seq(std::move(t)) {}
+	constexpr com_seq_parser(ascip_details::inner_tuple<parsers...> t) : seq(std::move(t)) {}
 	constexpr com_seq_parser(auto&&... args) requires (sizeof...(parsers) == sizeof...(args)) : seq( static_cast<decltype(args)&&>(args)... ) {}
 	constexpr com_seq_parser(const com_seq_parser&) =default ;
 
@@ -3189,11 +3189,11 @@ template<ascip_details::string_literal v> struct sterm {
 
 
 
-template<typename factory_t, template<typename...>class tuple>
+template<typename factory_t>
 struct ascip_literals {
 template<typename char_t, char_t... chars>
 friend constexpr auto operator""_lex() {
-	return lexeme( omit( (... >> ascip<tuple, factory_t>::template char_<chars>) ) );
+	return lexeme( omit( (... >> ascip<factory_t>::template char_<chars>) ) );
 }
 }; // namespace ascip_literals
 

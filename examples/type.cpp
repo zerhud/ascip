@@ -1,7 +1,6 @@
 #include <string>
 #include <vector>
 #include <memory>
-#include <utility>
 
 #include "ascip.hpp"
 
@@ -44,7 +43,7 @@ constexpr auto make_grammar() {
 	return type_p;
 }
 
-using parser = ascip<std::tuple>;
+using parser = ascip<>;
 
 int main(int, char**) {
 	auto g = make_grammar<parser>();

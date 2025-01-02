@@ -19,7 +19,7 @@ constexpr auto make_grammar() {
 	return -(+gh::alpha) >> term<':'>::_char >> ++(+gh::alpha);
 }
 
-using parser = ascip<std::tuple>;
+using parser = ascip<>;
 
 static_assert( !ascip_details::optional<int> );
 static_assert( !ascip_details::optional<std::string> );

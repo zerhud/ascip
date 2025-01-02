@@ -120,10 +120,10 @@ template<typename p> seq_inc_rfield_before(p) ->  seq_inc_rfield_before<p>;
 template<typename p> seq_dec_rfield_after(p) ->  seq_dec_rfield_after<p>;
 template<typename p> seq_dec_rfield_before(p) -> seq_dec_rfield_before<p>;
 template<typename concrete, typename... parsers> struct com_seq_parser : base_parser<concrete>, ascip_details::seq_tag {
-	tuple<parsers...> seq;
+	ascip_details::inner_tuple<parsers...> seq;
 
 	constexpr com_seq_parser() =default ;
-	constexpr com_seq_parser(tuple<parsers...> t) : seq(std::move(t)) {}
+	constexpr com_seq_parser(ascip_details::inner_tuple<parsers...> t) : seq(std::move(t)) {}
 	constexpr com_seq_parser(auto&&... args) requires (sizeof...(parsers) == sizeof...(args)) : seq( static_cast<decltype(args)&&>(args)... ) {}
 	constexpr com_seq_parser(const com_seq_parser&) =default ;
 

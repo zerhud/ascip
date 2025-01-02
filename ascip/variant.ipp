@@ -17,7 +17,7 @@ template<ascip_details::parser parser> struct use_variant_result_parser : base_p
 template<auto val> struct variant_pos_value{ constexpr static auto pos = val; };
 template<ascip_details::parser... parsers> struct variant_parser : base_parser<variant_parser<parsers...>> {
 	using self_type = variant_parser<parsers...>;
-	tuple<parsers...> seq;
+	ascip_details::inner_tuple<parsers...> seq;
 
 	template<typename... left, ascip_details::parser right>
 	constexpr static auto mk(variant_parser<left...> l, right&& r) {

@@ -1,4 +1,3 @@
-#include <tuple>
 #include <memory>
 #include <string>
 #include <variant>
@@ -6,7 +5,7 @@
 #include <iostream>
 #include "ascip.hpp"
 
-using parser_without_tests = ascip<std::tuple>;
+using parser_without_tests = ascip<>;
 using terminal = std::variant<int,std::string>;
 
 struct expr;

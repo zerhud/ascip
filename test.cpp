@@ -1,4 +1,3 @@
-#include <tuple>
 #include <vector>
 #include <string>
 #include <memory>
@@ -30,10 +29,10 @@ struct factory_for_redefine_test {
 	constexpr auto mk_sv(const char* str){ return std::string_view{ str }; }
 };
 
-using parser = ascip<std::tuple, factory>;
-using parser_with_own_tuple = ascip<ascip_details::tuple, factory>;
-using redefined_parser = ascip<std::tuple, factory_for_redefine_test>;
-using parser_without_tests = ascip<std::tuple>;
+using parser = ascip<factory>;
+using parser_with_own_tuple = ascip<factory>;
+using redefined_parser = ascip<factory_for_redefine_test>;
+using parser_without_tests = ascip<>;
 
 template<typename type> concept printable = requires(std::ostream& o, const type& obj){ o << obj; };
 using term_rt = std::variant<int,std::string>;

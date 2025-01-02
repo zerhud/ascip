@@ -1,8 +1,6 @@
 #include "ascip.hpp"
 
-#include <tuple>
-
-using parser = ascip<std::tuple>;
+using parser = ascip<>;
 
 struct single_parser {
 	char f;

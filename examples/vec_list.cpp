@@ -1,4 +1,3 @@
-#include <tuple>
 #include <list>
 #include <vector>
 #include <iostream>
@@ -13,7 +12,7 @@ constexpr auto make_grammar_a1() { return +gh::template char_<'a'>; }
 template<typename gh,template<auto>class term=gh::template term>
 constexpr auto make_grammar_a2() { return +term<'a'>::char_; }
 
-using parser = ascip<std::tuple>;
+using parser = ascip<>;
 
 int main(int,char**) {
     static_assert( []{

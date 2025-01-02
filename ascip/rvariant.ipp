@@ -64,7 +64,7 @@ constexpr static bool is_top_result_parser() {
 
 template<typename maker_type, ascip_details::parser... parsers>
 struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
-	tuple<parsers...> seq;
+	ascip_details::inner_tuple<parsers...> seq;
 	std::decay_t<maker_type> maker;
 	constexpr rvariant_parser( maker_type m, parsers... l ) : seq( std::forward<parsers>(l)... ), maker(std::forward<maker_type>(m)) {}
 

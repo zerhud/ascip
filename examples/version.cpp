@@ -1,4 +1,3 @@
-#include <tuple>
 #include <string_view>
 #include <iostream>
 
@@ -18,7 +17,7 @@ constexpr auto make_grammar() {
 	//  ++ prefix and postfix increases result's field number
 }
 
-using parser = ascip<std::tuple>;
+using parser = ascip<>;
 
 constexpr void test_grammar() {
   static_assert( []{

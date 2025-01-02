@@ -1,8 +1,6 @@
 #include "ascip.hpp"
 
-#include <tuple>
-
-using p = ascip<std::tuple>;
+using p = ascip<>;
 
 struct test_1 {
 	char a, b, c, d;
