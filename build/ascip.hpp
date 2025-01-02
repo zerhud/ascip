@@ -856,17 +856,6 @@ constexpr static auto test_cmp_vec(const auto& vec, auto... vals) {
 	return true;
 }
 
-constexpr static bool test_parser_parse_r(auto&& r, auto p, auto&& src, auto pr, auto... vals) {
-	auto parse_method_result = p.parse(make_test_ctx(), make_source(src), r);
-	parse_method_result /= (parse_method_result==pr);
-	test_cmp_vec(r, vals...);
-	return true;
-}
-
-constexpr static bool test_parser_parse_r_str(auto p, auto&& src, auto pr, auto... vals) {
-	return test_parser_parse_r(mk_str(), p, static_cast<decltype(src)&&>(src), pr, static_cast<decltype(vals)&&>(vals)...);
-}
-
        
 
 //          Copyright Hudyaev Alexey 2023.
