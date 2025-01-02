@@ -3,9 +3,7 @@ c++ ascii not poisonous parser. requires c++23. for examples see a section "exam
 
 the parser was created as struct template, so you can parametrize your method for create grammar by it,
 instead of include ascip file and depend on it.
-the ascip needs in tuple for inner use,
-and you can parametrize the structure with any tuple that have get method in adl.
-the second template parameter, factory, can be the void type if you don't want to run the test method.
+the template parameter, factory, can be the void type if you don't want to run the test method.
 
 below, I've tried using examples for quick start.
 all of them leave in the examples directory in actual state.
