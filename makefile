@@ -76,7 +76,7 @@ test: $(build_path)/main_test $(build_path)/ascip.hpp $(build_path)/main_test_cl
 clean::
 	rm -f $(build_path)/main_test.d
 	rm -f $(build_path)/main_test
-	rm -f $(build_path)/main_test_clang
+	rm -f $(build_path)/main_test_clang{,.d}
 	rm -f $(build_path)/ascip{,_clang}.hpp
 	rm -f $(build_path)/ascip.hpp.d
 
