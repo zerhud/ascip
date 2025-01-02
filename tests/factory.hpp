@@ -13,6 +13,11 @@
 
 using p = ascip<>;
 
+template<auto s> constexpr auto& char_ = p::char_<s>;
+template<auto s> constexpr auto& _char = p::_char<s>;
+constexpr auto make_test_ctx(auto&&... args) { return p::make_test_ctx(std::forward<decltype(args)>(args)...); }
+constexpr auto make_source(auto&& src) { return p::make_source(std::forward<decltype(src)>(src)); }
+
 template<auto cur_ind, auto cnt, auto... inds>
 constexpr bool test_cmp_struct_impl(const auto& obj, auto cur_val, auto... vals) {
 	//cur_val /= (ascip_reflection::get<sizeof...(inds)>(obj)==cur_val);
