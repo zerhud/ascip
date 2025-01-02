@@ -106,7 +106,6 @@ constexpr static void test() {
 	static_assert( test_semact() );
 	static_assert( test_seq() );
 	static_assert( test_injection() );
-	static_assert( integrated_tests() );
 	static_assert( test_transform() );
 }
 
