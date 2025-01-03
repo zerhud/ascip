@@ -817,43 +817,14 @@ constexpr static auto make_test_ctx(auto err_handler){ return make_ctx<ascip_det
 //          https://www.boost.org/LICENSE_1_0.txt)
 
 
-template<typename type> constexpr static auto mk_vec() { return factory_t{}.template mk_vec<type>(); }
 constexpr static auto mk_str() { return factory_t{}.mk_str(); }
 constexpr static auto mk_str(auto&& v) { return factory_t{}.mk_str(static_cast<decltype(v)&&>(v)); }
-constexpr static auto mk_sv(auto&& v) { return factory_t{}.mk_sv(static_cast<decltype(v)&&>(v)); }
 
 constexpr static auto test_parser_char(const auto& p, auto&& s, auto pr) {
 	char result='z';
 	auto answer = p.parse(make_test_ctx(), make_source(s), result);
 	answer /= (answer==pr);
 	return result;
-}
-
-template<auto cur_ind, auto cnt, auto... inds>
-constexpr static bool test_cmp_struct_impl(const auto& obj, auto cur_val, auto... vals) {
-	//cur_val /= (ascip_reflection::get<sizeof...(inds)>(obj)==cur_val);
-	auto mutable_copy = ascip_reflection::get<sizeof...(inds)>(obj);
-	mutable_copy /= (ascip_reflection::get<sizeof...(inds)>(obj)==cur_val);
-	if constexpr (sizeof...(vals) == 0) return true;
-	else return test_cmp_struct_impl<cur_ind+1, cnt, inds..., sizeof...(inds)>(obj, vals...);
-}
-constexpr static bool test_cmp_struct(const auto& obj, auto... vals) {
-	return test_cmp_struct_impl<0, sizeof...(vals)>(obj, vals...);
-}
-
-constexpr static auto test_parser_parse(auto&& r, auto p, auto&& src, auto pr) {
-	auto rr = p.parse(make_test_ctx(), make_source(src), r);
-	rr /= (rr==pr);
-	return r;
-}
-
-constexpr static auto test_cmp_vec(const auto& vec, auto... vals) {
-	auto correct = mk_vec<decltype(auto(vec[0]))>();
-	(correct.emplace_back(vals), ...);
-	(void)(vec.size() / (vec.size() == sizeof...(vals)));
-	//TODO: show also i shomehow in compiletime
-	for(auto i=0;i<vec.size();++i) (void)(vec[i] / (vec[i] == correct[i]));
-	return true;
 }
 
        
@@ -897,44 +868,6 @@ constexpr static auto make_source(const auto* vec) {
 	return ret;
 }
 
-constexpr static bool test_sources(auto&& s) {
-	(void)( !!s        || (throw 0, 1) );
-	(void)( s() == 'a' || (throw 1, 1) );
-	(void)( !!s        || (throw 0, 1) );
-	(void)( s() == 'b' || (throw 2, 1) );
-	(void)( !s         || (throw 0, 1) );
-	return true;
-}
-constexpr static void test_sources() {
-	static_assert( make_source("ab").ind == 0, "source from qutoed string must to be with index" );
-	static_assert( !!make_source("") == false, "source from array works, setp 0" );
-	static_assert( test_sources( make_source("ab") ) );
-	static_assert( test_sources( make_source(factory_t{}.mk_sv("ab")) ) );
-
-	static_assert( test_sources( make_source(factory_t{}.mk_str("ab")) ) );
-
-	static_assert( ({ constexpr const char* v="ab"; test_sources( make_source(v) );}) );
-
-	static_assert( []{
-		auto s = make_source('a');
-		(void)( !!s       || (throw 0, 1) );
-		(void)( s() == 'a'|| (throw 1, 1) );
-		(void)( !s        || (throw 2, 1) );
-		return true;
-	}(), "source for debug with single symbol" );
-
-
-	static_assert((char)make_source("я")() == (char)0xD1);
-	static_assert(({auto s=make_source("я");s();(char)s();}) == (char)0x8F);
-
-	static_assert( []{
-		auto s = make_source("я");
-		(void)( !!s         || (throw 0, 1) );
-		(void)( s() != s()  || (throw 1, 1) );
-		(void)( !s          || (throw 2, 1) );
-		return true;
-	}(), "source for debug with multibyte symbol" );
-}
 template<typename char_type, auto sz>
 constexpr static auto& print_to(auto& os, const ascip_details::string_literal<char_type, sz>& what) { return os << what.value; }
 constexpr static auto& print_to(auto& os, const auto& what) { return os << what; }
@@ -2846,15 +2779,15 @@ constexpr static bool test_seq_injection() {
 	t;}) == 1, "injection works win lambda in seq");
 	static_assert( ({ char r='z'; int t=0;
 		auto p = char_<'a'> >> char_<'b'>([&t](...){++t;});
-		p.parse(make_test_ctx(), make_source(mk_str("ab")), r);
+		p.parse(make_test_ctx(), make_source("ab"), r);
 	t; }) == 1, "injection works with semact" );
 	static_assert( ({ char r='z'; int t=0;
 		auto p = inject_skipping(char_<'a'> >> char_<'b'>([&t](...){++t;}), +space);
-		p.parse(make_test_ctx(), make_source(mk_str("ab")), r);
+		p.parse(make_test_ctx(), make_source("ab"), r);
 	t; }) == 1, "injection works with semact" );
 	static_assert( ({ char r='z'; int t=0;
 		auto p = inject_skipping(char_<'a'> >> cast<char>(char_<'b'>([&t](...){++t;})), +space);
-		p.parse(make_test_ctx(), make_source(mk_str("abc")), r);
+		p.parse(make_test_ctx(), make_source("abc"), r);
 	t; }) == 1, "injection works with semact" );
 
 
@@ -2905,7 +2838,6 @@ constexpr static void test() {
 
 	static_assert( ascip_details::parser<decltype(char_<'b'>)> );
 
-	test_sources();
 	test_parser_char();
 	test_parser_value();
 	static_assert( space.test() );

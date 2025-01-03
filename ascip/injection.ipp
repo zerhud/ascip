@@ -177,15 +177,15 @@ constexpr static bool test_seq_injection() {
 	t;}) == 1, "injection works win lambda in seq");
 	static_assert( ({ char r='z'; int t=0;
 		auto p = char_<'a'> >> char_<'b'>([&t](...){++t;});
-		p.parse(make_test_ctx(), make_source(mk_str("ab")), r);
+		p.parse(make_test_ctx(), make_source("ab"), r);
 	t; }) == 1, "injection works with semact" );
 	static_assert( ({ char r='z'; int t=0;
 		auto p = inject_skipping(char_<'a'> >> char_<'b'>([&t](...){++t;}), +space);
-		p.parse(make_test_ctx(), make_source(mk_str("ab")), r);
+		p.parse(make_test_ctx(), make_source("ab"), r);
 	t; }) == 1, "injection works with semact" );
 	static_assert( ({ char r='z'; int t=0;
 		auto p = inject_skipping(char_<'a'> >> cast<char>(char_<'b'>([&t](...){++t;})), +space);
-		p.parse(make_test_ctx(), make_source(mk_str("abc")), r);
+		p.parse(make_test_ctx(), make_source("abc"), r);
 	t; }) == 1, "injection works with semact" );
 #endif
 

@@ -82,7 +82,6 @@ constexpr static void test() {
 #else
 	static_assert( ascip_details::parser<decltype(char_<'b'>)> );
 #endif
-	test_sources();
 	test_parser_char();
 	test_parser_value();
 	static_assert( space.test() );

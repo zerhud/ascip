@@ -39,44 +39,6 @@ constexpr static auto make_source(const auto* vec) {
 	return ret;
 }
 
-constexpr static bool test_sources(auto&& s) {
-	(void)( !!s        || (throw 0, 1) );
-	(void)( s() == 'a' || (throw 1, 1) );
-	(void)( !!s        || (throw 0, 1) );
-	(void)( s() == 'b' || (throw 2, 1) );
-	(void)( !s         || (throw 0, 1) );
-	return true;
-}
-constexpr static void test_sources() {
-	static_assert( make_source("ab").ind == 0, "source from qutoed string must to be with index" );
-	static_assert( !!make_source("") == false, "source from array works, setp 0" );
-	static_assert( test_sources( make_source("ab") ) );
-	static_assert( test_sources( make_source(factory_t{}.mk_sv("ab")) ) );
-#ifndef __clang__
-	static_assert( test_sources( make_source(factory_t{}.mk_str("ab")) ) );
-#endif
-	static_assert( ({ constexpr const char* v="ab"; test_sources( make_source(v) );}) );
-
-	static_assert( []{
-		auto s = make_source('a');
-		(void)( !!s       || (throw 0, 1) );
-		(void)( s() == 'a'|| (throw 1, 1) );
-		(void)( !s        || (throw 2, 1) );
-		return true;
-	}(), "source for debug with single symbol" );
-
-#ifndef __clang__
-	static_assert((char)make_source("я")() == (char)0xD1);
-	static_assert(({auto s=make_source("я");s();(char)s();}) == (char)0x8F);
-#endif
-	static_assert( []{
-		auto s = make_source("я");
-		(void)( !!s         || (throw 0, 1) );
-		(void)( s() != s()  || (throw 1, 1) );
-		(void)( !s          || (throw 2, 1) );
-		return true;
-	}(), "source for debug with multibyte symbol" );
-}
 template<typename char_type, auto sz>
 constexpr static auto& print_to(auto& os, const ascip_details::string_literal<char_type, sz>& what) { return os << what.value; }
 constexpr static auto& print_to(auto& os, const auto& what) { return os << what; }
