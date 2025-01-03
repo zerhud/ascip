@@ -6,9 +6,6 @@
 //          https://www.boost.org/LICENSE_1_0.txt)
 
 
-constexpr static auto mk_str() { return factory_t{}.mk_str(); }
-constexpr static auto mk_str(auto&& v) { return factory_t{}.mk_str(static_cast<decltype(v)&&>(v)); }
-
 constexpr static auto test_parser_char(const auto& p, auto&& s, auto pr) {
 	char result='z';
 	auto answer = p.parse(make_test_ctx(), make_source(s), result);
