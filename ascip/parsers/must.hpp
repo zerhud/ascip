@@ -15,14 +15,15 @@ template<string_literal msg, parser type> struct must_parser : base_parser<must_
   type p;
   constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = p.parse(ctx, src, result);
-  	return call_if_error(ctx, result, ret);
+  	return call_if_error(ctx, result, ret, src);
   }
 
-	constexpr static auto call_if_error(auto& ctx, auto& result, auto orig_ret) {
+	constexpr static auto call_if_error(auto& ctx, auto& result, auto orig_ret, auto& src) {
   	if (0 <= orig_ret) return orig_ret;
 		auto err = search_in_ctx<err_handler_tag>(ctx);
   	static_assert( !std::is_same_v<std::decay_t<decltype(err)>, ctx_not_found_type>, "for using the must parser a error handler is required" );
   	if constexpr(requires{(*err)(result, 0, msg);}) return (*err)(result, new_line_count(ctx), msg);
+  	else if constexpr(requires{(*err)(result, src, 0, msg);}) return (*err)(result, src, new_line_count(ctx), msg);
   	else return (*err)(result, msg);
   }
 };

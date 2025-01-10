@@ -67,6 +67,9 @@ struct ascip {
   constexpr static auto make_source(auto&& src) { return ascip_details::make_source(std::forward<decltype(src)>(src)); }
   constexpr static auto inject_skipping(auto&& p, auto&& s) { return ascip_details::inject_skipping(std::forward<decltype(p)>(p), std::forward<decltype(s)>(s) ); }
   constexpr static auto fwd(auto& o) { return ascip_details::fwd( o ); }
+  constexpr static void write_out_error_msg(auto& os, auto fn, auto msg, auto expt, auto src, auto ln ) {
+	  ascip_details::write_out_error_msg(os, std::move(fn), std::move(msg), std::move(expt), std::move(src), std::move(ln));
+  }
 
   // helpers
   template<auto s> struct tmpl {
