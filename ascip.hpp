@@ -6,31 +6,7 @@
 //          https://www.boost.org/LICENSE_1_0.txt)
 
 #include "ascip/details.hpp"
-#include "ascip/parsers/nop.hpp"
-#include "ascip/parsers/char.hpp"
-#include "ascip/parsers/literal.hpp"
-#include "ascip/parsers/value.hpp"
-#include "ascip/parsers/space.hpp"
-#include "ascip/parsers/any.hpp"
-#include "ascip/parsers/int.hpp"
-#include "ascip/parsers/float_point.hpp"
-#include "ascip/parsers/range.hpp"
-#include "ascip/parsers/semact.hpp"
-#include "ascip/parsers/seq.hpp"
-#include "ascip/parsers/must.hpp"
-#include "ascip/parsers/omit.hpp"
-#include "ascip/parsers/vriant.hpp"
-#include "ascip/parsers/as.hpp"
-#include "ascip/parsers/different.hpp"
-#include "ascip/parsers/negate.hpp"
-#include "ascip/parsers/opt.hpp"
-#include "ascip/parsers/unary_list.hpp"
-#include "ascip/parsers/binary_list.hpp"
-#include "ascip/parsers/reparse.hpp"
-#include "ascip/parsers/result_checker.hpp"
-#include "ascip/parsers/rv.hpp"
-#include "ascip/parsers/use_ctx.hpp"
-#include "ascip/parsers/injection.hpp"
+#include "ascip/parsers.hpp"
 
 struct ascip {
 	using parse_result = ascip_details::parse_result;
