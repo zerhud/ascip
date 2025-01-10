@@ -3,7 +3,7 @@
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          https://www.boost.org/LICENSE_1_0.txt)
 
-#include "ascip2.hpp"
+#include "ascip.hpp"
 
 static_assert( [] { char r; return ascip::nop.parse(ascip_details::make_default_context(), ascip_details::make_source("test"), r); }()== 0 );
 static_assert( ascip::char_<'s'>.test() );

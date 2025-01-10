@@ -7,7 +7,7 @@
 
 
 #include "base.hpp"
-#include "../details2.hpp"
+#include "../details.hpp"
 
 namespace ascip_details::prs {
 template <auto sym> struct char_parser : base_parser<char_parser<sym>> {

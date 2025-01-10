@@ -11,7 +11,7 @@
 #include "seq/use_seq_result.hpp"
 #include "seq/position_info.hpp"
 #include "seq/struct_fields.hpp"
-#include "../details2.hpp"
+#include "../details.hpp"
 
 namespace ascip_details::prs {
 
