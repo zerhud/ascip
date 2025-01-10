@@ -5,7 +5,7 @@
 #include <iostream>
 #include "ascip.hpp"
 
-using parser_without_tests = ascip<>;
+using parser_without_tests = ascip;
 using terminal = std::variant<int,std::string>;
 
 struct expr;
@@ -74,7 +74,7 @@ std::ostream& operator_extra::print(std::ostream& o) const { return o << *this; 
 std::ostream& operator_power::print(std::ostream& o) const { return o << *this; }
 std::ostream& ternary_expr::print(std::ostream& o) const { return o << *cond << " ? " << *if_true << " : " << *if_false; }
 
-template<typename gh, template<auto>class th=gh::template term>
+template<typename gh, template<auto>class th=gh::template tmpl>
 constexpr auto make_grammar() {
 	// way to create reqursive expression in result
 	// or we can create type with creates with new in ctor and skip result_maker

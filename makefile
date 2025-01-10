@@ -19,13 +19,6 @@ all: test $(build_path)/ascip.hpp examples_gcc examples_clang $(build_path)/asci
 $(build_path): makefile
 	mkdir -p $(build_path)
 
--include $(build_path)/main_test.d
-$(build_path)/main_test: makefile $(path)/test.cpp | $(build_path)
-	$(gcc) $(path)/test.cpp -o $(build_path)/main_test
--include $(build_path)/main_test_clang.d
-$(build_path)/main_test_clang: makefile $(path)/test.cpp | $(build_path)
-	$(clang) $(path)/test.cpp -o $(build_path)/main_test_clang
-
 -include $(build_path)/ascip.hpp.d
 $(build_path)/ascip.hpp.d: makefile ascip.hpp | $(build_path)
 	gcc -fdirectives-only -DINCLUDE_STD=1 -E ascip.hpp -MM | sed 's#ascip.o: ascip.hpp#$(build_path)/ascip.hpp:#' > $(build_path)/ascip.hpp.d
@@ -68,15 +61,12 @@ clean::
 endef
 $(foreach src_file,$(tests_files),$(eval $(call create_tests_template,$(src_file))))
 
-test: $(build_path)/main_test $(build_path)/ascip.hpp $(build_path)/main_test_clang tests_gcc tests_clang
-	$(build_path)/main_test
+test: $(build_path)/ascip.hpp tests_gcc tests_clang
+	$(build_path)/test_rt_error_handling_gcc
 	echo "====== clang ======"
-	$(build_path)/main_test_clang
+	$(build_path)/test_rt_error_handling_clang
 
 clean::
-	rm -f $(build_path)/main_test.d
-	rm -f $(build_path)/main_test
-	rm -f $(build_path)/main_test_clang{,.d}
 	rm -f $(build_path)/ascip{,_clang}.hpp
 	rm -f $(build_path)/ascip.hpp.d
 

@@ -47,16 +47,6 @@ struct ascip {
 	  ascip_details::write_out_error_msg(os, std::move(fn), std::move(msg), std::move(expt), std::move(src), std::move(ln));
   }
 
-  // helpers
-  template<auto s> struct tmpl {
-    constexpr static auto& nop = ascip::nop;
-    constexpr static auto& char_ = ascip::char_<s>;
-    constexpr static auto& _char = ascip::_char<s>;
-    constexpr static auto& space = ascip::space;
-    constexpr static auto& any = ascip::any;
-    constexpr static auto& nl = ascip::nl;
-  };
-
   // rvariant
   constexpr static ascip_details::prs::rvariant_lreq_parser rv_lreq{};
   constexpr static ascip_details::prs::rvariant_rreq_pl_parser rv_rreq{};
@@ -66,6 +56,19 @@ struct ascip {
   constexpr static auto dquoted_string = lexeme(_char<'"'> >> *(as<'"'>(char_<'\\'> >> char_<'"'>)| (ascip::any - char_<'"'>)) >> _char<'"'>);
   constexpr static auto squoted_string = lexeme(_char<'\''> >> *(as<'\''>(char_<'\\'> >> char_<'\''>)| (ascip::any - char_<'\''>)) >> _char<'\''>);
   constexpr static auto quoted_string = lexeme(squoted_string | dquoted_string);
+
+  // helpers
+  template<auto s> struct tmpl {
+    constexpr static auto& nop = ascip::nop;
+    constexpr static auto& char_ = ascip::char_<s>;
+    constexpr static auto& _char = ascip::_char<s>;
+    constexpr static auto& space = ascip::space;
+    constexpr static auto& any = ascip::any;
+    constexpr static auto& nl = ascip::nl;
+  	constexpr static auto& req = ascip::req<s>;
+  	constexpr static auto& _rv_rreq = ascip::_rv_rreq<s>;
+  	constexpr static auto& rv_req = ascip::rv_req<s>;
+  };
 };
 
 template<typename parser> constexpr auto ascip_details::prs::base_parser<parser>::operator()(auto act) const {

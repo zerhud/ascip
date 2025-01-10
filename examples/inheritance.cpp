@@ -1,10 +1,10 @@
 #include "ascip.hpp"
 
 
-struct base { char a, b; };
-struct child : base { char c; };
+struct base { char a{}, b{}; };
+struct child : base { char c{}; };
 
-template<typename gh, template<auto>class th=gh::template term>
+template<typename gh, template<auto>class th=gh::template tmpl>
 constexpr void example() {
     // for parse in base class due language limits we can use:
     //   - cast method, it will case the result to base class
@@ -17,7 +17,7 @@ constexpr void example() {
     }() == 7 );
 }
 
-using parser = ascip<>;
+using parser = ascip;
 
 int main(int,char**) {
     example<parser>();

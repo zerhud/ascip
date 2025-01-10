@@ -9,7 +9,7 @@ struct type {
 	std::vector<std::unique_ptr<type>> sub_types;
 };
 
-template<typename gh, template<auto> class term=gh::template term>
+template<typename gh, template<auto> class term=gh::template tmpl>
 constexpr auto make_grammar() {
 	auto ident = lexeme(gh::alpha >> *(gh::alpha | gh::d10 | term<'_'>::char_));
 	static_assert([&]{
@@ -43,7 +43,7 @@ constexpr auto make_grammar() {
 	return type_p;
 }
 
-using parser = ascip<>;
+using parser = ascip;
 
 int main(int, char**) {
 	auto g = make_grammar<parser>();

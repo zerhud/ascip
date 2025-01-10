@@ -9,10 +9,10 @@ constexpr auto make_grammar_a1() { return +gh::template char_<'a'>; }
 // in first make_grammar we need to write a template keywork every time
 // or declare char_ with using. there is a term struct in ascip and you
 // can use it in template declaration like this:
-template<typename gh,template<auto>class term=gh::template term>
+template<typename gh,template<auto>class term=gh::template tmpl>
 constexpr auto make_grammar_a2() { return +term<'a'>::char_; }
 
-using parser = ascip<>;
+using parser = ascip;
 
 int main(int,char**) {
     static_assert( []{

@@ -8,7 +8,7 @@ struct version {
   int minor=0;
 };
 
-template<typename gh,template<auto>class term=gh::template term>
+template<typename gh,template<auto>class term=gh::template tmpl>
 constexpr auto make_grammar() {
 	return lexeme(term<'v'>::_char >> gh::int_ >> term<'.'>::_char >> ++gh::int_);
 	//NOTE:
@@ -17,7 +17,7 @@ constexpr auto make_grammar() {
 	//  ++ prefix and postfix increases result's field number
 }
 
-using parser = ascip<>;
+using parser = ascip;
 
 constexpr void test_grammar() {
   static_assert( []{
