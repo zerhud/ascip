@@ -1,16 +1,16 @@
 #include "ascip.hpp"
 
-using parser = ascip<>;
+using parser = ascip;
 
 struct single_parser {
-	char f;
+	char f{};
 	constexpr static auto gram() {
 		return parser::nop >> fnum<0>(parser::char_<'a'>);
 	}
 };
 
 struct single_field {
-	char f;
+	char f{};
 
 	constexpr static auto gram() {
 		return parser::_char<'b'> >> -fnum<0>(parser::char_<'a'>);
@@ -19,9 +19,9 @@ struct single_field {
 using gram_type = std::decay_t<decltype(single_field::gram())>;
 
 struct neasted_field {
-	char f;
+	char f{};
 	struct {
-		char f;
+		char f{};
 	} neasted;
 
 	constexpr static auto gram() {
@@ -48,9 +48,9 @@ static_assert( []{
 }() == 3 );
 
 struct dec_and_inc {
-	char a;
-	char b;
-	char c;
+	char a{};
+	char b{};
+	char c{};
 	constexpr static auto gram() {
 		// 1. a=>1, ind=1
 		// 2. ind=0, b=>a, ind=1

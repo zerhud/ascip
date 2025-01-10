@@ -1,3 +1,9 @@
+//          Copyright Hudyaev Alexey 2025.
+// Distributed under the Boost Software License, Version 1.0.
+//    (See accompanying file LICENSE_1_0.txt or copy at
+//          https://www.boost.org/LICENSE_1_0.txt)
+
+#include <vector>
 #include <string>
 #include <vector>
 #include <memory>
@@ -13,13 +19,13 @@ struct kv_pair {
 	constexpr static auto struct_fields_count() { return 2; }
 };
 
-template<typename gh,template<auto>class term=gh::template term>
+template<typename gh,template<auto>class term=gh::template tmpl>
 constexpr auto make_grammar() {
 	//NOTE: the * parser is now -+ parser
 	return -(+gh::alpha) >> term<':'>::_char >> ++(+gh::alpha);
 }
 
-using parser = ascip<>;
+using parser = ascip;
 
 static_assert( !ascip_details::optional<int> );
 static_assert( !ascip_details::optional<std::string> );

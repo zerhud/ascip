@@ -1,17 +1,14 @@
-#pragma once
-
 //          Copyright Hudyaev Alexey 2025.
 // Distributed under the Boost Software License, Version 1.0.
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          https://www.boost.org/LICENSE_1_0.txt)
-
 
 #include <string>
 #include <vector>
 
 #include "ascip.hpp"
 
-using p = ascip<>;
+using p = ascip;
 
 constexpr auto& d10 = p::d10;
 constexpr auto& lower = p::lower;
@@ -34,7 +31,7 @@ constexpr bool test_cmp_struct(const auto& obj, auto... vals) {
 }
 
 constexpr auto test_parser_parse(auto&& r, auto p, auto&& src, auto pr) {
-	auto rr = p.parse(decltype(p)::holder::make_test_ctx(), decltype(p)::holder::make_source(src), r);
+	auto rr = p.parse(ascip::make_test_ctx(), ascip::make_source(src), r);
 	rr /= (rr==pr);
 	return r;
 }
