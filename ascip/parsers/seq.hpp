@@ -12,6 +12,7 @@
 #include "seq/position_info.hpp"
 #include "seq/reqursion.hpp"
 #include "seq/struct_fields.hpp"
+#include "seq/monomorphic.hpp"
 #include "../details.hpp"
 
 namespace ascip_details::prs {
@@ -71,7 +72,6 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		auto& cur = get<pind>(seq);
 		auto ret = call_parse<cur_field>(cur, ctx, src, result);
 		src += ret * (0 <= ret);
-		//NOTE: check src and return  ret if no more data exists?
 		*search_in_ctx<seq_shift_stack_tag>(ctx) += ret * (0 <= ret);
 		if constexpr (pind+1 == sizeof...(parsers)) return ret;
 		else {
@@ -97,11 +97,10 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		if(!src) return -1;
 		auto shift_store = 0;
 		auto cur_ctx = make_ctx<seq_shift_stack_tag>(&shift_store,
-		  make_ctx<seq_result_stack_tag>(&result,
-		    make_ctx<seq_stack_tag>(this, ctx)
-		  )
+		  make_ctx<seq_result_stack_tag>(&result, ctx)
 		);
-		return parse_and_store_shift<0,0>(make_ctx<seq_crop_ctx_tag>(1, cur_ctx), src, result);
+		auto mono = seq_details::mk_mono(this, cur_ctx, src, result);
+		return mono.parse_mono(src, result);
 	}
 };
 template<typename... p> opt_seq_parser(p...) -> opt_seq_parser<std::decay_t<p>...>;

@@ -10981,7 +10981,7 @@ constexpr static auto make_source(type&& src) {
 }
 
 constexpr static auto make_source(std::integral auto sym) {
-	struct {
+	struct gcc_requires_name_for_tu_bug { // https://stackoverflow.com/a/66966679/24870413
 		decltype(sym) val; bool where_is_more=true;
 		constexpr auto operator()(){ where_is_more=false; return val; }
 		constexpr explicit operator bool() const { return where_is_more; }
@@ -10992,7 +10992,7 @@ constexpr static auto make_source(std::integral auto sym) {
 
 constexpr auto strlen(const auto* vec){ unsigned ret = 0; while(vec[ret])++ret; return ++ret; }
 constexpr static auto make_source(const auto* vec) {
-	struct {
+	struct gcc_requires_name_for_tu_bug { // https://stackoverflow.com/a/66966679/24870413
 		decltype(vec) val;
 		unsigned sz;
 		unsigned ind = 0;
@@ -12290,8 +12290,6 @@ template<parser type> constexpr auto use_seq_result(type&& p) {
 
 
 
-
-
 namespace ascip_details::prs {
 
 struct cur_shift_parser : base_parser<cur_shift_parser> {
@@ -12334,7 +12332,10 @@ namespace ascip_details::prs {
 template<auto ind>
 struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind>> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		return !!src ? search_in_ctx<seq_stack_tag, ind>(ctx)->parse_without_prep(crop_ctx<ind, seq_crop_ctx_tag>(std::move(ctx)), static_cast<decltype(src)&&>(src), result) : -1;
+		const auto& req = search_in_ctx<seq_stack_tag, ind>(ctx);
+		if (!src) return -1;
+		if constexpr (requires{ req->parse_mono(src, result); }) return req->parse_mono(src, result);
+		else return req->parse_without_prep(crop_ctx<ind, seq_crop_ctx_tag>(std::move(ctx)), static_cast<decltype(src)&&>(src), result);
 	}
 };
 
@@ -12433,6 +12434,40 @@ constexpr static auto transform_special(prs::seq_num_rfield_val<ptype, value>&& 
 }
 
 }
+       
+
+//          Copyright Hudyaev Alexey 2025.
+// Distributed under the Boost Software License, Version 1.0.
+//    (See accompanying file LICENSE_1_0.txt or copy at
+//          https://www.boost.org/LICENSE_1_0.txt)
+
+
+
+
+namespace ascip_details::prs::seq_details {
+
+template<typename source, typename result> struct monomorphic {
+  virtual ~monomorphic() =default ;
+  virtual parse_result parse_mono(source src, result& r) const =0 ;
+};
+
+template<typename parser, typename context, typename source, typename result>
+struct mono_for_seq : monomorphic<source, result> {
+	using base_type = monomorphic<source, result>;
+	const parser* self;
+	mutable context ctx;
+	constexpr mono_for_seq(const parser* self, context ctx) : self(self), ctx(std::move(ctx)) {}
+	constexpr parse_result parse_mono(source src, result& r) const override {
+		auto ctx = make_ctx<seq_stack_tag>((const base_type*)this, make_ctx<seq_crop_ctx_tag>(1, this->ctx));
+		return self->parse_without_prep(ctx, src, r);
+	}
+};
+
+constexpr auto mk_mono(const auto* parser, auto ctx, auto src, auto& result) {
+	return mono_for_seq<std::decay_t<decltype(*parser)>, decltype(ctx), decltype(src), std::decay_t<decltype(result)>>( parser, ctx );
+}
+
+}
 
 
 namespace ascip_details::prs {
@@ -12471,20 +12506,7 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		) > 0;
 	constexpr static bool is_struct_requires_pd = is_struct_requires<parsers...>;
 
-	/*
-	template<typename type, template<typename...>class tmpl> constexpr static int grab_num_val() {
-		int val = 0;
-		exists_in((type*)nullptr, [&val](const auto* p){
-			constexpr bool is_num = ascip_details::is_specialization_of<std::decay_t<decltype(*p)>, tmpl>;
-			if constexpr (is_num) val = std::decay_t<decltype(*p)>::value;
-			return is_num;
-		}, [](const auto* p) {
-			return requires{ p->seq; } && !requires{ static_cast<const opt_seq_parser*>(p); };
-		});
-		return val;
-	}
-	*/
-	template<typename type> constexpr static int num_field_val() { return grab_num_val<type, opt_seq_parser, seq_num_rfield_val>() + 1; }
+	template<typename type> constexpr static int num_field_val() { return grab_num_val<type, opt_seq_parser, seq_num_rfield_val>(); }
 	template<typename type> constexpr static auto inc_field_val() { return grab_num_val<type, opt_seq_parser, seq_inc_rfield_val>(); }
 
 	template<auto find> constexpr auto call_parse(ascip_details::parser auto& p, auto&& ctx, auto src, auto& result) const {
@@ -12505,7 +12527,6 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		auto& cur = get<pind>(seq);
 		auto ret = call_parse<cur_field>(cur, ctx, src, result);
 		src += ret * (0 <= ret);
-		//NOTE: check src and return  ret if no more data exists?
 		*search_in_ctx<seq_shift_stack_tag>(ctx) += ret * (0 <= ret);
 		if constexpr (pind+1 == sizeof...(parsers)) return ret;
 		else {
@@ -12513,6 +12534,21 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 			auto req = parse_seq<nxt_field, pind+1, tail...>(ctx, src, result);
 			return req*(req<0) + (ret+req)*(0<=req);
 		}
+	}
+
+	template<typename source, typename result> constexpr auto mk_monomorphic(auto ctx) const {
+		using ctx_type = decltype(ctx);
+		struct mono : seq_details::monomorphic<source, result> {
+			using base_type = seq_details::monomorphic<source, result>;
+			const opt_seq_parser* self;
+			mutable ctx_type ctx;
+			constexpr mono(const opt_seq_parser* self, ctx_type c) : self(self), ctx(std::move(c)) {}
+			constexpr parse_result parse_mono(source src, result& r) const override {
+				auto nctx = make_ctx<seq_stack_tag>(static_cast<const base_type*>(this), make_ctx<seq_crop_ctx_tag>(1, ctx));
+				return self->parse_without_prep(nctx, src, r);
+			}
+		};
+		return mono{this, std::move(ctx)};
 	}
 
 	template<auto find, auto pind> constexpr parse_result parse_and_store_shift(auto&& ctx, auto src, auto& result) const {
@@ -12531,11 +12567,12 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		if(!src) return -1;
 		auto shift_store = 0;
 		auto cur_ctx = make_ctx<seq_shift_stack_tag>(&shift_store,
-		  make_ctx<seq_result_stack_tag>(&result,
-		    make_ctx<seq_stack_tag>(this, ctx)
-		  )
+		  make_ctx<seq_result_stack_tag>(&result, ctx)
 		);
-		return parse_and_store_shift<0,0>(make_ctx<seq_crop_ctx_tag>(1, cur_ctx), src, result);
+		//auto mono = mk_monomorphic<decltype(src), std::decay_t<decltype(result)>>(cur_ctx);
+		auto mono = seq_details::mk_mono(this, cur_ctx, src, result);
+		return mono.parse_mono(src, result);
+		//return parse_and_store_shift<0,0>(make_ctx<seq_crop_ctx_tag>(1, cur_ctx), src, result);
 	}
 };
 template<typename... p> opt_seq_parser(p...) -> opt_seq_parser<std::decay_t<p>...>;

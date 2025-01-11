@@ -22,7 +22,7 @@ constexpr static auto make_source(type&& src) {
 }
 
 constexpr static auto make_source(std::integral auto sym) {
-	struct {
+	struct gcc_requires_name_for_tu_bug { // https://stackoverflow.com/a/66966679/24870413
 		decltype(sym) val; bool where_is_more=true;
 		constexpr auto operator()(){ where_is_more=false; return val; }
 		constexpr explicit operator bool() const { return where_is_more; }
@@ -33,7 +33,7 @@ constexpr static auto make_source(std::integral auto sym) {
 
 constexpr auto strlen(const auto* vec){ unsigned ret = 0; while(vec[ret])++ret; return ++ret; }
 constexpr static auto make_source(const auto* vec) {
-	struct {
+	struct gcc_requires_name_for_tu_bug { // https://stackoverflow.com/a/66966679/24870413
 		decltype(vec) val;
 		unsigned sz;
 		unsigned ind = 0;
