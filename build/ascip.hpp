@@ -12452,7 +12452,7 @@ template<typename source, typename result> struct monomorphic {
 };
 
 template<typename parser, typename context, typename source, typename result>
-struct mono_for_seq : monomorphic<source, result> {
+struct mono_for_seq final : monomorphic<source, result> {
 	using base_type = monomorphic<source, result>;
 	const parser* self;
 	mutable context ctx;
@@ -12463,7 +12463,7 @@ struct mono_for_seq : monomorphic<source, result> {
 	}
 };
 
-constexpr auto mk_mono(const auto* parser, auto ctx, auto src, auto& result) {
+constexpr auto mk_mono(const auto* parser, auto ctx, [[maybe_unused]] auto src, [[maybe_unused]] auto& result) {
 	return mono_for_seq<std::decay_t<decltype(*parser)>, decltype(ctx), decltype(src), std::decay_t<decltype(result)>>( parser, ctx );
 }
 
@@ -12536,21 +12536,6 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		}
 	}
 
-	template<typename source, typename result> constexpr auto mk_monomorphic(auto ctx) const {
-		using ctx_type = decltype(ctx);
-		struct mono : seq_details::monomorphic<source, result> {
-			using base_type = seq_details::monomorphic<source, result>;
-			const opt_seq_parser* self;
-			mutable ctx_type ctx;
-			constexpr mono(const opt_seq_parser* self, ctx_type c) : self(self), ctx(std::move(c)) {}
-			constexpr parse_result parse_mono(source src, result& r) const override {
-				auto nctx = make_ctx<seq_stack_tag>(static_cast<const base_type*>(this), make_ctx<seq_crop_ctx_tag>(1, ctx));
-				return self->parse_without_prep(nctx, src, r);
-			}
-		};
-		return mono{this, std::move(ctx)};
-	}
-
 	template<auto find, auto pind> constexpr parse_result parse_and_store_shift(auto&& ctx, auto src, auto& result) const {
 		//static_assert - exists concrete in ctx
 		auto* old_shift = search_in_ctx<seq_shift_stack_tag>(ctx);
@@ -12569,10 +12554,8 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		auto cur_ctx = make_ctx<seq_shift_stack_tag>(&shift_store,
 		  make_ctx<seq_result_stack_tag>(&result, ctx)
 		);
-		//auto mono = mk_monomorphic<decltype(src), std::decay_t<decltype(result)>>(cur_ctx);
 		auto mono = seq_details::mk_mono(this, cur_ctx, src, result);
 		return mono.parse_mono(src, result);
-		//return parse_and_store_shift<0,0>(make_ctx<seq_crop_ctx_tag>(1, cur_ctx), src, result);
 	}
 };
 template<typename... p> opt_seq_parser(p...) -> opt_seq_parser<std::decay_t<p>...>;
@@ -13341,6 +13324,13 @@ constexpr static auto transform_special(prs::result_checker_parser<type,parser>&
 
 
 
+       
+
+//          Copyright Hudyaev Alexey 2025.
+// Distributed under the Boost Software License, Version 1.0.
+//    (See accompanying file LICENSE_1_0.txt or copy at
+//          https://www.boost.org/LICENSE_1_0.txt)
+
 namespace ascip_details::prs {
 
 struct rvariant_stack_tag {};
@@ -13348,6 +13338,29 @@ struct rvariant_crop_ctx_tag {};
 struct rvariant_copied_result_tag {};
 
 template<auto ind> struct rvariant_stop_val { constexpr static auto val = ind; };
+
+}
+       
+
+//          Copyright Hudyaev Alexey 2025.
+// Distributed under the Boost Software License, Version 1.0.
+//    (See accompanying file LICENSE_1_0.txt or copy at
+//          https://www.boost.org/LICENSE_1_0.txt)
+
+
+namespace ascip_details::prs {
+}
+       
+
+//          Copyright Hudyaev Alexey 2025.
+// Distributed under the Boost Software License, Version 1.0.
+//    (See accompanying file LICENSE_1_0.txt or copy at
+//          https://www.boost.org/LICENSE_1_0.txt)
+
+
+
+
+namespace ascip_details::prs {
 
 struct rvariant_lreq_parser : base_parser<rvariant_lreq_parser> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
@@ -13382,11 +13395,21 @@ template<auto ind> struct rvariant_req_parser : base_parser<rvariant_req_parser<
 	}
 } ;
 
-template<parser parser>
-struct rvariant_top_result_parser : base_parser<rvariant_top_result_parser<parser>> { parser p; };
+}
+       
+
+//          Copyright Hudyaev Alexey 2025.
+// Distributed under the Boost Software License, Version 1.0.
+//    (See accompanying file LICENSE_1_0.txt or copy at
+//          https://www.boost.org/LICENSE_1_0.txt)
 
 
 
+
+namespace ascip_details::prs {
+
+template<parser parser> struct rvariant_top_result_parser : base_parser<rvariant_top_result_parser<parser>> { parser p; };
+template<typename p> rvariant_top_result_parser(p) -> rvariant_top_result_parser<p>;
 
 template<parser type> constexpr auto rv_result(type&& p) {
 	using ptype = std::decay_t<decltype(p)>;
@@ -13402,6 +13425,29 @@ constexpr static bool is_top_result_parser() {
 			|| is_specialization_of<parser, rvariant_top_result_parser>;
 	else return is_specialization_of<parser, rvariant_top_result_parser>;
 }
+
+}
+       
+
+//          Copyright Hudyaev Alexey 2025.
+// Distributed under the Boost Software License, Version 1.0.
+//    (See accompanying file LICENSE_1_0.txt or copy at
+//          https://www.boost.org/LICENSE_1_0.txt)
+
+
+
+       
+
+//          Copyright Hudyaev Alexey 2025.
+// Distributed under the Boost Software License, Version 1.0.
+//    (See accompanying file LICENSE_1_0.txt or copy at
+//          https://www.boost.org/LICENSE_1_0.txt)
+
+
+
+
+
+namespace ascip_details::prs {
 
 template<typename maker_type, parser... parsers>
 struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
@@ -13446,8 +13492,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 			else return parse_term<ind-1>(ctx, src, result);
 		}
 	}
-	template<auto ind, auto stop_pos>
-	constexpr parse_result parse_nonterm(auto&& ctx, auto src, auto& result, auto shift) const {
+	template<auto ind, auto stop_pos> constexpr parse_result parse_nonterm(auto&& ctx, auto src, auto& result, auto shift) const {
 		if(!src) return shift;
 		if constexpr (ind < stop_pos) return shift;
 		else if constexpr (is_term<ind>()) {
@@ -13471,8 +13516,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 			else return parse_nonterm<ind-1, stop_pos>(ctx, src, result, total_shift);
 		}
 	}
-	template<auto stop_pos>
-	constexpr parse_result parse_without_prep(auto&& ctx, auto src, auto& result) const {
+	template<auto stop_pos> constexpr parse_result parse_without_prep(auto&& ctx, auto src, auto& result) const {
 		auto term_r = parse_term<sizeof...(parsers)-1>(ctx, src, result);
 		if(term_r < 0) return term_r;
 		auto nonterm_r = parse_nonterm<sizeof...(parsers)-1, stop_pos>(ctx, src += term_r, result, 0);
@@ -13493,8 +13537,11 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 	}
 };
 
+template<typename... t> rvariant_parser(t...) ->  rvariant_parser<t...>;
 
+}
 
+namespace ascip_details::prs {
 
 template<auto ind>
 struct rvariant_mutator {
@@ -13514,11 +13561,35 @@ template<parser type, parser... types> constexpr auto rv(auto&& maker, type&& fi
 				transform<rvariant_mutator<inds>>(std::move(parsers))...
 				);
 	}(
-		  std::make_index_sequence<sizeof...(list)+1>{}
+			std::make_index_sequence<sizeof...(list)+1>{}
 		, std::forward<decltype(first)>(first)
 		, std::forward<decltype(list)>(list)...
 	);
 }
+
+}
+
+       
+
+//          Copyright Hudyaev Alexey 2025.
+// Distributed under the Boost Software License, Version 1.0.
+//    (See accompanying file LICENSE_1_0.txt or copy at
+//          https://www.boost.org/LICENSE_1_0.txt)
+
+
+
+namespace ascip_details {
+
+template<typename mutator, typename type, typename... parsers>
+constexpr static auto transform(prs::rvariant_parser<type, parsers...>&& src, auto& ctx) {
+	auto nctx = mutator::create_ctx(src, ctx);
+	return transform_apply<mutator>( transform_apply_to_each<mutator,prs::rvariant_parser,0>( std::move(src.seq),nctx,std::move(src.maker)), nctx );
+}
+
+}
+
+namespace ascip_details::prs {
+
 
 
 template<typename p, template<auto>class t=p::template tmpl>
@@ -13541,16 +13612,6 @@ constexpr bool test_rvariant() {
 }
 
 } // namespace ascip_details::prs
-
-namespace ascip_details {
-
-template<typename mutator, typename type, typename... parsers>
-constexpr static auto transform(prs::rvariant_parser<type, parsers...>&& src, auto& ctx) {
-	auto nctx = mutator::create_ctx(src, ctx);
-	return transform_apply<mutator>( transform_apply_to_each<mutator,prs::rvariant_parser,0>( std::move(src.seq),nctx,std::move(src.maker)), nctx );
-}
-
-}
        
 
 //          Copyright Hudyaev Alexey 2025.
