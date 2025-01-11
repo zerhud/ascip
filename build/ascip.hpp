@@ -13352,7 +13352,30 @@ template<typename, parser...> struct rvariant_parser;
 //          https://www.boost.org/LICENSE_1_0.txt)
 
 
-namespace ascip_details::prs {
+
+namespace ascip_details::prs::rv_utils {
+
+template<typename source, typename result> struct monomorphic {
+  virtual ~monomorphic() =default ;
+  virtual parse_result parse_mono(source src, result& r) const =0 ;
+};
+
+template<typename parser, typename context, typename source, typename result>
+struct mono_for_rv final : monomorphic<source, result> {
+	using base_type = monomorphic<source, result>;
+	const parser* self;
+	mutable context ctx;
+	constexpr mono_for_rv(const parser* self, context ctx) : self(self), ctx(std::move(ctx)) {}
+	constexpr parse_result parse_mono(source src, result& r) const override {
+		auto ctx = make_ctx<rvariant_stack_tag>((const base_type*)this, make_ctx<rvariant_crop_ctx_tag>(1, this->ctx));
+		return self->parse_without_prep(ctx, src, r);
+	}
+};
+
+constexpr auto mk_mono(const auto* parser, auto ctx, [[maybe_unused]] auto src, [[maybe_unused]] auto& result) {
+	return mono_for_rv<std::decay_t<decltype(*parser)>, decltype(ctx), decltype(src), std::decay_t<decltype(result)>>( parser, ctx );
+}
+
 }
        
 
@@ -13449,7 +13472,6 @@ constexpr static bool is_top_result_parser() {
 
 
 
-
        
 
 //          Copyright Hudyaev Alexey 2025.
@@ -13462,7 +13484,7 @@ constexpr static bool is_top_result_parser() {
 
 
 
-namespace ascip_details::prs {
+namespace ascip_details::prs::rv_utils {
 
 template<typename cur_parser_t> constexpr bool contains_reqursion() {
 	auto checker = [](const auto* p){return std::is_same_v<std::decay_t<decltype(*p)>, rvariant_lreq_parser>;};
@@ -13475,6 +13497,7 @@ template<typename cur_parser_t> constexpr bool contains_reqursion() {
 
 }
 
+
 namespace ascip_details::prs {
 
 template<typename maker_type, parser... parsers>
@@ -13484,7 +13507,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 
 	constexpr rvariant_parser( maker_type m, parsers... l ) : seq( std::forward<parsers>(l)... ), maker(std::forward<maker_type>(m)) {}
 
-	template<auto ind> constexpr static bool is_term() { return contains_reqursion<__type_pack_element<ind, parsers...>>(); }
+	template<auto ind> constexpr static bool is_term() { return rv_utils::contains_reqursion<__type_pack_element<ind, parsers...>>(); }
 	template<auto ind> consteval static auto cur_ind() {
 		using cur_parser_t = std::decay_t<decltype(get<ind>(seq))>;
 		if constexpr (is_top_result_parser<cur_parser_t>()) return -1;
