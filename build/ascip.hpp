@@ -11573,25 +11573,6 @@ constexpr void write_out_error_msg(
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          https://www.boost.org/LICENSE_1_0.txt)
 
-namespace ascip_details {
-
-struct parse_result_accum {
-  int cur;
-  constexpr auto to_result() const { return cur; }
-};
-
-constexpr auto operator+(const parse_result_accum& left, int right) {
-  return parse_result_accum{ (left.cur+right)*(0<=left.cur) + left.cur*(left.cur<0) };
-}
-
-}
-       
-
-//          Copyright Hudyaev Alexey 2025.
-// Distributed under the Boost Software License, Version 1.0.
-//    (See accompanying file LICENSE_1_0.txt or copy at
-//          https://www.boost.org/LICENSE_1_0.txt)
-
        
 
 //          Copyright Hudyaev Alexey 2025.
@@ -12320,13 +12301,6 @@ struct cur_shift_parser : base_parser<cur_shift_parser> {
 	}
 };
 
-template<auto ind>
-struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind>> {
-	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		return !!src ? search_in_ctx<seq_stack_tag, ind>(ctx)->parse_without_prep(crop_ctx<ind, seq_crop_ctx_tag>(std::move(ctx)), static_cast<decltype(src)&&>(src), result) : -1;
-	}
-};
-
 //TODO: dose we realy need the pos parser?
 struct cur_pos_parser : base_parser<cur_pos_parser> {
 	constexpr parse_result parse(auto&&, auto src, auto& result) const {
@@ -12338,6 +12312,29 @@ struct cur_pos_parser : base_parser<cur_pos_parser> {
 		//      if use context - make it with tags
 		eq(result, pos(src));
 		return 0;
+	}
+};
+
+}
+       
+
+//          Copyright Hudyaev Alexey 2025.
+// Distributed under the Boost Software License, Version 1.0.
+//    (See accompanying file LICENSE_1_0.txt or copy at
+//          https://www.boost.org/LICENSE_1_0.txt)
+
+
+
+
+
+
+
+namespace ascip_details::prs {
+
+template<auto ind>
+struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind>> {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
+		return !!src ? search_in_ctx<seq_stack_tag, ind>(ctx)->parse_without_prep(crop_ctx<ind, seq_crop_ctx_tag>(std::move(ctx)), static_cast<decltype(src)&&>(src), result) : -1;
 	}
 };
 
@@ -12514,26 +12511,18 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		search_in_ctx<seq_shift_stack_tag>(ctx) = old_shift;
 		return ret;
 	}
-	constexpr auto parse_with_modified_ctx(auto&& ctx, auto src, auto& result) const {
-		ascip_details::type_any_eq_allow fake_r;
-		auto shift_store = 0;
-		auto cur_ctx = make_ctx<seq_shift_stack_tag>(&shift_store,
-		  make_ctx<seq_result_stack_tag>(&result,
-		    make_ctx<seq_stack_tag>(this,
-			    ascip_details::make_ctx<opt_seq_parser>(&src, ctx)
-		    )
-		  )
-		);
-		return parse_and_store_shift<0,0>(make_ctx<seq_crop_ctx_tag>(1, cur_ctx), src, result);
-	}
 	constexpr parse_result parse_without_prep(auto&& ctx, auto src, auto& result) const {
 		return parse_seq<0, 0, parsers...>(std::forward<decltype(ctx)>(ctx), std::move(src), result);
 	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if(!src) return -1;
-		if constexpr (exists_in_ctx<opt_seq_parser>(decltype(auto(ctx)){}))
-			return parse_and_store_shift<0,0>(ctx, src, result);
-		else return parse_with_modified_ctx(ctx, src, result);
+		auto shift_store = 0;
+		auto cur_ctx = make_ctx<seq_shift_stack_tag>(&shift_store,
+		  make_ctx<seq_result_stack_tag>(&result,
+		    make_ctx<seq_stack_tag>(this, ctx)
+		  )
+		);
+		return parse_and_store_shift<0,0>(make_ctx<seq_crop_ctx_tag>(1, cur_ctx), src, result);
 	}
 };
 template<typename... p> opt_seq_parser(p...) -> opt_seq_parser<std::decay_t<p>...>;
