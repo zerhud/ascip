@@ -30,6 +30,18 @@ template<ascip_details::parser parser, typename val> struct seq_num_rfield_val :
 	constexpr static auto value = val::num_val;
 };
 
+template<typename type, typename stop_on_parser, template<typename...>class tmpl> constexpr int grab_num_val() {
+	int val = 0;
+	exists_in((type*)nullptr, [&val](const auto* p){
+		constexpr bool is_num = ascip_details::is_specialization_of<std::decay_t<decltype(*p)>, tmpl>;
+		if constexpr (is_num) val = std::decay_t<decltype(*p)>::value;
+		return is_num;
+	}, [](const auto* p) {
+		return requires{ p->seq; } && !requires{ static_cast<const stop_on_parser*>(p); };
+	});
+	return val;
+}
+
 struct seq_inc_rfield : base_parser<seq_inc_rfield> {constexpr parse_result parse(auto&&,auto,auto&)const {return 0;} };
 template<ascip_details::parser parser> struct seq_inc_rfield_after : base_parser<seq_inc_rfield_after<parser>> {
 	constexpr seq_inc_rfield_after() =default ;

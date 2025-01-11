@@ -50,19 +50,8 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		) > 0;
 	constexpr static bool is_struct_requires_pd = is_struct_requires<parsers...>;
 
-	template<typename type, template<typename...>class tmpl> constexpr static int grab_num_val() {
-		int val = 0;
-		exists_in((type*)nullptr, [&val](const auto* p){
-			constexpr bool is_num = ascip_details::is_specialization_of<std::decay_t<decltype(*p)>, tmpl>;
-			if constexpr (is_num) val = std::decay_t<decltype(*p)>::value;
-			return is_num;
-		}, [](const auto* p) {
-			return requires{ p->seq; } && !requires{ static_cast<const opt_seq_parser*>(p); };
-		});
-		return val;
-	}
-	template<typename type> constexpr static int num_field_val() { return grab_num_val<type, seq_num_rfield_val>(); }
-	template<typename type> constexpr static auto inc_field_val() { return grab_num_val<type, seq_inc_rfield_val>(); }
+	template<typename type> constexpr static int num_field_val() { return grab_num_val<type, opt_seq_parser, seq_num_rfield_val>(); }
+	template<typename type> constexpr static auto inc_field_val() { return grab_num_val<type, opt_seq_parser, seq_inc_rfield_val>(); }
 
 	template<auto find> constexpr auto call_parse(ascip_details::parser auto& p, auto&& ctx, auto src, auto& result) const {
 		if constexpr (!is_struct_requires_pd) return p.parse(ctx, src, result);
@@ -92,8 +81,7 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		}
 	}
 
-	template<auto find, auto pind>
-	constexpr parse_result parse_and_store_shift(auto&& ctx, auto src, auto& result) const {
+	template<auto find, auto pind> constexpr parse_result parse_and_store_shift(auto&& ctx, auto src, auto& result) const {
 		//static_assert - exists concrete in ctx
 		auto* old_shift = search_in_ctx<seq_shift_stack_tag>(ctx);
 		auto cur_shift = 0;
