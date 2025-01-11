@@ -13331,6 +13331,8 @@ constexpr static auto transform_special(prs::result_checker_parser<type,parser>&
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          https://www.boost.org/LICENSE_1_0.txt)
 
+
+
 namespace ascip_details::prs {
 
 struct rvariant_stack_tag {};
@@ -13338,6 +13340,8 @@ struct rvariant_crop_ctx_tag {};
 struct rvariant_copied_result_tag {};
 
 template<auto ind> struct rvariant_stop_val { constexpr static auto val = ind; };
+
+template<typename, parser...> struct rvariant_parser;
 
 }
        
@@ -13446,6 +13450,30 @@ constexpr static bool is_top_result_parser() {
 
 
 
+       
+
+//          Copyright Hudyaev Alexey 2025.
+// Distributed under the Boost Software License, Version 1.0.
+//    (See accompanying file LICENSE_1_0.txt or copy at
+//          https://www.boost.org/LICENSE_1_0.txt)
+
+
+
+
+
+
+namespace ascip_details::prs {
+
+template<typename cur_parser_t> constexpr bool is_term() {
+	auto checker = [](const auto* p){return std::is_same_v<std::decay_t<decltype(*p)>, rvariant_lreq_parser>;};
+	auto stop = [](const auto* p){
+		const bool is_rv = requires{ p->maker; };
+		return is_rv && !is_specialization_of<cur_parser_t, rvariant_parser>;
+	};
+	return !exists_in((cur_parser_t*)nullptr, checker, stop);
+}
+
+}
 
 namespace ascip_details::prs {
 
@@ -13456,15 +13484,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 
 	constexpr rvariant_parser( maker_type m, parsers... l ) : seq( std::forward<parsers>(l)... ), maker(std::forward<maker_type>(m)) {}
 
-	template<auto ind> constexpr static bool is_term() {
-		using cur_parser_t = std::decay_t<decltype(get<ind>(seq))>;
-		auto checker = [](const auto* p){return std::is_same_v<std::decay_t<decltype(*p)>, rvariant_lreq_parser>;};
-		auto stop = [](const auto* p){
-			const bool is_rv = requires{ p->maker; };
-			return is_rv && !is_specialization_of<cur_parser_t, rvariant_parser>;
-		};
-		return !exists_in((cur_parser_t*)nullptr, checker, stop);
-	}
+	template<auto ind> constexpr static bool is_term() { return prs::is_term<__type_pack_element<ind, parsers...>>(); }
 	template<auto ind> consteval static auto cur_ind() {
 		using cur_parser_t = std::decay_t<decltype(get<ind>(seq))>;
 		if constexpr (is_top_result_parser<cur_parser_t>()) return -1;
