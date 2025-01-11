@@ -106,7 +106,7 @@ constexpr void test_seq_shift_pos() {
 	static_assert( [&]{
 		struct { char a='z'; int shift; } r;
 		ab_req.parse(make_test_ctx(), make_source("a(b)"), r);
-		return (r.a=='b') + 2*(r.shift==5);
+		return (r.a=='b') + 2*(r.shift==4); // a, (b) => 1 + 3 == 4
 	}() == 3, "can parse current shift in reqursion (the last brace is included)");
 }
 

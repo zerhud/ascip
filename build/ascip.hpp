@@ -12512,7 +12512,8 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		return ret;
 	}
 	constexpr parse_result parse_without_prep(auto&& ctx, auto src, auto& result) const {
-		return parse_seq<0, 0, parsers...>(std::forward<decltype(ctx)>(ctx), std::move(src), result);
+		//return parse_seq<0, 0, parsers...>(std::forward<decltype(ctx)>(ctx), std::move(src), result);
+		return parse_and_store_shift<0,0>(std::forward<decltype(ctx)>(ctx), std::move(src), result);
 	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if(!src) return -1;
