@@ -12,7 +12,7 @@
 
 namespace ascip_details::prs {
 
-template<typename cur_parser_t> constexpr bool is_term() {
+template<typename cur_parser_t> constexpr bool contains_reqursion() {
 	auto checker = [](const auto* p){return std::is_same_v<std::decay_t<decltype(*p)>, rvariant_lreq_parser>;};
 	auto stop = [](const auto* p){
 		const bool is_rv = requires{ p->maker; };

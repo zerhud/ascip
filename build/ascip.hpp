@@ -13464,7 +13464,7 @@ constexpr static bool is_top_result_parser() {
 
 namespace ascip_details::prs {
 
-template<typename cur_parser_t> constexpr bool is_term() {
+template<typename cur_parser_t> constexpr bool contains_reqursion() {
 	auto checker = [](const auto* p){return std::is_same_v<std::decay_t<decltype(*p)>, rvariant_lreq_parser>;};
 	auto stop = [](const auto* p){
 		const bool is_rv = requires{ p->maker; };
@@ -13484,7 +13484,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 
 	constexpr rvariant_parser( maker_type m, parsers... l ) : seq( std::forward<parsers>(l)... ), maker(std::forward<maker_type>(m)) {}
 
-	template<auto ind> constexpr static bool is_term() { return prs::is_term<__type_pack_element<ind, parsers...>>(); }
+	template<auto ind> constexpr static bool is_term() { return contains_reqursion<__type_pack_element<ind, parsers...>>(); }
 	template<auto ind> consteval static auto cur_ind() {
 		using cur_parser_t = std::decay_t<decltype(get<ind>(seq))>;
 		if constexpr (is_top_result_parser<cur_parser_t>()) return -1;
