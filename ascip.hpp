@@ -9,8 +9,8 @@
 #include "ascip/parsers.hpp"
 
 struct ascip {
-	using parse_result = ascip_details::parse_result;
-	template<typename t> using base_parser = ascip_details::prs::base_parser<t>;
+  using parse_result = ascip_details::parse_result;
+  template<typename t> using base_parser = ascip_details::prs::base_parser<t>;
 
   static constexpr auto nop = ascip_details::prs::nop_parser{};
   template<auto s> static constexpr auto char_ = ascip_details::prs::char_parser<s>{};
@@ -44,7 +44,7 @@ struct ascip {
   constexpr static auto inject_skipping(auto&& p, auto&& s) { return ascip_details::inject_skipping(std::forward<decltype(p)>(p), std::forward<decltype(s)>(s) ); }
   constexpr static auto fwd(auto& o) { return ascip_details::fwd( o ); }
   constexpr static void write_out_error_msg(auto& os, auto fn, auto msg, auto expt, auto src, auto ln ) {
-	  ascip_details::write_out_error_msg(os, std::move(fn), std::move(msg), std::move(expt), std::move(src), std::move(ln));
+    ascip_details::write_out_error_msg(os, std::move(fn), std::move(msg), std::move(expt), std::move(src), std::move(ln));
   }
 
   // rvariant
@@ -65,15 +65,16 @@ struct ascip {
     constexpr static auto& space = ascip::space;
     constexpr static auto& any = ascip::any;
     constexpr static auto& nl = ascip::nl;
-  	constexpr static auto& req = ascip::req<s>;
-  	constexpr static auto& _rv_rreq = ascip::_rv_rreq<s>;
-  	constexpr static auto& rv_req = ascip::rv_req<s>;
+    constexpr static auto& req = ascip::req<s>;
+    constexpr static auto& _rv_rreq = ascip::_rv_rreq<s>;
+    constexpr static auto& rv_req = ascip::rv_req<s>;
+    constexpr static auto& uint_ = ascip::uint_<s>;
   };
 };
 
 template<typename parser> constexpr auto ascip_details::prs::base_parser<parser>::operator()(auto act) const {
-	return semact_parser<parser, decltype(auto(act))>{ {},
-		static_cast<decltype(act)&&>(act),
-		static_cast<const parser&>(*this)
-	};
+  return semact_parser<parser, decltype(auto(act))>{ {},
+    static_cast<decltype(act)&&>(act),
+    static_cast<const parser&>(*this)
+  };
 }
