@@ -29,7 +29,7 @@ template<string_literal msg, parser type> struct must_parser : base_parser<must_
 };
 
 template<parser left, typename right> constexpr auto operator>(left&& l, right&& r) {
-	return l >> must<"unknown">(std::forward<decltype(r)>(r));
+	return std::move(l) >> must<"unknown">(std::forward<decltype(r)>(r));
 }
 
 template<string_literal msg> constexpr auto must(parser auto&& p) {
