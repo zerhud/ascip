@@ -78,7 +78,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		auto nonterm_r = parse_nonterm<sizeof...(parsers)-1, stop_pos>(ctx, src += term_r, result, 0);
 		return term_r + (nonterm_r*(nonterm_r>0));
 	}
-	constexpr parse_result parse_with_prep(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		using copied_result_type = decltype(move_result(result));
 		using mono_type = rv_utils::monomorphic<decltype(src), std::decay_t<decltype(result)>>;
 		const mono_type* mono_ptr;
@@ -89,9 +89,6 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		auto mono = rv_utils::mk_mono(this, cctx, src, result);
 		mono_ptr = &mono;
 		return mono.parse_mono(0, src, result);
-	}
-	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		return parse_with_prep(ctx, src, result);
 	}
 };
 
