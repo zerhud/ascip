@@ -13358,11 +13358,11 @@ namespace ascip_details::prs::rv_utils {
 
 template<typename source, typename result> struct monomorphic {
   virtual ~monomorphic() =default ;
-  virtual parse_result parse_mono(source src) const =0 ;
-  virtual parse_result parse_mono(source src, result& r) const =0 ;
+  virtual parse_result parse_mono(int ind, source src) const =0 ;
+  virtual parse_result parse_mono(int ind, source src, result& r) const =0 ;
 };
 
-template<typename parser, typename context, typename source, typename result>
+template<auto parsers_count, typename parser, typename context, typename source, typename result>
 struct mono_for_rv final : monomorphic<source, result> {
 	using base_type = monomorphic<source, result>;
 	const parser* self;
@@ -13371,17 +13371,19 @@ struct mono_for_rv final : monomorphic<source, result> {
 	template<auto ind> constexpr parse_result call(source src, auto& r) const {
 		return self->template parse_without_prep<ind>(ctx, src, r);
 	}
-	constexpr parse_result parse_mono(source src) const override {
+	constexpr parse_result parse_mono(int ind, source src) const override {
 		type_any_eq_allow r;
 		return call<0>(std::move(src), r);
 	}
-	constexpr parse_result parse_mono(source src, result& r) const override {
+	constexpr parse_result parse_mono(int ind, source src, result& r) const override {
 		return call<0>(std::move(src), r);
 	}
 };
 
 constexpr auto mk_mono(const auto* parser, auto ctx, [[maybe_unused]] auto src, [[maybe_unused]] auto& result) {
-	return mono_for_rv<std::decay_t<decltype(*parser)>, decltype(ctx), decltype(src), std::decay_t<decltype(result)>>( parser, ctx );
+	using parser_t = std::decay_t<decltype(*parser)>;
+	using result_t = std::decay_t<decltype(result)>;
+	return mono_for_rv<parser_t::size(), parser_t, decltype(ctx), decltype(src), result_t>( parser, ctx );
 }
 
 }
@@ -13426,13 +13428,13 @@ template<auto ind> struct rvariant_req_parser : base_parser<rvariant_req_parser<
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		auto* var = search_in_ctx<rvariant_stack_tag, ind>(ctx);
 		auto nctx = crop_ctx<ind, rvariant_crop_ctx_tag>(ctx);
-		if constexpr(!requires{search_in_ctx<rvariant_stack_tag2, ind>(ctx)->parse_mono(src);})
+		if constexpr(!requires{search_in_ctx<rvariant_stack_tag2, ind>(ctx)->parse_mono(0, src);})
             return var->template parse_without_prep<0>(nctx, src, result);
 		else {
 			auto* var = *search_in_ctx<rvariant_stack_tag2, ind>(ctx);
 			if constexpr(type_dc<decltype(result)> == type_c<type_any_eq_allow>)
-				return var->parse_mono(std::move(src));
-			else return var->parse_mono(std::move(src), result);
+				return var->parse_mono(0, std::move(src));
+			else return var->parse_mono(0, std::move(src), result);
 		}
 	}
 } ;
@@ -13522,6 +13524,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 
 	constexpr rvariant_parser( maker_type m, parsers... l ) : seq( std::forward<parsers>(l)... ), maker(std::forward<maker_type>(m)) {}
 
+	constexpr static auto size() { return sizeof...(parsers); }
 	template<auto ind> constexpr static bool is_term() { return rv_utils::contains_reqursion<__type_pack_element<ind, parsers...>>(); }
 	template<auto ind> consteval static auto cur_ind() {
 		using cur_parser_t = std::decay_t<decltype(get<ind>(seq))>;
@@ -13588,11 +13591,10 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 			make_ctx<rvariant_stack_tag2>(&mono_ptr,
 				make_ctx<rvariant_stack_tag>(this,
 					make_ctx<rvariant_copied_result_tag>((copied_result_type*)nullptr, ctx) ) );
-		auto nctx = make_ctx<rvariant_crop_ctx_tag>(1, rctx);
-		auto mono = rv_utils::mk_mono(this, nctx, src, result);
+		auto cctx = make_ctx<rvariant_crop_ctx_tag>(1, rctx);
+		auto mono = rv_utils::mk_mono(this, cctx, src, result);
 		mono_ptr = &mono;
-	//	return parse_without_prep<0>(nctx, src, result);
-		return mono.parse_mono(src, result);
+		return mono.parse_mono(0, src, result);
 	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		return parse_with_prep(ctx, src, result);

@@ -11,11 +11,11 @@ namespace ascip_details::prs::rv_utils {
 
 template<typename source, typename result> struct monomorphic {
   virtual ~monomorphic() =default ;
-  virtual parse_result parse_mono(source src) const =0 ;
-  virtual parse_result parse_mono(source src, result& r) const =0 ;
+  virtual parse_result parse_mono(int ind, source src) const =0 ;
+  virtual parse_result parse_mono(int ind, source src, result& r) const =0 ;
 };
 
-template<typename parser, typename context, typename source, typename result>
+template<auto parsers_count, typename parser, typename context, typename source, typename result>
 struct mono_for_rv final : monomorphic<source, result> {
 	using base_type = monomorphic<source, result>;
 	const parser* self;
@@ -24,17 +24,19 @@ struct mono_for_rv final : monomorphic<source, result> {
 	template<auto ind> constexpr parse_result call(source src, auto& r) const {
 		return self->template parse_without_prep<ind>(ctx, src, r);
 	}
-	constexpr parse_result parse_mono(source src) const override {
+	constexpr parse_result parse_mono(int ind, source src) const override {
 		type_any_eq_allow r;
 		return call<0>(std::move(src), r);
 	}
-	constexpr parse_result parse_mono(source src, result& r) const override {
+	constexpr parse_result parse_mono(int ind, source src, result& r) const override {
 		return call<0>(std::move(src), r);
 	}
 };
 
 constexpr auto mk_mono(const auto* parser, auto ctx, [[maybe_unused]] auto src, [[maybe_unused]] auto& result) {
-	return mono_for_rv<std::decay_t<decltype(*parser)>, decltype(ctx), decltype(src), std::decay_t<decltype(result)>>( parser, ctx );
+	using parser_t = std::decay_t<decltype(*parser)>;
+	using result_t = std::decay_t<decltype(result)>;
+	return mono_for_rv<parser_t::size(), parser_t, decltype(ctx), decltype(src), result_t>( parser, ctx );
 }
 
 }

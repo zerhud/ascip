@@ -19,6 +19,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 
 	constexpr rvariant_parser( maker_type m, parsers... l ) : seq( std::forward<parsers>(l)... ), maker(std::forward<maker_type>(m)) {}
 
+	constexpr static auto size() { return sizeof...(parsers); }
 	template<auto ind> constexpr static bool is_term() { return rv_utils::contains_reqursion<__type_pack_element<ind, parsers...>>(); }
 	template<auto ind> consteval static auto cur_ind() {
 		using cur_parser_t = std::decay_t<decltype(get<ind>(seq))>;
@@ -85,11 +86,10 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 			make_ctx<rvariant_stack_tag2>(&mono_ptr,
 				make_ctx<rvariant_stack_tag>(this,
 					make_ctx<rvariant_copied_result_tag>((copied_result_type*)nullptr, ctx) ) );
-		auto nctx = make_ctx<rvariant_crop_ctx_tag>(1, rctx);
-		auto mono = rv_utils::mk_mono(this, nctx, src, result);
+		auto cctx = make_ctx<rvariant_crop_ctx_tag>(1, rctx);
+		auto mono = rv_utils::mk_mono(this, cctx, src, result);
 		mono_ptr = &mono;
-	//	return parse_without_prep<0>(nctx, src, result);
-		return mono.parse_mono(src, result);
+		return mono.parse_mono(0, src, result);
 	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		return parse_with_prep(ctx, src, result);

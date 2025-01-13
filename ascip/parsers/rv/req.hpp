@@ -39,13 +39,13 @@ template<auto ind> struct rvariant_req_parser : base_parser<rvariant_req_parser<
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		auto* var = search_in_ctx<rvariant_stack_tag, ind>(ctx);
 		auto nctx = crop_ctx<ind, rvariant_crop_ctx_tag>(ctx);
-		if constexpr(!requires{search_in_ctx<rvariant_stack_tag2, ind>(ctx)->parse_mono(src);})
+		if constexpr(!requires{search_in_ctx<rvariant_stack_tag2, ind>(ctx)->parse_mono(0, src);})
             return var->template parse_without_prep<0>(nctx, src, result);
 		else {
 			auto* var = *search_in_ctx<rvariant_stack_tag2, ind>(ctx);
 			if constexpr(type_dc<decltype(result)> == type_c<type_any_eq_allow>)
-				return var->parse_mono(std::move(src));
-			else return var->parse_mono(std::move(src), result);
+				return var->parse_mono(0, std::move(src));
+			else return var->parse_mono(0, std::move(src), result);
 		}
 	}
 } ;
