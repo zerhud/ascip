@@ -22,10 +22,6 @@ struct mono_for_rv final : monomorphic<source, result> {
 	mutable context ctx;
 	constexpr mono_for_rv(const parser* self, context ctx) : self(self), ctx(std::move(ctx)) {}
 	template<auto ind> constexpr parse_result call(source src, auto& r) const {
-		auto ctx =
-			make_ctx<rvariant_stack_tag2>((const base_type*)this,
-				make_ctx<rvariant_crop_ctx_tag>(1, this->ctx))
-		;
 		return self->template parse_without_prep<ind>(ctx, src, r);
 	}
 	constexpr parse_result parse_mono(source src) const override {

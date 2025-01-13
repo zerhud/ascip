@@ -13369,10 +13369,6 @@ struct mono_for_rv final : monomorphic<source, result> {
 	mutable context ctx;
 	constexpr mono_for_rv(const parser* self, context ctx) : self(self), ctx(std::move(ctx)) {}
 	template<auto ind> constexpr parse_result call(source src, auto& r) const {
-		auto ctx =
-			make_ctx<rvariant_stack_tag2>((const base_type*)this,
-				make_ctx<rvariant_crop_ctx_tag>(1, this->ctx))
-		;
 		return self->template parse_without_prep<ind>(ctx, src, r);
 	}
 	constexpr parse_result parse_mono(source src) const override {
@@ -13430,7 +13426,14 @@ template<auto ind> struct rvariant_req_parser : base_parser<rvariant_req_parser<
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		auto* var = search_in_ctx<rvariant_stack_tag, ind>(ctx);
 		auto nctx = crop_ctx<ind, rvariant_crop_ctx_tag>(ctx);
-		return var->template parse_without_prep<0>(nctx, src, result);
+		if constexpr(!requires{search_in_ctx<rvariant_stack_tag2, ind>(ctx)->parse_mono(src);})
+            return var->template parse_without_prep<0>(nctx, src, result);
+		else {
+			auto* var = *search_in_ctx<rvariant_stack_tag2, ind>(ctx);
+			if constexpr(type_dc<decltype(result)> == type_c<type_any_eq_allow>)
+				return var->parse_mono(std::move(src));
+			else return var->parse_mono(std::move(src), result);
+		}
 	}
 } ;
 
@@ -13579,14 +13582,20 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 	}
 	constexpr parse_result parse_with_prep(auto&& ctx, auto src, auto& result) const {
 		using copied_result_type = decltype(move_result(result));
-		auto rctx = make_ctx<rvariant_stack_tag>(this, make_ctx<rvariant_copied_result_tag>((copied_result_type*)nullptr, ctx) );
-		auto mono = rv_utils::mk_mono(this, rctx, src, result);
-		auto nctx =  rctx
-		;
-		return parse_without_prep<0>(make_ctx<rvariant_crop_ctx_tag>(1, nctx), src, result);
+		using mono_type = rv_utils::monomorphic<decltype(src), std::decay_t<decltype(result)>>;
+		const mono_type* mono_ptr;
+		auto rctx =
+			make_ctx<rvariant_stack_tag2>(&mono_ptr,
+				make_ctx<rvariant_stack_tag>(this,
+					make_ctx<rvariant_copied_result_tag>((copied_result_type*)nullptr, ctx) ) );
+		auto nctx = make_ctx<rvariant_crop_ctx_tag>(1, rctx);
+		auto mono = rv_utils::mk_mono(this, nctx, src, result);
+		mono_ptr = &mono;
+	//	return parse_without_prep<0>(nctx, src, result);
+		return mono.parse_mono(src, result);
 	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-    return parse_with_prep(ctx, src, result);
+		return parse_with_prep(ctx, src, result);
 	}
 };
 
