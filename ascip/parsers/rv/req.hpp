@@ -25,9 +25,10 @@ template<auto stop_ind>
 struct rvariant_rreq_parser : base_parser<rvariant_rreq_parser<stop_ind>> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if(!src) return 0;
-		auto* var = search_in_ctx<rvariant_stack_tag>(ctx);
-		auto nctx = crop_ctx<0, rvariant_crop_ctx_tag>(ctx);
-		return var->template parse_without_prep<stop_ind+1>(nctx, src, result);
+        auto* var = *search_in_ctx<rvariant_stack_tag2>(ctx);
+        if constexpr(type_dc<decltype(result)> == type_c<type_any_eq_allow>)
+            return var->parse_mono(stop_ind+1, std::move(src));
+        else return var->parse_mono(stop_ind+1, std::move(src), result);
 	}
 };
 
@@ -37,16 +38,10 @@ struct rvariant_rreq_pl_parser : base_parser<rvariant_rreq_pl_parser> {
 
 template<auto ind> struct rvariant_req_parser : base_parser<rvariant_req_parser<ind>> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		auto* var = search_in_ctx<rvariant_stack_tag, ind>(ctx);
-		auto nctx = crop_ctx<ind, rvariant_crop_ctx_tag>(ctx);
-		if constexpr(!requires{search_in_ctx<rvariant_stack_tag2, ind>(ctx)->parse_mono(0, src);})
-            return var->template parse_without_prep<0>(nctx, src, result);
-		else {
-			auto* var = *search_in_ctx<rvariant_stack_tag2, ind>(ctx);
-			if constexpr(type_dc<decltype(result)> == type_c<type_any_eq_allow>)
-				return var->parse_mono(0, std::move(src));
-			else return var->parse_mono(0, std::move(src), result);
-		}
+        auto* var = *search_in_ctx<rvariant_stack_tag2, ind>(ctx);
+        if constexpr(type_dc<decltype(result)> == type_c<type_any_eq_allow>)
+            return var->parse_mono(0, std::move(src));
+        else return var->parse_mono(0, std::move(src), result);
 	}
 } ;
 

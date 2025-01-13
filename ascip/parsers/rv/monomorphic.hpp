@@ -24,12 +24,16 @@ struct mono_for_rv final : monomorphic<source, result> {
 	template<auto ind> constexpr parse_result call(source src, auto& r) const {
 		return self->template parse_without_prep<ind>(ctx, src, r);
 	}
-	constexpr parse_result parse_mono(int ind, source src) const override {
-		type_any_eq_allow r;
-		return call<0>(std::move(src), r);
+	template<auto cur> constexpr parse_result call(const int ind, source src, auto& r) const {
+		if constexpr(cur==parsers_count) return -1;
+		else return cur==ind ? call<cur>(std::move(src), r) : call<cur+1>(ind, std::move(src), r);
 	}
-	constexpr parse_result parse_mono(int ind, source src, result& r) const override {
-		return call<0>(std::move(src), r);
+	constexpr parse_result parse_mono(const int ind, source src) const override {
+		type_any_eq_allow r;
+		return call<0>(ind, std::move(src), r);
+	}
+	constexpr parse_result parse_mono(const int ind, source src, result& r) const override {
+		return call<0>(ind, std::move(src), r);
 	}
 };
 

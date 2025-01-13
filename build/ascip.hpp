@@ -13371,12 +13371,16 @@ struct mono_for_rv final : monomorphic<source, result> {
 	template<auto ind> constexpr parse_result call(source src, auto& r) const {
 		return self->template parse_without_prep<ind>(ctx, src, r);
 	}
-	constexpr parse_result parse_mono(int ind, source src) const override {
-		type_any_eq_allow r;
-		return call<0>(std::move(src), r);
+	template<auto cur> constexpr parse_result call(const int ind, source src, auto& r) const {
+		if constexpr(cur==parsers_count) return -1;
+		else return cur==ind ? call<cur>(std::move(src), r) : call<cur+1>(ind, std::move(src), r);
 	}
-	constexpr parse_result parse_mono(int ind, source src, result& r) const override {
-		return call<0>(std::move(src), r);
+	constexpr parse_result parse_mono(const int ind, source src) const override {
+		type_any_eq_allow r;
+		return call<0>(ind, std::move(src), r);
+	}
+	constexpr parse_result parse_mono(const int ind, source src, result& r) const override {
+		return call<0>(ind, std::move(src), r);
 	}
 };
 
@@ -13414,9 +13418,10 @@ template<auto stop_ind>
 struct rvariant_rreq_parser : base_parser<rvariant_rreq_parser<stop_ind>> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if(!src) return 0;
-		auto* var = search_in_ctx<rvariant_stack_tag>(ctx);
-		auto nctx = crop_ctx<0, rvariant_crop_ctx_tag>(ctx);
-		return var->template parse_without_prep<stop_ind+1>(nctx, src, result);
+        auto* var = *search_in_ctx<rvariant_stack_tag2>(ctx);
+        if constexpr(type_dc<decltype(result)> == type_c<type_any_eq_allow>)
+            return var->parse_mono(stop_ind+1, std::move(src));
+        else return var->parse_mono(stop_ind+1, std::move(src), result);
 	}
 };
 
@@ -13426,16 +13431,10 @@ struct rvariant_rreq_pl_parser : base_parser<rvariant_rreq_pl_parser> {
 
 template<auto ind> struct rvariant_req_parser : base_parser<rvariant_req_parser<ind>> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		auto* var = search_in_ctx<rvariant_stack_tag, ind>(ctx);
-		auto nctx = crop_ctx<ind, rvariant_crop_ctx_tag>(ctx);
-		if constexpr(!requires{search_in_ctx<rvariant_stack_tag2, ind>(ctx)->parse_mono(0, src);})
-            return var->template parse_without_prep<0>(nctx, src, result);
-		else {
-			auto* var = *search_in_ctx<rvariant_stack_tag2, ind>(ctx);
-			if constexpr(type_dc<decltype(result)> == type_c<type_any_eq_allow>)
-				return var->parse_mono(0, std::move(src));
-			else return var->parse_mono(0, std::move(src), result);
-		}
+        auto* var = *search_in_ctx<rvariant_stack_tag2, ind>(ctx);
+        if constexpr(type_dc<decltype(result)> == type_c<type_any_eq_allow>)
+            return var->parse_mono(0, std::move(src));
+        else return var->parse_mono(0, std::move(src), result);
 	}
 } ;
 
