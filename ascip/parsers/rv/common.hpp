@@ -10,7 +10,6 @@
 namespace ascip_details::prs {
 
 struct rvariant_stack_tag {};
-struct rvariant_stack_tag2 {};
 struct rvariant_crop_ctx_tag {};
 struct rvariant_copied_result_tag {};
 
