@@ -63,7 +63,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 				prev_pr += pr;
 				auto cur = move_result(result);
 				if constexpr (!std::is_same_v<decltype(result), type_any_eq_allow&>)
-					search_in_ctx<rvariant_copied_result_tag>(ctx) = &cur;
+					search_in_ctx<rvariant_cpy_result_tag>(ctx) = &cur;
 				src += get<ind>(seq).parse(ctx, src, variant_result<cur_ind<ind>()>(result));
 				pr = get<ind>(seq).parse(ctx, src, result_for_check);
 			}
@@ -82,11 +82,8 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		using copied_result_type = decltype(move_result(result));
 		using mono_type = rv_utils::monomorphic<decltype(src), std::decay_t<decltype(result)>>;
 		const mono_type* mono_ptr;
-		auto rctx =
-			make_ctx<rvariant_stack_tag>(&mono_ptr,
-				make_ctx<rvariant_copied_result_tag>((copied_result_type*)nullptr, ctx) );
-		auto cctx = make_ctx<rvariant_crop_ctx_tag>(1, rctx);
-		auto mono = rv_utils::mk_mono(this, cctx, src, result);
+		auto rctx = make_ctx<rvariant_stack_tag>(&mono_ptr, make_ctx<rvariant_cpy_result_tag>((copied_result_type*)nullptr, ctx) );
+		auto mono = rv_utils::mk_mono(this, rctx, src, result);
 		mono_ptr = &mono;
 		return mono.parse_mono(0, src, result);
 	}

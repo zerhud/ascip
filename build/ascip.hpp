@@ -13336,10 +13336,7 @@ constexpr static auto transform_special(prs::result_checker_parser<type,parser>&
 namespace ascip_details::prs {
 
 struct rvariant_stack_tag {};
-struct rvariant_crop_ctx_tag {};
-struct rvariant_copied_result_tag {};
-
-template<auto ind> struct rvariant_stop_val { constexpr static auto val = ind; };
+struct rvariant_cpy_result_tag {};
 
 template<typename, parser...> struct rvariant_parser;
 
@@ -13406,8 +13403,8 @@ struct rvariant_lreq_parser : base_parser<rvariant_lreq_parser> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		constexpr bool need_in_result = !std::is_same_v<decltype(result), type_any_eq_allow&> ;
 		if constexpr (need_in_result) {
-			result = std::move(*search_in_ctx<rvariant_copied_result_tag>(ctx));
-			search_in_ctx<rvariant_copied_result_tag>(ctx) = nullptr;
+			result = std::move(*search_in_ctx<rvariant_cpy_result_tag>(ctx));
+			search_in_ctx<rvariant_cpy_result_tag>(ctx) = nullptr;
 		}
 		return 0;
 	}
@@ -13415,13 +13412,13 @@ struct rvariant_lreq_parser : base_parser<rvariant_lreq_parser> {
 
 template<auto stop_ind>
 struct rvariant_rreq_parser : base_parser<rvariant_rreq_parser<stop_ind>> {
-	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		if(!src) return 0;
+    constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
+        if(!src) return 0;
         auto* var = *search_in_ctx<rvariant_stack_tag>(ctx);
         if constexpr(type_dc<decltype(result)> == type_c<type_any_eq_allow>)
             return var->parse_mono(stop_ind+1, std::move(src));
         else return var->parse_mono(stop_ind+1, std::move(src), result);
-	}
+    }
 };
 
 struct rvariant_rreq_pl_parser : base_parser<rvariant_rreq_pl_parser> {
@@ -13429,12 +13426,12 @@ struct rvariant_rreq_pl_parser : base_parser<rvariant_rreq_pl_parser> {
 };
 
 template<auto ind> struct rvariant_req_parser : base_parser<rvariant_req_parser<ind>> {
-	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
+    constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
         auto* var = *search_in_ctx<rvariant_stack_tag, ind>(ctx);
         if constexpr(type_dc<decltype(result)> == type_c<type_any_eq_allow>)
             return var->parse_mono(0, std::move(src));
         else return var->parse_mono(0, std::move(src), result);
-	}
+    }
 } ;
 
 }
@@ -13566,7 +13563,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 				prev_pr += pr;
 				auto cur = move_result(result);
 				if constexpr (!std::is_same_v<decltype(result), type_any_eq_allow&>)
-					search_in_ctx<rvariant_copied_result_tag>(ctx) = &cur;
+					search_in_ctx<rvariant_cpy_result_tag>(ctx) = &cur;
 				src += get<ind>(seq).parse(ctx, src, variant_result<cur_ind<ind>()>(result));
 				pr = get<ind>(seq).parse(ctx, src, result_for_check);
 			}
@@ -13585,11 +13582,8 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		using copied_result_type = decltype(move_result(result));
 		using mono_type = rv_utils::monomorphic<decltype(src), std::decay_t<decltype(result)>>;
 		const mono_type* mono_ptr;
-		auto rctx =
-			make_ctx<rvariant_stack_tag>(&mono_ptr,
-				make_ctx<rvariant_copied_result_tag>((copied_result_type*)nullptr, ctx) );
-		auto cctx = make_ctx<rvariant_crop_ctx_tag>(1, rctx);
-		auto mono = rv_utils::mk_mono(this, cctx, src, result);
+		auto rctx = make_ctx<rvariant_stack_tag>(&mono_ptr, make_ctx<rvariant_cpy_result_tag>((copied_result_type*)nullptr, ctx) );
+		auto mono = rv_utils::mk_mono(this, rctx, src, result);
 		mono_ptr = &mono;
 		return mono.parse_mono(0, src, result);
 	}
