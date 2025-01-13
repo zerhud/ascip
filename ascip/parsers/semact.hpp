@@ -57,8 +57,15 @@ template<typename parser, typename act_type, typename tag> struct exec_before_pa
 	[[no_unique_address]] parser p;
 
 	constexpr const parse_result parse(auto&& ctx, auto src, auto& result) const {
-		auto* new_result = act(search_in_ctx<tag>(ctx), result);
-		return p.parse(ctx, src, *new_result);
+		if constexpr(type_dc<decltype(result)> == type_c<type_any_eq_allow>) return p.parse(ctx, src, result);
+		else if constexpr(requires{*act(search_in_ctx<tag>(ctx), result);}) {
+			auto* new_result = act(search_in_ctx<tag>(ctx), result);
+			return p.parse(ctx, src, *new_result);
+		}
+		else {
+			act(search_in_ctx<tag>(ctx), result);
+			return p.parse(ctx, src, result);
+		}
 	}
 };
 
@@ -68,7 +75,8 @@ template<typename parser, typename act_type, typename tag> struct exec_after_par
 
 	constexpr const parse_result parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = p.parse(ctx, src, result);
-		act(search_in_ctx<tag>(ctx), result);
+		if constexpr (type_dc<decltype(result)> != type_c<type_any_eq_allow>) act(search_in_ctx<tag>(ctx), result);
+		else if constexpr(requires{act(search_in_ctx<tag>(ctx));}) act(search_in_ctx<tag>(ctx));
 		return ret;
 	}
 };

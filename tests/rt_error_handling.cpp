@@ -13,13 +13,13 @@ constexpr void test_error_handling() {
 	std::cout << "test error handling" << std::endl;
 	char r;
 	parse(gh::any >> must<"test <nl>b">(sup<'a'>::char_), +gh::space, gh::make_source("\nb"), r,
-		[](char& r, auto src, int line, auto msg){
+		[](auto&, auto src, int line, auto msg){
 			gh::write_out_error_msg(std::cout, "test_file_1", msg, "ups", src, line);
 			return -1;
 	});
 	std::cout << "\n\nnext test:" << std::endl;
 	parse(gh::any >> gh::any >> +sup<'b'>::char_ >> must<"test a<nl>bbbcuu">(sup<'a'>::char_), +gh::space, gh::make_source("\n\nbbbcuu"), r,
-		[](char& r, auto src, int line, auto msg){
+		[](auto&, auto src, int line, auto msg){
 		gh::write_out_error_msg(std::cout, "test_file_2", msg, "ups", src, line);
 		return -1;
 	});

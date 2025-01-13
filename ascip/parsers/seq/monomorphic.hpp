@@ -12,6 +12,7 @@ namespace ascip_details::prs::seq_details {
 
 template<typename source, typename result> struct monomorphic {
   virtual ~monomorphic() =default ;
+  virtual parse_result parse_mono(source src) const =0 ;
   virtual parse_result parse_mono(source src, result& r) const =0 ;
 };
 
@@ -21,6 +22,10 @@ struct mono_for_seq final : monomorphic<source, result> {
 	const parser* self;
 	mutable context ctx;
 	constexpr mono_for_seq(const parser* self, context ctx) : self(self), ctx(std::move(ctx)) {}
+	constexpr parse_result parse_mono(source src) const override {
+		type_any_eq_allow r;
+		return self->parse_without_prep(ctx, src, r);
+	}
 	constexpr parse_result parse_mono(source src, result& r) const override {
 		return self->parse_without_prep(ctx, src, r);
 	}

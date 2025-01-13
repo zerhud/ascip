@@ -17,7 +17,9 @@ template<auto ind>
 struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind>> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		const auto* req = *search_in_ctx<seq_stack_tag, ind>(ctx);
-		return src ? req->parse_mono(src, result) : -1;
+		if constexpr( type_dc<decltype(result)> == type_c<type_any_eq_allow> )
+			return src ? req->parse_mono(src) : -1;
+		else return src ? req->parse_mono(src, result) : -1;
 	}
 };
 

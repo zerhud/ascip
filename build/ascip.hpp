@@ -12171,13 +12171,21 @@ constexpr bool test_semact() {
 	return true;
 }
 
+//TODO: should the exec_bore_parser replace the result? it can to be achieved with semact
 template<typename parser, typename act_type, typename tag> struct exec_before_parser : base_parser<exec_before_parser<parser, act_type, tag>> {
 	act_type act;
 	[[no_unique_address]] parser p;
 
 	constexpr const parse_result parse(auto&& ctx, auto src, auto& result) const {
-		auto* new_result = act(search_in_ctx<tag>(ctx), result);
-		return p.parse(ctx, src, *new_result);
+		if constexpr(type_dc<decltype(result)> == type_c<type_any_eq_allow>) return p.parse(ctx, src, result);
+		else if constexpr(requires{*act(search_in_ctx<tag>(ctx), result);}) {
+			auto* new_result = act(search_in_ctx<tag>(ctx), result);
+			return p.parse(ctx, src, *new_result);
+		}
+		else {
+			act(search_in_ctx<tag>(ctx), result);
+			return p.parse(ctx, src, result);
+		}
 	}
 };
 
@@ -12187,7 +12195,8 @@ template<typename parser, typename act_type, typename tag> struct exec_after_par
 
 	constexpr const parse_result parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = p.parse(ctx, src, result);
-		act(search_in_ctx<tag>(ctx), result);
+		if constexpr (type_dc<decltype(result)> != type_c<type_any_eq_allow>) act(search_in_ctx<tag>(ctx), result);
+		else if constexpr(requires{act(search_in_ctx<tag>(ctx));}) act(search_in_ctx<tag>(ctx));
 		return ret;
 	}
 };
@@ -12332,7 +12341,9 @@ template<auto ind>
 struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind>> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		const auto* req = *search_in_ctx<seq_stack_tag, ind>(ctx);
-		return src ? req->parse_mono(src, result) : -1;
+		if constexpr( type_dc<decltype(result)> == type_c<type_any_eq_allow> )
+            return src ? req->parse_mono(src) : -1;
+		else return src ? req->parse_mono(src, result) : -1;
 	}
 };
 
@@ -12445,6 +12456,7 @@ namespace ascip_details::prs::seq_details {
 
 template<typename source, typename result> struct monomorphic {
   virtual ~monomorphic() =default ;
+  virtual parse_result parse_mono(source src) const =0 ;
   virtual parse_result parse_mono(source src, result& r) const =0 ;
 };
 
@@ -12454,6 +12466,10 @@ struct mono_for_seq final : monomorphic<source, result> {
 	const parser* self;
 	mutable context ctx;
 	constexpr mono_for_seq(const parser* self, context ctx) : self(self), ctx(std::move(ctx)) {}
+	constexpr parse_result parse_mono(source src) const override {
+		type_any_eq_allow r;
+		return self->parse_without_prep(ctx, src, r);
+	}
 	constexpr parse_result parse_mono(source src, result& r) const override {
 		return self->parse_without_prep(ctx, src, r);
 	}
@@ -12622,11 +12638,18 @@ template<string_literal msg, parser type> struct must_parser : base_parser<must_
 
 	constexpr static auto call_if_error(auto& ctx, auto& result, auto orig_ret, auto& src) {
   	if (0 <= orig_ret) return orig_ret;
+  	constexpr bool without_result = ascip_details::type_dc<decltype(result)> == ascip_details::type_c<type_any_eq_allow>;
 		auto err = search_in_ctx<err_handler_tag>(ctx);
   	static_assert( !std::is_same_v<std::decay_t<decltype(err)>, ctx_not_found_type>, "for using the must parser a error handler is required" );
-  	if constexpr(requires{(*err)(result, 0, msg);}) return (*err)(result, new_line_count(ctx), msg);
+  	if constexpr(requires{(*err)(0, msg);}) return (*err)(new_line_count(ctx), msg);
+  	else if constexpr(requires{(*err)(0, src, msg);}) return (*err)(new_line_count(ctx), src, msg);
+  	else if constexpr(requires{(*err)(msg);}) return (*err)(msg);
+  	else if constexpr(requires{(*err)(result, 0, msg);}) return (*err)(result, new_line_count(ctx), msg);
   	else if constexpr(requires{(*err)(result, src, 0, msg);}) return (*err)(result, src, new_line_count(ctx), msg);
-  	else return (*err)(result, msg);
+  	else {
+  		static_assert( requires{(*err)(result, msg);}, "the error handler have to request no result as parameter or it have to be a template parameter" );
+  		return (*err)(result, msg);
+  	}
   }
 };
 

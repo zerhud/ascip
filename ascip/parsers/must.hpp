@@ -12,20 +12,27 @@
 namespace ascip_details::prs {
 
 template<string_literal msg, parser type> struct must_parser : base_parser<must_parser<msg, type>> {
-  type p;
-  constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
+	type p;
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = p.parse(ctx, src, result);
-  	return call_if_error(ctx, result, ret, src);
-  }
+		return call_if_error(ctx, result, ret, src);
+	}
 
 	constexpr static auto call_if_error(auto& ctx, auto& result, auto orig_ret, auto& src) {
-  	if (0 <= orig_ret) return orig_ret;
+		if (0 <= orig_ret) return orig_ret;
+		constexpr bool without_result = ascip_details::type_dc<decltype(result)> == ascip_details::type_c<type_any_eq_allow>;
 		auto err = search_in_ctx<err_handler_tag>(ctx);
-  	static_assert( !std::is_same_v<std::decay_t<decltype(err)>, ctx_not_found_type>, "for using the must parser a error handler is required" );
-  	if constexpr(requires{(*err)(result, 0, msg);}) return (*err)(result, new_line_count(ctx), msg);
-  	else if constexpr(requires{(*err)(result, src, 0, msg);}) return (*err)(result, src, new_line_count(ctx), msg);
-  	else return (*err)(result, msg);
-  }
+		static_assert( !std::is_same_v<std::decay_t<decltype(err)>, ctx_not_found_type>, "for using the must parser a error handler is required" );
+		if constexpr(requires{(*err)(0, msg);}) return (*err)(new_line_count(ctx), msg);
+		else if constexpr(requires{(*err)(0, src, msg);}) return (*err)(new_line_count(ctx), src, msg);
+		else if constexpr(requires{(*err)(msg);}) return (*err)(msg);
+		else if constexpr(requires{(*err)(result, 0, msg);}) return (*err)(result, new_line_count(ctx), msg);
+		else if constexpr(requires{(*err)(result, src, 0, msg);}) return (*err)(result, src, new_line_count(ctx), msg);
+		else {
+			static_assert( requires{(*err)(result, msg);}, "the error handler have to request no result as parameter or it have to be a template parameter" );
+			return (*err)(result, msg);
+		}
+	}
 };
 
 template<parser left, typename right> constexpr auto operator>(left&& l, right&& r) {
@@ -33,7 +40,7 @@ template<parser left, typename right> constexpr auto operator>(left&& l, right&&
 }
 
 template<string_literal msg> constexpr auto must(parser auto&& p) {
-  return must_parser<msg, std::decay_t<decltype(p)>>{ {}, std::forward<decltype(p)>(p) };
+	return must_parser<msg, std::decay_t<decltype(p)>>{ {}, std::forward<decltype(p)>(p) };
 }
 
 template<typename p, template<auto>class t=p::template tmpl>
@@ -58,7 +65,7 @@ constexpr bool test_must_parser() {
 		return (p::any >> t<'a'>::char_ >> t<'b'>::char_ >> must<"test">(t<'c'>::char_)).parse(make_test_ctx(&err_method), make_source("\nabe"), r);
 	}() == -4, "on error: sources are on start sequence and on rule where the error");
 
-  return true;
+	return true;
 }
 
 } // namespace ascip_details::prs
