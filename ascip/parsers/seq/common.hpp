@@ -9,5 +9,4 @@ namespace ascip_details::prs {
 struct seq_stack_tag{};
 struct seq_shift_stack_tag{};
 struct seq_result_stack_tag{};
-struct seq_crop_ctx_tag {};
 }

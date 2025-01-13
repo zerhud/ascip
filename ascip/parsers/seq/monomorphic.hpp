@@ -22,7 +22,7 @@ struct mono_for_seq final : monomorphic<source, result> {
 	mutable context ctx;
 	constexpr mono_for_seq(const parser* self, context ctx) : self(self), ctx(std::move(ctx)) {}
 	constexpr parse_result parse_mono(source src, result& r) const override {
-		auto ctx = make_ctx<seq_stack_tag>((const base_type*)this, make_ctx<seq_crop_ctx_tag>(1, this->ctx));
+		auto ctx = make_ctx<seq_stack_tag>((const base_type*)this, this->ctx);
 		return self->parse_without_prep(ctx, src, r);
 	}
 };

@@ -12252,7 +12252,6 @@ namespace ascip_details::prs {
 struct seq_stack_tag{};
 struct seq_shift_stack_tag{};
 struct seq_result_stack_tag{};
-struct seq_crop_ctx_tag {};
 }
        
 
@@ -12335,7 +12334,7 @@ struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind>> {
 		const auto& req = search_in_ctx<seq_stack_tag, ind>(ctx);
 		if (!src) return -1;
 		if constexpr (requires{ req->parse_mono(src, result); }) return req->parse_mono(src, result);
-		else return req->parse_without_prep(crop_ctx<ind, seq_crop_ctx_tag>(std::move(ctx)), static_cast<decltype(src)&&>(src), result);
+		else return req->parse_without_prep(ctx, static_cast<decltype(src)&&>(src), result);
 	}
 };
 
@@ -12458,7 +12457,7 @@ struct mono_for_seq final : monomorphic<source, result> {
 	mutable context ctx;
 	constexpr mono_for_seq(const parser* self, context ctx) : self(self), ctx(std::move(ctx)) {}
 	constexpr parse_result parse_mono(source src, result& r) const override {
-		auto ctx = make_ctx<seq_stack_tag>((const base_type*)this, make_ctx<seq_crop_ctx_tag>(1, this->ctx));
+		auto ctx = make_ctx<seq_stack_tag>((const base_type*)this, this->ctx);
 		return self->parse_without_prep(ctx, src, r);
 	}
 };
