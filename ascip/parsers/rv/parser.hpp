@@ -79,16 +79,14 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 	}
 	constexpr parse_result parse_with_prep(auto&& ctx, auto src, auto& result) const {
 		using copied_result_type = decltype(move_result(result));
-		auto nctx =
-			make_ctx<rvariant_copied_result_tag>((copied_result_type*)nullptr,
-			make_ctx<rvariant_stack_tag>(this, ctx));
+		auto rctx = make_ctx<rvariant_stack_tag>(this, make_ctx<rvariant_copied_result_tag>((copied_result_type*)nullptr, ctx) );
+		auto mono = rv_utils::mk_mono(this, rctx, src, result);
+		auto nctx =  rctx
+		;
 		return parse_without_prep<0>(make_ctx<rvariant_crop_ctx_tag>(1, nctx), src, result);
 	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-        using rv_stack_type = std::decay_t<decltype(search_in_ctx<rvariant_stack_tag>(decltype(auto(ctx)){}))>;
-        if constexpr ( std::is_same_v<rv_stack_type, std::decay_t<decltype(this)>> )
-            return parse_without_prep<0>(ctx, src, result);
-        else return parse_with_prep(ctx, src, result);
+		return parse_with_prep(ctx, src, result);
 	}
 };
 

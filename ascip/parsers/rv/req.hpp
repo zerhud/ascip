@@ -39,7 +39,7 @@ template<auto ind> struct rvariant_req_parser : base_parser<rvariant_req_parser<
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		auto* var = search_in_ctx<rvariant_stack_tag, ind>(ctx);
 		auto nctx = crop_ctx<ind, rvariant_crop_ctx_tag>(ctx);
-		return var->parse(nctx, src, result);
+		return var->template parse_without_prep<0>(nctx, src, result);
 	}
 } ;
 

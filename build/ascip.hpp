@@ -12512,7 +12512,7 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 	template<auto find> constexpr auto call_parse(ascip_details::parser auto& p, auto&& ctx, auto src, auto& result) const {
 		if constexpr (!is_struct_requires_pd) return p.parse(ctx, src, result);
 		else if constexpr (is_field_separator<decltype(auto(p))>) return p.parse(ctx, src, result);
-		else if constexpr ( std::is_same_v<std::decay_t<decltype(result)>, ascip_details::type_any_eq_allow> )
+		else if constexpr ( type_dc<decltype(result)> == type_c<type_any_eq_allow> )
 			return p.parse(ctx, src, result);
 		else {
 			return p.parse(ctx, src, ascip_reflection::get<find>(result));
@@ -13336,6 +13336,7 @@ constexpr static auto transform_special(prs::result_checker_parser<type,parser>&
 namespace ascip_details::prs {
 
 struct rvariant_stack_tag {};
+struct rvariant_stack_tag2 {};
 struct rvariant_crop_ctx_tag {};
 struct rvariant_copied_result_tag {};
 
@@ -13357,6 +13358,7 @@ namespace ascip_details::prs::rv_utils {
 
 template<typename source, typename result> struct monomorphic {
   virtual ~monomorphic() =default ;
+  virtual parse_result parse_mono(source src) const =0 ;
   virtual parse_result parse_mono(source src, result& r) const =0 ;
 };
 
@@ -13366,9 +13368,19 @@ struct mono_for_rv final : monomorphic<source, result> {
 	const parser* self;
 	mutable context ctx;
 	constexpr mono_for_rv(const parser* self, context ctx) : self(self), ctx(std::move(ctx)) {}
+	template<auto ind> constexpr parse_result call(source src, auto& r) const {
+		auto ctx =
+			make_ctx<rvariant_stack_tag2>((const base_type*)this,
+				make_ctx<rvariant_crop_ctx_tag>(1, this->ctx))
+		;
+		return self->template parse_without_prep<ind>(ctx, src, r);
+	}
+	constexpr parse_result parse_mono(source src) const override {
+		type_any_eq_allow r;
+		return call<0>(std::move(src), r);
+	}
 	constexpr parse_result parse_mono(source src, result& r) const override {
-		auto ctx = make_ctx<rvariant_stack_tag>((const base_type*)this, make_ctx<rvariant_crop_ctx_tag>(1, this->ctx));
-		return self->parse_without_prep(ctx, src, r);
+		return call<0>(std::move(src), r);
 	}
 };
 
@@ -13418,7 +13430,7 @@ template<auto ind> struct rvariant_req_parser : base_parser<rvariant_req_parser<
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		auto* var = search_in_ctx<rvariant_stack_tag, ind>(ctx);
 		auto nctx = crop_ctx<ind, rvariant_crop_ctx_tag>(ctx);
-		return var->parse(nctx, src, result);
+		return var->template parse_without_prep<0>(nctx, src, result);
 	}
 } ;
 
@@ -13567,16 +13579,14 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 	}
 	constexpr parse_result parse_with_prep(auto&& ctx, auto src, auto& result) const {
 		using copied_result_type = decltype(move_result(result));
-		auto nctx =
-			make_ctx<rvariant_copied_result_tag>((copied_result_type*)nullptr,
-			make_ctx<rvariant_stack_tag>(this, ctx));
+		auto rctx = make_ctx<rvariant_stack_tag>(this, make_ctx<rvariant_copied_result_tag>((copied_result_type*)nullptr, ctx) );
+		auto mono = rv_utils::mk_mono(this, rctx, src, result);
+		auto nctx =  rctx
+		;
 		return parse_without_prep<0>(make_ctx<rvariant_crop_ctx_tag>(1, nctx), src, result);
 	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-        using rv_stack_type = std::decay_t<decltype(search_in_ctx<rvariant_stack_tag>(decltype(auto(ctx)){}))>;
-        if constexpr ( std::is_same_v<rv_stack_type, std::decay_t<decltype(this)>> )
-            return parse_without_prep<0>(ctx, src, result);
-        else return parse_with_prep(ctx, src, result);
+    return parse_with_prep(ctx, src, result);
 	}
 };
 

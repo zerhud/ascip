@@ -11,6 +11,7 @@ namespace ascip_details::prs::rv_utils {
 
 template<typename source, typename result> struct monomorphic {
   virtual ~monomorphic() =default ;
+  virtual parse_result parse_mono(source src) const =0 ;
   virtual parse_result parse_mono(source src, result& r) const =0 ;
 };
 
@@ -20,9 +21,19 @@ struct mono_for_rv final : monomorphic<source, result> {
 	const parser* self;
 	mutable context ctx;
 	constexpr mono_for_rv(const parser* self, context ctx) : self(self), ctx(std::move(ctx)) {}
+	template<auto ind> constexpr parse_result call(source src, auto& r) const {
+		auto ctx =
+			make_ctx<rvariant_stack_tag2>((const base_type*)this,
+				make_ctx<rvariant_crop_ctx_tag>(1, this->ctx))
+		;
+		return self->template parse_without_prep<ind>(ctx, src, r);
+	}
+	constexpr parse_result parse_mono(source src) const override {
+		type_any_eq_allow r;
+		return call<0>(std::move(src), r);
+	}
 	constexpr parse_result parse_mono(source src, result& r) const override {
-		auto ctx = make_ctx<rvariant_stack_tag>((const base_type*)this, make_ctx<rvariant_crop_ctx_tag>(1, this->ctx));
-		return self->parse_without_prep(ctx, src, r);
+		return call<0>(std::move(src), r);
 	}
 };
 
