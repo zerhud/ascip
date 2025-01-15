@@ -53,6 +53,8 @@ struct ascip {
   template<auto stop_ind> constexpr static ascip_details::prs::rvariant_rreq_parser<stop_ind> _rv_rreq{};
   template<auto ind> constexpr static auto rv_req = ascip_details::prs::rvariant_req_parser<ind>{};
 
+  template<auto ind> constexpr static auto r_req  = ascip_details::prs::variant_reqursion_parser<ind>{};
+
   constexpr static auto dquoted_string = lexeme(_char<'"'> >> *(as<'"'>(char_<'\\'> >> char_<'"'>)| (ascip::any - char_<'"'>)) >> _char<'"'>);
   constexpr static auto squoted_string = lexeme(_char<'\''> >> *(as<'\''>(char_<'\\'> >> char_<'\''>)| (ascip::any - char_<'\''>)) >> _char<'\''>);
   constexpr static auto quoted_string = lexeme(squoted_string | dquoted_string);
@@ -68,6 +70,7 @@ struct ascip {
     constexpr static auto& req = ascip::req<s>;
     constexpr static auto& _rv_rreq = ascip::_rv_rreq<s>;
     constexpr static auto& rv_req = ascip::rv_req<s>;
+    constexpr static auto& r_req = ascip::r_req<s>;
     constexpr static auto& uint_ = ascip::uint_<s>;
   };
 };

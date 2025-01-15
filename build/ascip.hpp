@@ -12885,7 +12885,13 @@ template<parser parser> struct use_variant_result_parser : base_parser<use_varia
 	parser p;
 };
 
-template<auto val> struct variant_pos_value{ constexpr static auto pos = val; };
+template<auto ind> struct variant_reqursion_parser : base_parser<variant_reqursion_parser<ind>> {
+	constexpr static parse_result parse(auto&& ctx, auto src, auto& result) {
+		const auto* var = search_in_ctx<variant_stack_tag, ind>(ctx);
+		if constexpr (type_dc<decltype(result)> == type_c<type_any_eq_allow>) return var->parse_mono(src);
+		else return var->parse_mono(src, result);
+	}
+};
 
 template<parser... parsers> struct variant_parser : base_parser<variant_parser<parsers...>> {
 	using self_type = variant_parser<parsers...>;
@@ -14115,6 +14121,8 @@ struct ascip {
   template<auto stop_ind> constexpr static ascip_details::prs::rvariant_rreq_parser<stop_ind> _rv_rreq{};
   template<auto ind> constexpr static auto rv_req = ascip_details::prs::rvariant_req_parser<ind>{};
 
+  template<auto ind> constexpr static auto r_req  = ascip_details::prs::variant_reqursion_parser<ind>{};
+
   constexpr static auto dquoted_string = lexeme(_char<'"'> >> *(as<'"'>(char_<'\\'> >> char_<'"'>)| (ascip::any - char_<'"'>)) >> _char<'"'>);
   constexpr static auto squoted_string = lexeme(_char<'\''> >> *(as<'\''>(char_<'\\'> >> char_<'\''>)| (ascip::any - char_<'\''>)) >> _char<'\''>);
   constexpr static auto quoted_string = lexeme(squoted_string | dquoted_string);
@@ -14130,6 +14138,7 @@ struct ascip {
     constexpr static auto& req = ascip::req<s>;
     constexpr static auto& _rv_rreq = ascip::_rv_rreq<s>;
     constexpr static auto& rv_req = ascip::rv_req<s>;
+    constexpr static auto& r_req = ascip::r_req<s>;
     constexpr static auto& uint_ = ascip::uint_<s>;
   };
 };

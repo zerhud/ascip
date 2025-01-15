@@ -53,7 +53,13 @@ template<parser parser> struct use_variant_result_parser : base_parser<use_varia
 	parser p;
 };
 
-template<auto val> struct variant_pos_value{ constexpr static auto pos = val; };
+template<auto ind> struct variant_reqursion_parser : base_parser<variant_reqursion_parser<ind>> {
+	constexpr static parse_result parse(auto&& ctx, auto src, auto& result) {
+		auto* var = *search_in_ctx<variant_stack_tag, ind>(ctx);
+		if constexpr (type_dc<decltype(result)> == type_c<type_any_eq_allow>) return var->parse_mono(src);
+		else return var->parse_mono(src, result);
+	}
+};
 
 template<parser... parsers> struct variant_parser : base_parser<variant_parser<parsers...>> {
 	using self_type = variant_parser<parsers...>;
@@ -87,9 +93,9 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
         using mono_type = variant_details::monomorphic<decltype(src), std::decay_t<decltype(result)>>;
         mono_type* mono_ptr;
         auto nctx = make_ctx<variant_stack_tag>(&mono_ptr, make_ctx<variant_stack_result_tag>(&result, ctx));
-        auto mono = variant_details::mk_mono(this, ctx, src, result);
+        auto mono = variant_details::mk_mono(this, nctx, src, result);
         mono_ptr = &mono;
-        return parse_ind<0>(nctx, src, result);
+		return mono.parse_mono(src, result);
 	}
 
 	constexpr auto clang_crash_workaround(auto r) {
@@ -122,6 +128,12 @@ constexpr static bool test_variant() {
 		char r='z';
 		const auto pr = run_parse(prs::nop | t<'a'>::char_, "b", r);
 		return (r=='z') + 2*(pr == 0);
+	}() == 3 );
+
+	static_assert( [&] {
+		char r{'z'};
+		const auto pr = run_parse(t<'a'>::char_ | t<'b'>::char_ >> t<0>::r_req, "bbba", r);
+		return (pr==4) + 2*(r=='a');
 	}() == 3 );
 
 	return true;

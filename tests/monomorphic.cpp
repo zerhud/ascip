@@ -34,12 +34,6 @@ static_assert( [] {
 	return parse(test_rvariant_val(), +p::space, p::make_source("1 + 2 * (3+5)"), r);
 }() == 13 );
 
-struct value { char n{}; char v{}; std::vector<std::unique_ptr<value>> c; };
-struct container {
-    std::vector<std::unique_ptr<value>> c;
-};
-
-constexpr auto value_maker = [](auto& v){ v.emplace_back() = std::make_unique<value>(); return v.back().get(); };
 
 int main(int,char**) {
   return 0;
