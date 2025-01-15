@@ -48,7 +48,7 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
 		if constexpr (ind+1 == sizeof...(parsers)) return prs(result);
 		else {
 			auto parse_result = prs(type_any_eq_allow{});
-			if(parse_result > 0) return prs(result);
+			if(parse_result >= 0) return prs(result);
 			return parse_ind<ind+1>(ctx, src, result);
 		}
 	}
@@ -93,6 +93,11 @@ constexpr static bool test_variant() {
 	static_assert( ({ char r{};run_parse(as(t<'b'>::char_,'c')|t<'a'>::char_, "a", r);r;}) == 'a' );
 	static_assert( ({ char r{};run_parse(as(t<'b'>::char_,'c')|t<'a'>::char_, "a", r);  }) ==  1 );
 #endif
+	static_assert( [&] {
+		char r='z';
+		const auto pr = run_parse(prs::nop | t<'a'>::char_, "b", r);
+		return (r=='z') + 2*(pr == 0);
+	}() == 3 );
 
 	return true;
 }

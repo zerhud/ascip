@@ -12171,7 +12171,6 @@ constexpr bool test_semact() {
 	return true;
 }
 
-//TODO: should the exec_bore_parser replace the result? it can to be achieved with semact
 template<typename parser, typename act_type, typename tag> struct exec_before_parser : base_parser<exec_before_parser<parser, act_type, tag>> {
 	act_type act;
 	[[no_unique_address]] parser p;
@@ -12342,7 +12341,7 @@ struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind>> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		const auto* req = *search_in_ctx<seq_stack_tag, ind>(ctx);
 		if constexpr( type_dc<decltype(result)> == type_c<type_any_eq_allow> )
-            return src ? req->parse_mono(src) : -1;
+			return src ? req->parse_mono(src) : -1;
 		else return src ? req->parse_mono(src, result) : -1;
 	}
 };
@@ -12630,27 +12629,27 @@ constexpr static auto transform(seq_parser<list...>&& src, auto& ctx) requires r
 namespace ascip_details::prs {
 
 template<string_literal msg, parser type> struct must_parser : base_parser<must_parser<msg, type>> {
-  type p;
-  constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
+	type p;
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = p.parse(ctx, src, result);
-  	return call_if_error(ctx, result, ret, src);
-  }
+		return call_if_error(ctx, result, ret, src);
+	}
 
 	constexpr static auto call_if_error(auto& ctx, auto& result, auto orig_ret, auto& src) {
-  	if (0 <= orig_ret) return orig_ret;
-  	constexpr bool without_result = ascip_details::type_dc<decltype(result)> == ascip_details::type_c<type_any_eq_allow>;
+		if (0 <= orig_ret) return orig_ret;
+		constexpr bool without_result = ascip_details::type_dc<decltype(result)> == ascip_details::type_c<type_any_eq_allow>;
 		auto err = search_in_ctx<err_handler_tag>(ctx);
-  	static_assert( !std::is_same_v<std::decay_t<decltype(err)>, ctx_not_found_type>, "for using the must parser a error handler is required" );
-  	if constexpr(requires{(*err)(0, msg);}) return (*err)(new_line_count(ctx), msg);
-  	else if constexpr(requires{(*err)(0, src, msg);}) return (*err)(new_line_count(ctx), src, msg);
-  	else if constexpr(requires{(*err)(msg);}) return (*err)(msg);
-  	else if constexpr(requires{(*err)(result, 0, msg);}) return (*err)(result, new_line_count(ctx), msg);
-  	else if constexpr(requires{(*err)(result, src, 0, msg);}) return (*err)(result, src, new_line_count(ctx), msg);
-  	else {
-  		static_assert( requires{(*err)(result, msg);}, "the error handler have to request no result as parameter or it have to be a template parameter" );
-  		return (*err)(result, msg);
-  	}
-  }
+		static_assert( !std::is_same_v<std::decay_t<decltype(err)>, ctx_not_found_type>, "for using the must parser a error handler is required" );
+		if constexpr(requires{(*err)(0, msg);}) return (*err)(new_line_count(ctx), msg);
+		else if constexpr(requires{(*err)(0, src, msg);}) return (*err)(new_line_count(ctx), src, msg);
+		else if constexpr(requires{(*err)(msg);}) return (*err)(msg);
+		else if constexpr(requires{(*err)(result, 0, msg);}) return (*err)(result, new_line_count(ctx), msg);
+		else if constexpr(requires{(*err)(result, src, 0, msg);}) return (*err)(result, src, new_line_count(ctx), msg);
+		else {
+			static_assert( requires{(*err)(result, msg);}, "the error handler have to request no result as parameter or it have to be a template parameter" );
+			return (*err)(result, msg);
+		}
+	}
 };
 
 template<parser left, typename right> constexpr auto operator>(left&& l, right&& r) {
@@ -12658,7 +12657,7 @@ template<parser left, typename right> constexpr auto operator>(left&& l, right&&
 }
 
 template<string_literal msg> constexpr auto must(parser auto&& p) {
-  return must_parser<msg, std::decay_t<decltype(p)>>{ {}, std::forward<decltype(p)>(p) };
+	return must_parser<msg, std::decay_t<decltype(p)>>{ {}, std::forward<decltype(p)>(p) };
 }
 
 template<typename p, template<auto>class t=p::template tmpl>
@@ -12683,7 +12682,7 @@ constexpr bool test_must_parser() {
 		return (p::any >> t<'a'>::char_ >> t<'b'>::char_ >> must<"test">(t<'c'>::char_)).parse(make_test_ctx(&err_method), make_source("\nabe"), r);
 	}() == -4, "on error: sources are on start sequence and on rule where the error");
 
-  return true;
+	return true;
 }
 
 } // namespace ascip_details::prs
@@ -12848,7 +12847,6 @@ constexpr static auto transform_special(prs::tmpl_as_parser<value, parser>&& src
 
 namespace ascip_details::prs {
 
-struct variant_pos_tag{};
 struct variant_stack_tag{};
 struct variant_stack_result_tag{};
 
@@ -12878,8 +12876,7 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
 	}
 	template<auto ind> consteval static auto cur_ind() { return _cur_ind<ind,0,0,parsers...>(); }
 	template<auto ind> constexpr auto parse_ind(auto&& ctx, auto& src, auto& result) const {
-		auto parse_ctx = make_ctx<variant_pos_tag>(variant_pos_value<ind>{}, ctx);
-		auto prs = [&](auto&& r){ return get<ind>(seq).parse(parse_ctx, src, variant_result<cur_ind<ind>()>(r)); };
+		auto prs = [&](auto&& r){ return get<ind>(seq).parse(ctx, src, variant_result<cur_ind<ind>()>(r)); };
 		if constexpr (ind+1 == sizeof...(parsers)) return prs(result);
 		else {
 			auto parse_result = prs(type_any_eq_allow{});
