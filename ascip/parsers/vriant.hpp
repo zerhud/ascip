@@ -15,7 +15,6 @@
 
 namespace ascip_details::prs {
 
-struct variant_pos_tag{};
 struct variant_stack_tag{};
 struct variant_stack_result_tag{};
 
@@ -45,8 +44,7 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
 	}
 	template<auto ind> consteval static auto cur_ind() { return _cur_ind<ind,0,0,parsers...>(); }
 	template<auto ind> constexpr auto parse_ind(auto&& ctx, auto& src, auto& result) const {
-		auto parse_ctx = make_ctx<variant_pos_tag>(variant_pos_value<ind>{}, ctx);
-		auto prs = [&](auto&& r){ return get<ind>(seq).parse(parse_ctx, src, variant_result<cur_ind<ind>()>(r)); };
+		auto prs = [&](auto&& r){ return get<ind>(seq).parse(ctx, src, variant_result<cur_ind<ind>()>(r)); };
 		if constexpr (ind+1 == sizeof...(parsers)) return prs(result);
 		else {
 			auto parse_result = prs(type_any_eq_allow{});
