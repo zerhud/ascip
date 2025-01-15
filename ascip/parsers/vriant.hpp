@@ -53,7 +53,7 @@ template<parser parser> struct use_variant_result_parser : base_parser<use_varia
 	parser p;
 };
 
-template<auto ind> struct variant_reqursion_parser : base_parser<variant_reqursion_parser<ind>> {
+template<auto ind> struct variant_recursion_parser : base_parser<variant_recursion_parser<ind>> {
 	constexpr static parse_result parse(auto&& ctx, auto src, auto& result) {
 		auto* var = *search_in_ctx<variant_stack_tag, ind>(ctx);
 		if constexpr (type_dc<decltype(result)> == type_c<type_any_eq_allow>) return var->parse_mono(src);

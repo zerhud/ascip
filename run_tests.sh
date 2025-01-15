@@ -8,8 +8,8 @@ g++ -std=c++23 -ftemplate-backtrace-limit=0 -fwhole-program -march=native -fdiag
 
 g++ -std=c++23 -ftemplate-backtrace-limit=0 -fwhole-program -march=native -fdiagnostics-color=always -I. examples/inheritance.cpp -o /tmp/inheritance &
 
-g++ -std=c++23 -ftemplate-backtrace-limit=0 -fwhole-program -march=native -fdiagnostics-color=always -I. examples/left_reqursion.cpp -o /tmp/left_reqursion &
-clang++ -std=c++23 -ftemplate-backtrace-limit=0 -march=native -fdiagnostics-color=always -I. examples/left_reqursion.cpp -o /tmp/left_reqursion_clang &
+g++ -std=c++23 -ftemplate-backtrace-limit=0 -fwhole-program -march=native -fdiagnostics-color=always -I. examples/left_recursion.cpp -o /tmp/left_recursion &
+clang++ -std=c++23 -ftemplate-backtrace-limit=0 -march=native -fdiagnostics-color=always -I. examples/left_recursion.cpp -o /tmp/left_recursion_clang &
 
 wait $(jobs -rp)
 
@@ -17,7 +17,7 @@ wait $(jobs -rp)
 /tmp/version
 /tmp/type
 /tmp/inheritance
-/tmp/left_reqursion
+/tmp/left_recursion
 
 echo ""
 echo "==========="
@@ -25,4 +25,4 @@ echo "clang tests"
 echo "==========="
 echo ""
 
-/tmp/left_reqursion_clang
+/tmp/left_recursion_clang

@@ -12894,7 +12894,7 @@ template<parser parser> struct use_variant_result_parser : base_parser<use_varia
 	parser p;
 };
 
-template<auto ind> struct variant_reqursion_parser : base_parser<variant_reqursion_parser<ind>> {
+template<auto ind> struct variant_recursion_parser : base_parser<variant_recursion_parser<ind>> {
 	constexpr static parse_result parse(auto&& ctx, auto src, auto& result) {
 		auto* var = *search_in_ctx<variant_stack_tag, ind>(ctx);
 		if constexpr (type_dc<decltype(result)> == type_c<type_any_eq_allow>) return var->parse_mono(src);
@@ -13568,7 +13568,7 @@ constexpr static bool is_top_result_parser() {
 
 namespace ascip_details::prs::rv_utils {
 
-template<typename cur_parser_t> constexpr bool contains_reqursion() {
+template<typename cur_parser_t> constexpr bool contains_recursion() {
 	auto checker = [](const auto* p){return std::is_same_v<std::decay_t<decltype(*p)>, rvariant_lreq_parser>;};
 	auto stop = [](const auto* p){
 		const bool is_rv = requires{ p->maker; };
@@ -13590,7 +13590,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 	constexpr rvariant_parser( maker_type m, parsers... l ) : seq( std::forward<parsers>(l)... ), maker(std::forward<maker_type>(m)) {}
 
 	constexpr static auto size() { return sizeof...(parsers); }
-	template<auto ind> constexpr static bool is_term() { return rv_utils::contains_reqursion<__type_pack_element<ind, parsers...>>(); }
+	template<auto ind> constexpr static bool is_term() { return rv_utils::contains_recursion<__type_pack_element<ind, parsers...>>(); }
 	template<auto ind> consteval static auto cur_ind() {
 		using cur_parser_t = std::decay_t<decltype(get<ind>(seq))>;
 		if constexpr (is_top_result_parser<cur_parser_t>()) return -1;
@@ -14137,7 +14137,7 @@ struct ascip {
   template<auto stop_ind> constexpr static ascip_details::prs::rvariant_rreq_parser<stop_ind> _rv_rreq{};
   template<auto ind> constexpr static auto rv_req = ascip_details::prs::rvariant_req_parser<ind>{};
 
-  template<auto ind> constexpr static auto r_req  = ascip_details::prs::variant_reqursion_parser<ind>{};
+  template<auto ind> constexpr static auto r_req  = ascip_details::prs::variant_recursion_parser<ind>{};
 
   constexpr static auto dquoted_string = lexeme(_char<'"'> >> *(as<'"'>(char_<'\\'> >> char_<'"'>)| (ascip::any - char_<'"'>)) >> _char<'"'>);
   constexpr static auto squoted_string = lexeme(_char<'\''> >> *(as<'\''>(char_<'\\'> >> char_<'\''>)| (ascip::any - char_<'\''>)) >> _char<'\''>);

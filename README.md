@@ -143,15 +143,15 @@ Generally, all types what implements emplace_back and pop_back (or emplace_back 
 
 [example in godbolt](https://godbolt.org/z/6anMfTGbs)
 
-## reqursion
-what about reqursion? we can write a class wrapper with redefined operator = for it can be used to create a value. or we can create reqursion value in lambda. for example let's parse a type like `box<list<string>, int>`. i use a vector of unique_ptr for simplify this example. [please see full example on godbolt](https://godbolt.org/z/7cs3dTq83)
+## recursion
+what about recursion? we can write a class wrapper with redefined operator = for it can be used to create a value. or we can create recursion value in lambda. for example let's parse a type like `box<list<string>, int>`. i use a vector of unique_ptr for simplify this example. [please see full example on godbolt](https://godbolt.org/z/7cs3dTq83)
 
 the parser is:
 ```
 constexpr auto ident = lexeme(letter >> *(letter | d10 | char_<'_'>));
 constexpr auto type_p = ident++ >> -(omit(char_<'<'>) >> ascip::req<1>([](auto&r){r.reset(new type());return r.get();}) % ',' >> omit(char_<'>'>));
 ```
-NOTE: lambda for create reqursion holder has to return pointer (or smart pointer).
+NOTE: lambda for create recursion holder has to return pointer (or smart pointer).
 
 let's see the `type_p` parser closely
 ```
@@ -161,7 +161,7 @@ constexpr auto type_p =
   >> -(      // - is an optional parser
        omit(char_<'<'>) // omits a value
     >> ascip::req<1> // reqursively calls parser. 1 - the number of sequence parsers (as current - number)
-       ([](...){...}) // lambda for create object for store reqursion. it get an empty unqie_ptr what emplace_back to result.
+       ([](...){...}) // lambda for create object for store recursion. it get an empty unqie_ptr what emplace_back to result.
        % ','
     >> omit(char_<'>'>)
   )
@@ -193,8 +193,8 @@ please note:
 - `()` operator is a special semact. the semact allows to transform the result (it's single argument). it is another method for parse with inheritance.
 - instead of casting the result we can provide a static method `struct_fields_count()` in the type, returning the count of fields in the type
 
-## left reqursion
-we can also use `rv_lreq` and `rv_rreq` parsers for left reqursion. for example let's parse some expression. [here is full example](https://godbolt.org/z/cEbvMhM3e). the example seems to big, you can pay attention on make_grammar function only.
+## left recursion
+we can also use `rv_lreq` and `rv_rreq` parsers for left recursion. for example let's parse some expression. [here is full example](https://godbolt.org/z/cEbvMhM3e). the example seems to big, you can pay attention on make_grammar function only.
 
 ```
 	return rv( [](auto& r){ return std::unique_ptr<expr>( new expr{std::move(r)} ); }

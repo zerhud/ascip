@@ -10,7 +10,7 @@
 #include "seq/common.hpp"
 #include "seq/use_seq_result.hpp"
 #include "seq/position_info.hpp"
-#include "seq/reqursion.hpp"
+#include "seq/recursion.hpp"
 #include "seq/struct_fields.hpp"
 #include "seq/monomorphic.hpp"
 #include "../details.hpp"

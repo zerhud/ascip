@@ -80,10 +80,10 @@ constexpr auto make_grammar() {
 	// or we can create type with creates with new in ctor and skip result_maker
 	auto result_maker = [](auto& r){ r.reset(new (std::decay_t<decltype(*r)>){}); return r.get(); };
 	auto term = gh::int_ | (gh::alpha >> *(gh::alpha|gh::d10|th<'_'>::char_));
-	// rv_lreq is left (left of a terminal) reqursion parser
-	// rv_rreq is right (right of a terminal) reqursion (just parses next variant)
+	// rv_lreq is left (left of a terminal) recursion parser
+	// rv_rreq is right (right of a terminal) recursion (just parses next variant)
 	// ++ for store to second field (to binary_expr::right)
-	// the first rv parameter is a result creator, the result must to be castable to resulting field for left reqursion
+	// the first rv parameter is a result creator, the result must to be castable to resulting field for left recursion
 	return rv( [](auto& r){ return std::unique_ptr<expr>( new expr{std::move(r)} ); }
 	  , cast<ternary_expr>(gh::rv_lreq >> th<'?'>::_char >> ++gh::rv_rreq(result_maker) >> th<':'>::_char >> ++gh::rv_rreq(result_maker))
 	  , cast<binary_expr>(gh::rv_lreq >> th<'+'>::_char >> ++gh::rv_rreq(result_maker))
@@ -96,7 +96,7 @@ constexpr auto make_grammar() {
 	  , term
 	);
 	// use_variant_result:
-	// in normal case (parser without reqursion) variant, passed as result must to have
+	// in normal case (parser without recursion) variant, passed as result must to have
 	// same element count as the parsers, but the function skips current index and uses
 	// the top level value as result instead.
 }
