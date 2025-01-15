@@ -66,21 +66,24 @@ constexpr void test_seq_fnum() {
 }
 
 constexpr void test_seq_req() {
-	constexpr auto ab_req = (char_<'a'>|'b') >> -(_char<'('> >> p::req<1> >> _char<')'>);
+	constexpr auto ab_req = p::seq_enable_recursion >> (char_<'a'>|'b') >> -(_char<'('> >> p::req<0> >> _char<')'>);
+	static_assert( ab_req.is_recursion_enabled );
+	static_assert( (char_<'a'> >> p::req<0>).is_recursion_enabled == false );
+	static_assert( (char_<'a'> >> char_<'b'>).is_recursion_enabled == false );
 	static_assert( test_parser_parse(char{}, ab_req, "a(b)", 4) == 'b' );
 	static_assert( test_parser_parse_r_str(ab_req, "a(b(a))", 7, 'a', 'b', 'a') );
-	static_assert( test_parser_parse_r_str((char_<'a'>|'b'|'c') >> _char<'('> >> -p::req<0> >> _char<')'>, "a(b(c()))", 9, 'a', 'b', 'c') );
+	static_assert( test_parser_parse_r_str((char_<'a'>|'b'|'c') >> _char<'('> >> p::seq_enable_recursion >> -p::req<0> >> _char<')'>, "a(b(c()))", 9, 'a', 'b', 'c') );
 
 	struct semact_req_tester { char n='z'; semact_req_tester* ptr=nullptr; };
 	static_assert( []{
 		semact_req_tester r, r2; char ok='u';
-		auto p=((char_<'a'>|'b')++ >> -(_char<'('> >> use_seq_result(p::req<1>([&r2,&ok](auto& r){ok='o';return &r2;})) >> _char<')'>));
+		auto p=(p::seq_enable_recursion >> (char_<'a'>|'b')++ >> -(_char<'('> >> use_seq_result(p::req<0>([&r2,&ok](auto& r){ok='o';return &r2;})) >> _char<')'>));
 		p.parse(make_test_ctx(), make_source("a(b)"), r);
 		return r.n * (r2.n == 'b') * (ok=='o');
 	}() == 'a', "check semact for create value");
 	static_assert( []{
 		semact_req_tester r;
-		auto p=(char_<'a'>++ >> -(omit(char_<'('>) >> use_seq_result(p::req<1>([](auto& r){r=new semact_req_tester('b');return r;})) >> omit(char_<')'>)));
+		auto p=(p::seq_enable_recursion >> char_<'a'>++ >> -(omit(char_<'('>) >> use_seq_result(p::req<0>([](auto& r){r=new semact_req_tester('b');return r;})) >> omit(char_<')'>)));
 		p.parse(make_test_ctx(), make_source("a(a)"), r);
 		char ret = r.ptr->n * (r.ptr->ptr == nullptr);
 		delete r.ptr;
@@ -102,7 +105,7 @@ constexpr void test_seq_shift_pos() {
 		abcd.parse(make_test_ctx(), make_source("abcd"), r);
 		return r.i.shift1 + r.shift2;
 	}() == 6, "can parse current shift");
-	constexpr auto ab_req = (char_<'a'>|'b') >> -use_seq_result(_char<'('> >> use_seq_result(p::req<1>) >> _char<')'> >> ++p::cur_shift) >> ++p::cur_shift;
+	constexpr auto ab_req = p::seq_enable_recursion >> (char_<'a'>|'b') >> -use_seq_result(_char<'('> >> use_seq_result(p::req<0>) >> _char<')'> >> ++p::cur_shift) >> ++p::cur_shift;
 	static_assert( [&]{
 		struct { char a='z'; int shift; } r;
 		ab_req.parse(make_test_ctx(), make_source("a(b)"), r);
@@ -131,7 +134,7 @@ static_assert( []{
 	;
 }() == 31 );
 
-constexpr auto ab_req = (char_<'a'>|'b') >> -(_char<'('> >> p::req<1> >> _char<')'>);
+constexpr auto ab_req = p::seq_enable_recursion >> (char_<'a'>|'b') >> -(_char<'('> >> p::req<0> >> _char<')'>);
 static_assert( []{
 	char r1{};
 	const auto r = parse(ab_req, +p::space, p::make_source("a ( b )"), r1);
@@ -143,7 +146,7 @@ static_assert( []{
 
 static_assert( [] {
 	char r1{};
-	const auto r = parse(p::char_<'a'> >> (p::char_<'b'> | (p::char_<'r'> >> p::req<1>)), p::make_source("arab"), r1);
+	const auto r = parse(p::seq_enable_recursion >> p::char_<'a'> >> (p::char_<'b'> | (p::char_<'r'> >> p::req<0>)), p::make_source("arab"), r1);
 	return (r==4)
 	+ 2*(r1=='b')
 	;

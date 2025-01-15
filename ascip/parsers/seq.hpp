@@ -26,12 +26,9 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 	constexpr opt_seq_parser(auto&&... args) requires (sizeof...(parsers) == sizeof...(args)) : seq( static_cast<decltype(args)&&>(args)... ) {}
 	constexpr opt_seq_parser(const opt_seq_parser&) =default ;
 
-	template<template<typename...>class tmpl>
-	constexpr static auto is_spec_checker = [](const auto* p) {
-		return is_specialization_of<std::decay_t<decltype(*p)>, tmpl>;
-	};
-	template<typename type>
-	constexpr static bool _exists_in(auto&& ch) {
+	template<typename type> constexpr static auto is_type_checker = [](const auto* p){ return type_dc<decltype(*p)> == type_dc<type>; };
+	template<template<typename...>class tmpl> constexpr static auto is_spec_checker = [](const auto* p) { return is_specialization_of<std::decay_t<decltype(*p)>, tmpl>; };
+	template<typename type> constexpr static bool _exists_in(auto&& ch) {
 		return exists_in((type*)nullptr, ch, [](const auto* p){
 			return requires{ p->seq; } && !requires{ static_cast<const opt_seq_parser*>(p); };
 		});
@@ -50,6 +47,7 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		 (is_num_field_val<types> + ...)
 		) > 0;
 	constexpr static bool is_struct_requires_pd = is_struct_requires<parsers...>;
+	constexpr static bool is_recursion_enabled = (_exists_in<parsers>(is_type_checker<seq_enable_recursion_parser>) + ...) ;
 
 	template<typename type> constexpr static int num_field_val() { return grab_num_val<type, opt_seq_parser, seq_num_rfield_val>(); }
 	template<typename type> constexpr static auto inc_field_val() { return grab_num_val<type, opt_seq_parser, seq_inc_rfield_val>(); }
@@ -93,7 +91,14 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 	constexpr parse_result parse_without_prep(auto&& ctx, auto src, auto& result) const {
 		return parse_and_store_shift<0,0>(std::forward<decltype(ctx)>(ctx), std::move(src), result);
 	}
-	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const requires (!is_recursion_enabled) {
+		if(!src) return -1;
+		auto shift_store = 0;
+		auto cur_ctx = make_ctx<seq_shift_stack_tag>(&shift_store,
+		  make_ctx<seq_result_stack_tag>(&result, ctx ) ) ;
+		return parse_without_prep(cur_ctx, src, result);
+	}
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const requires is_recursion_enabled {
 		if(!src) return -1;
 		using mono_type = seq_details::monomorphic<decltype(src), std::decay_t<decltype(result)>>;
 		auto shift_store = 0;

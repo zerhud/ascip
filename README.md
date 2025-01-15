@@ -84,13 +84,13 @@ with sequence parser can be used
 - `cur_pos` just stores to result current position, parse nothing
 - `cur_shift` for store to its result current shift position from sequence start
 - `req<number>` for call the sequence (or parent sequence) recursively. the req parser also can be combined with `()` operator with lambda for create recursion result value.
+- `seq_enable_recursion` parser enables recursion for sequence parser, without it the `req` parser won't work. the parser allow to speed up the compilation time (most of the sequence parsers won't have a recursion).
 - `++` prefix or postfix for increase result's field number to store the parser result. prefix `++` will increase the number for current parser and postfix `++` - for next parser.
 - `--` same as `++` but decrease the number
 - `finc<number>` method. same as `++` or `--` but you can specify the number will be added to current position (the number can also to be negative). the parser should to be the most outter one: char_<'a'> >> -finc<3>(char_<'b'>) will not work.
 - `fnum<number>` method. setts the resulting field position independently of the current one. this parser as the `finc` should to be the most outer one.
 - `use_seq_result` method. use result as it is inside the sequence parser instead of fields from that result.
-- `must` method. causes an error on fail. accepts a message as template parameter, it will be passed to error function, passed in parse method. parameters: result, source on start parser position, current line number, message.
-- lambda in sequence: sequence parser will call it with the same arguments as must method. its returned value, if present, will be added to the source position (or causes error if less then 0).
+- `must` method. causes an error on fail. accepts a message as template parameter. it will be passed to error function, passed in parse method. parameters: result, source on start parser position, current line number, message.
 
 # examples
 

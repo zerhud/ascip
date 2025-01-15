@@ -12336,8 +12336,12 @@ struct cur_pos_parser : base_parser<cur_pos_parser> {
 
 namespace ascip_details::prs {
 
+struct seq_enable_recursion_parser : base_parser<seq_enable_recursion_parser> {
+	constexpr static parse_result parse(auto&&, auto&, auto&) { return 0; }
+};
+
 template<auto ind>
-struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind>> {
+struct seq_recursion_parser : base_parser<seq_recursion_parser<ind>> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		const auto* req = *search_in_ctx<seq_stack_tag, ind>(ctx);
 		if constexpr( type_dc<decltype(result)> == type_c<type_any_eq_allow> )
@@ -12492,12 +12496,9 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 	constexpr opt_seq_parser(auto&&... args) requires (sizeof...(parsers) == sizeof...(args)) : seq( static_cast<decltype(args)&&>(args)... ) {}
 	constexpr opt_seq_parser(const opt_seq_parser&) =default ;
 
-	template<template<typename...>class tmpl>
-	constexpr static auto is_spec_checker = [](const auto* p) {
-		return is_specialization_of<std::decay_t<decltype(*p)>, tmpl>;
-	};
-	template<typename type>
-	constexpr static bool _exists_in(auto&& ch) {
+	template<typename type> constexpr static auto is_type_checker = [](const auto* p){ return type_dc<decltype(*p)> == type_dc<type>; };
+	template<template<typename...>class tmpl> constexpr static auto is_spec_checker = [](const auto* p) { return is_specialization_of<std::decay_t<decltype(*p)>, tmpl>; };
+	template<typename type> constexpr static bool _exists_in(auto&& ch) {
 		return exists_in((type*)nullptr, ch, [](const auto* p){
 			return requires{ p->seq; } && !requires{ static_cast<const opt_seq_parser*>(p); };
 		});
@@ -12516,6 +12517,7 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		 (is_num_field_val<types> + ...)
 		) > 0;
 	constexpr static bool is_struct_requires_pd = is_struct_requires<parsers...>;
+	constexpr static bool is_recursion_enabled = (_exists_in<parsers>(is_type_checker<seq_enable_recursion_parser>) + ...) ;
 
 	template<typename type> constexpr static int num_field_val() { return grab_num_val<type, opt_seq_parser, seq_num_rfield_val>(); }
 	template<typename type> constexpr static auto inc_field_val() { return grab_num_val<type, opt_seq_parser, seq_inc_rfield_val>(); }
@@ -12559,7 +12561,14 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 	constexpr parse_result parse_without_prep(auto&& ctx, auto src, auto& result) const {
 		return parse_and_store_shift<0,0>(std::forward<decltype(ctx)>(ctx), std::move(src), result);
 	}
-	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const requires (!is_recursion_enabled) {
+		if(!src) return -1;
+		auto shift_store = 0;
+		auto cur_ctx = make_ctx<seq_shift_stack_tag>(&shift_store,
+		  make_ctx<seq_result_stack_tag>(&result, ctx ) ) ;
+		return parse_without_prep(cur_ctx, src, result);
+	}
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const requires is_recursion_enabled {
 		if(!src) return -1;
 		using mono_type = seq_details::monomorphic<decltype(src), std::decay_t<decltype(result)>>;
 		auto shift_store = 0;
@@ -12887,7 +12896,7 @@ template<parser parser> struct use_variant_result_parser : base_parser<use_varia
 
 template<auto ind> struct variant_reqursion_parser : base_parser<variant_reqursion_parser<ind>> {
 	constexpr static parse_result parse(auto&& ctx, auto src, auto& result) {
-		const auto* var = search_in_ctx<variant_stack_tag, ind>(ctx);
+		auto* var = *search_in_ctx<variant_stack_tag, ind>(ctx);
 		if constexpr (type_dc<decltype(result)> == type_c<type_any_eq_allow>) return var->parse_mono(src);
 		else return var->parse_mono(src, result);
 	}
@@ -12925,9 +12934,9 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
         using mono_type = variant_details::monomorphic<decltype(src), std::decay_t<decltype(result)>>;
         mono_type* mono_ptr;
         auto nctx = make_ctx<variant_stack_tag>(&mono_ptr, make_ctx<variant_stack_result_tag>(&result, ctx));
-        auto mono = variant_details::mk_mono(this, ctx, src, result);
+        auto mono = variant_details::mk_mono(this, nctx, src, result);
         mono_ptr = &mono;
-        return parse_ind<0>(nctx, src, result);
+		return mono.parse_mono(src, result);
 	}
 
 	constexpr auto clang_crash_workaround(auto r) {
@@ -12960,6 +12969,12 @@ constexpr static bool test_variant() {
 		char r='z';
 		const auto pr = run_parse(prs::nop | t<'a'>::char_, "b", r);
 		return (r=='z') + 2*(pr == 0);
+	}() == 3 );
+
+	static_assert( [&] {
+		char r{'z'};
+		const auto pr = run_parse(t<'a'>::char_ | t<'b'>::char_ >> t<0>::r_req, "bbba", r);
+		return (pr==4) + 2*(r=='a');
 	}() == 3 );
 
 	return true;
@@ -14103,7 +14118,8 @@ struct ascip {
   // sequence
   constexpr static auto cur_pos = ascip_details::prs::cur_pos_parser{};
   constexpr static auto cur_shift = ascip_details::prs::cur_shift_parser{};
-  template<auto ind> constexpr static auto req = ascip_details::prs::seq_reqursion_parser<ind>{};
+  template<auto ind> constexpr static auto req = ascip_details::prs::seq_recursion_parser<ind>{};
+  constexpr static auto seq_enable_recursion = ascip_details::prs::seq_enable_recursion_parser{};
   constexpr static ascip_details::prs::seq_inc_rfield sfs{} ;
 
   // functions

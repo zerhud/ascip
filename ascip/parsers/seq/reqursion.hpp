@@ -13,8 +13,12 @@
 
 namespace ascip_details::prs {
 
+struct seq_enable_recursion_parser : base_parser<seq_enable_recursion_parser> {
+	constexpr static parse_result parse(auto&&, auto&, auto&) { return 0; }
+};
+
 template<auto ind>
-struct seq_reqursion_parser : base_parser<seq_reqursion_parser<ind>> {
+struct seq_recursion_parser : base_parser<seq_recursion_parser<ind>> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		const auto* req = *search_in_ctx<seq_stack_tag, ind>(ctx);
 		if constexpr( type_dc<decltype(result)> == type_c<type_any_eq_allow> )

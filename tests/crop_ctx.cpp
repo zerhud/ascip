@@ -39,7 +39,7 @@ struct block : base {
 	auto ctx_test_exists = []<typename ctx_t>([[maybe_unused]] auto ret, ctx_t*, [[maybe_unused]] auto src, [[maybe_unused]] auto& result) {
 		static_assert(  exists_in_ctx<ctx_test>(std::decay_t<ctx_t>{}) == true );
 	};
-		return add_to_ctx<ctx_test>(1, p::char_<'3'>++ >> p::char_<'b'>++ >> p::req<1>(ctx_test_exists));
+		return add_to_ctx<ctx_test>(1, p::char_<'3'>++ >> p::char_<'b'>++ >> p::req<0>(ctx_test_exists));
 	}
 };
 
@@ -55,7 +55,7 @@ constexpr auto mk_content_parser() {
 	auto no_ctx_test = []<typename ctx_t>([[maybe_unused]] auto ret, ctx_t*, [[maybe_unused]] auto src, [[maybe_unused]] auto& result) {
 		static_assert(  exists_in_ctx<block::ctx_test>(std::decay_t<ctx_t>{}) == false );
 	};
-	return p::char_<'o'>++ >> use_seq_result(p::nop(no_ctx_test)) >> +(
+	return p::seq_enable_recursion >> p::char_<'o'>++ >> use_seq_result(p::nop(no_ctx_test)) >> +(
 	  element::mk()(mk_ptr<element>())
 	| element_2::mk()(mk_ptr<element_2>())
 	| block::mk()(mk_ptr<block>())

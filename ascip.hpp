@@ -35,7 +35,8 @@ struct ascip {
   // sequence
   constexpr static auto cur_pos = ascip_details::prs::cur_pos_parser{};
   constexpr static auto cur_shift = ascip_details::prs::cur_shift_parser{};
-  template<auto ind> constexpr static auto req = ascip_details::prs::seq_reqursion_parser<ind>{};
+  template<auto ind> constexpr static auto req = ascip_details::prs::seq_recursion_parser<ind>{};
+  constexpr static auto seq_enable_recursion = ascip_details::prs::seq_enable_recursion_parser{};
   constexpr static ascip_details::prs::seq_inc_rfield sfs{} ;
 
   // functions
