@@ -15,7 +15,39 @@
 
 namespace ascip_details::prs {
 
+struct variant_stack_tag {};
 struct variant_stack_result_tag{};
+
+namespace variant_details {
+
+template<typename source, typename result>
+struct monomorphic {
+  virtual ~monomorphic() =default ;
+  virtual parse_result parse_mono(source) =0 ;
+  virtual parse_result parse_mono(source, result&) =0 ;
+};
+
+template<typename parser, typename context, typename source, typename result>
+struct monomorphic_impl : monomorphic<source, result> {
+  const parser* v;
+  context ctx;
+
+  constexpr monomorphic_impl(const parser* v, context ctx) : v(v), ctx(std::move(ctx)) {}
+  constexpr parse_result parse_mono(source src) override {
+    type_any_eq_allow fr;
+    return v->template parse_ind<0>(ctx, src, fr);
+  }
+  constexpr parse_result parse_mono(source src, result& r) override {
+    return v->template parse_ind<0>(ctx, src, r);
+  }
+};
+
+template<typename parser, typename context, typename source, typename result>
+constexpr auto mk_mono(const parser* p, context ctx, source src, result& r) {
+  return monomorphic_impl<parser, context, source, result>( p, ctx );
+}
+
+}
 
 template<parser parser> struct use_variant_result_parser : base_parser<use_variant_result_parser<parser>> {
 	parser p;
@@ -52,7 +84,12 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
 		}
 	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-        return parse_ind<0>(make_ctx<variant_stack_result_tag>(&result, ctx), src, result);
+        using mono_type = variant_details::monomorphic<decltype(src), std::decay_t<decltype(result)>>;
+        mono_type* mono_ptr;
+        auto nctx = make_ctx<variant_stack_tag>(&mono_ptr, make_ctx<variant_stack_result_tag>(&result, ctx));
+        auto mono = variant_details::mk_mono(this, ctx, src, result);
+        mono_ptr = &mono;
+        return parse_ind<0>(nctx, src, result);
 	}
 
 	constexpr auto clang_crash_workaround(auto r) {
