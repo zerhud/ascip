@@ -12847,7 +12847,6 @@ constexpr static auto transform_special(prs::tmpl_as_parser<value, parser>&& src
 
 namespace ascip_details::prs {
 
-struct variant_stack_tag{};
 struct variant_stack_result_tag{};
 
 template<parser parser> struct use_variant_result_parser : base_parser<use_variant_result_parser<parser>> {
@@ -12880,23 +12879,12 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
 		if constexpr (ind+1 == sizeof...(parsers)) return prs(result);
 		else {
 			auto parse_result = prs(type_any_eq_allow{});
-			if(parse_result > 0) return prs(result);
+			if(parse_result >= 0) return prs(result);
 			return parse_ind<ind+1>(ctx, src, result);
 		}
 	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		//TODO: there is no reqursion parser, seems store self_type is redundant
-		if constexpr (exists_in_ctx<self_type>(decltype(auto(ctx)){}))
-			return parse_ind<0>(ctx, src, result);
-		else {
-			auto variant_ctx =
-				make_ctx<variant_stack_result_tag>(&result,
-					make_ctx<variant_stack_tag>(this, ctx) //TODO: do we really need this?
-				)
-			;
-			auto nctx = make_ctx<self_type>(&variant_ctx, variant_ctx);
-			return parse_ind<0>(nctx, src, result);
-		}
+        return parse_ind<0>(make_ctx<variant_stack_result_tag>(&result, ctx), src, result);
 	}
 
 	constexpr auto clang_crash_workaround(auto r) {
@@ -12925,6 +12913,11 @@ constexpr static bool test_variant() {
 	static_assert( ({ char r{};run_parse(as(t<'b'>::char_,'c')|t<'a'>::char_, "a", r);r;}) == 'a' );
 	static_assert( ({ char r{};run_parse(as(t<'b'>::char_,'c')|t<'a'>::char_, "a", r);  }) ==  1 );
 
+	static_assert( [&] {
+		char r='z';
+		const auto pr = run_parse(prs::nop | t<'a'>::char_, "b", r);
+		return (r=='z') + 2*(pr == 0);
+	}() == 3 );
 
 	return true;
 }
