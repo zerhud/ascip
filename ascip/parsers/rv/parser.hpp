@@ -37,7 +37,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 	}
 	template<auto ind> constexpr parse_result parse_term(auto&& ctx, auto src, auto& result) const {
 		if constexpr (ind == 0) {
-			if constexpr (is_term<ind>()) return get<ind>(seq).parse(ctx, src, result);
+			if constexpr (is_term<ind>()) return get<ind>(seq).parse(ctx, src, result); //TODO: write test and fix, here have to be variant_result function used
 			else return -1;
 		}
 		else if constexpr (!is_term<ind>()) return parse_term<ind-1>(ctx, src, result);
@@ -57,15 +57,14 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		}
 		else {
 			type_check_parser result_for_check;
-			auto pr = get<ind>(seq).parse(ctx, src, result_for_check);
-			decltype(pr) prev_pr = 0;
-			while(0 < pr) {
-				prev_pr += pr;
+			parse_result prev_pr = 0;
+			while( get<ind>(seq).parse(ctx, src, result_for_check) >= 0 ) {
 				auto cur = move_result(result);
 				if constexpr (!requires{is_parse_non_result(result).ok;})
 					search_in_ctx<rvariant_cpy_result_tag>(ctx) = &cur;
-				src += get<ind>(seq).parse(ctx, src, variant_result<cur_ind<ind>()>(result));
-				pr = get<ind>(seq).parse(ctx, src, result_for_check);
+				auto pr = get<ind>(seq).parse(ctx, src, variant_result<cur_ind<ind>()>(result));
+				src += pr / (pr>=0);
+				prev_pr += pr;
 			}
 			auto total_shift = shift + prev_pr*(prev_pr>0);
 			if constexpr (ind==0) return total_shift;
