@@ -19,12 +19,18 @@ struct variant_stack_tag {};
 struct variant_stack_result_tag{};
 
 namespace variant_details {
-
-template<typename source, typename result>
+template <typename source, typename result>
 struct monomorphic {
-  virtual ~monomorphic() =default ;
-  virtual parse_result parse_mono(source) =0 ;
-  virtual parse_result parse_mono(source, result&) =0 ;
+	virtual ~monomorphic() = default ;
+	virtual parse_result parse_mono_omit(source) =0;
+	virtual parse_result parse_mono_check(source) =0;
+	virtual parse_result parse_mono(source, result&) =0;
+
+	constexpr parse_result call_parse(source src, auto& r) {
+		if constexpr (requires { is_parsing_without_result(r).ok; }) return parse_mono_omit(src);
+		else if constexpr (requires { is_checking(r).ok; }) return parse_mono_check(src);
+		else return parse_mono(src, r);
+	}
 };
 
 template<typename parser, typename context, typename source, typename result>
@@ -33,8 +39,12 @@ struct monomorphic_impl : monomorphic<source, result> {
   context ctx;
 
   constexpr monomorphic_impl(const parser* v, context ctx) : v(v), ctx(std::move(ctx)) {}
-  constexpr parse_result parse_mono(source src) override {
-    type_any_eq_allow fr;
+  constexpr parse_result parse_mono_omit(source src) override {
+    type_parse_without_result fr;
+    return v->template parse_ind<0>(ctx, src, fr);
+  }
+  constexpr parse_result parse_mono_check(source src) override {
+    type_check_parser fr;
     return v->template parse_ind<0>(ctx, src, fr);
   }
   constexpr parse_result parse_mono(source src, result& r) override {
@@ -56,8 +66,7 @@ template<parser parser> struct use_variant_result_parser : base_parser<use_varia
 template<auto ind> struct variant_recursion_parser : base_parser<variant_recursion_parser<ind>> {
 	constexpr static parse_result parse(auto&& ctx, auto src, auto& result) {
 		auto* var = *search_in_ctx<variant_stack_tag, ind>(ctx);
-		if constexpr (type_dc<decltype(result)> == type_c<type_any_eq_allow>) return var->parse_mono(src);
-		else return var->parse_mono(src, result);
+		return var->call_parse(src, result);
 	}
 };
 
@@ -84,17 +93,18 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
 		auto prs = [&](auto&& r){ return get<ind>(seq).parse(ctx, src, variant_result<cur_ind<ind>()>(r)); };
 		if constexpr (ind+1 == sizeof...(parsers)) return prs(result);
 		else {
-			auto parse_result = prs(type_any_eq_allow{});
+			auto parse_result = prs(type_check_parser{});
 			if(parse_result >= 0) return prs(result);
 			return parse_ind<ind+1>(ctx, src, result);
 		}
 	}
+
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-        using mono_type = variant_details::monomorphic<decltype(src), std::decay_t<decltype(result)>>;
-        mono_type* mono_ptr;
-        auto nctx = make_ctx<variant_stack_tag>(&mono_ptr, make_ctx<variant_stack_result_tag>(&result, ctx));
-        auto mono = variant_details::mk_mono(this, nctx, src, result);
-        mono_ptr = &mono;
+		using mono_type = variant_details::monomorphic<decltype(src), std::decay_t<decltype(result)>>;
+		mono_type* mono_ptr;
+		auto nctx = make_ctx<variant_stack_tag>(&mono_ptr, make_ctx<variant_stack_result_tag>(&result, ctx));
+		auto mono = variant_details::mk_mono(this, nctx, src, result);
+		mono_ptr = &mono;
 		return mono.parse_mono(src, result);
 	}
 

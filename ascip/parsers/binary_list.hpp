@@ -18,7 +18,7 @@ struct binary_list_parser : base_parser<binary_list_parser<left, right>> {
 	right rp;
 	constexpr binary_list_parser(left l, right r) : lp(l), rp(r) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		type_any_eq_allow fake_result;
+		type_parse_without_result fake_result;
 		auto ret = call_parse(ctx, src, result);
 		if(ret<0) pop(result);
 		auto cur = ret;

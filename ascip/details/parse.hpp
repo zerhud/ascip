@@ -13,7 +13,7 @@ namespace ascip_details {
 constexpr auto inject_skipping(auto&& to, auto&& what) ;
 
 constexpr auto parse(auto&& parser, auto src) {
-	type_any_eq_allow r;
+	type_parse_without_result r;
 	return parse(std::forward<decltype(parser)>(parser), src, r);
 }
 

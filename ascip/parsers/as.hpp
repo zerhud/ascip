@@ -18,7 +18,7 @@ template<auto val, parser parser> struct tmpl_as_parser : base_parser<tmpl_as_pa
 	constexpr tmpl_as_parser(const tmpl_as_parser&) =default ;
 	constexpr tmpl_as_parser(parser p) : p(std::move(p)) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		type_any_eq_allow r;
+		type_parse_without_result r;
 		auto shift = p.parse(ctx, static_cast<decltype(auto(src))&&>(src), r);
 		if(shift >= 0) result = val;
 		return shift;
@@ -38,7 +38,7 @@ template<typename value_t, parser parser> struct as_parser : base_parser<as_pars
 	constexpr as_parser(const as_parser&) =default ;
 	constexpr as_parser(value_t val, parser p) : val(std::move(val)), p(std::move(p)) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		type_any_eq_allow r;
+		type_parse_without_result r;
 		auto shift = p.parse(ctx, std::move(src), r);
 		if(shift >= 0) result = val;
 		return shift;

@@ -15,16 +15,16 @@ struct result_checker_parser : base_parser<result_checker_parser<good_result, pa
 	parser p;
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		static_assert(
-			   std::is_same_v<type_any_eq_allow, std::decay_t<decltype(result)>>
+			   requires{is_parse_non_result(result).ok;}
 			|| std::is_same_v<good_result, std::decay_t<decltype(result)>>
 			, "can only parser to required type" );
-		return p.parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(auto(src))&&>(src), result);
+		return p.parse(static_cast<decltype(ctx)&&>(ctx), std::move(src), result);
 	}
 };
 template<typename needed, parser type> struct cast_parser : base_parser<cast_parser<needed,type>> {
 	type p;
 	constexpr static auto& check_result(auto& result) {
-		if constexpr( std::is_same_v<std::decay_t<decltype(result)>, type_any_eq_allow> ) return result;
+		if constexpr( requires{is_parse_non_result(result).ok;} ) return result;
 		else {
 			static_assert(requires{ static_cast<needed&>(result); }, "the result must to be castable to needed type" );
 			return static_cast<needed&>(result);
@@ -53,10 +53,10 @@ constexpr static bool test_checkers() {
 	static_assert( requires(char& r) {
 		cast<char>(ca).parse(make_test_ctx(),a::make_source('a'),r);
 		});
-	static_assert( requires(type_any_eq_allow& r) {
+	static_assert( requires(type_parse_without_result& r) {
 		check<char>(ca).parse(make_test_ctx(),a::make_source('a'),r);
 		});
-	static_assert( requires(type_any_eq_allow& r) {
+	static_assert( requires(type_check_parser& r) {
 		cast<char>(ca).parse(make_test_ctx(),a::make_source('a'),r);
 		});
 	return true;

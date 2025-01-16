@@ -15,23 +15,6 @@ constexpr void test_seq_simple_case() {
 	static_assert( test_parser_parse_r_str(p_ab, "cab", -1) );
 	static_assert( test_parser_parse_r_str(p::any >> omit(p::space) >> p::any, "1 2", 3, '1', '2') );
 	static_assert( test_parser_parse_r_str(char_<'a'> >> 'b', "ab", 2, 'a', 'b') );
-
-	/*
-	static_assert( []{ char r='z', l='a';
-		(char_<'a'> >> char_<'b'> >> [&](auto& result, auto src, auto line, auto msg) {
-		 src.ind /= (src.ind==2);
-		 result /= (result=='b');
-		 line /= (line==1);
-		 l = 'u' * (result == 'b');
-		 }).parse(make_test_ctx(), make_source("ab"), r);
-	return l;}() == 'u');
-	static_assert(
-		test_parser_parse_r_str(char_<'a'> >> char_<'b'> >> [](auto& result, auto src, auto line, auto msg){return 1;}, "ab", 3, 'a', 'b'),
-		"lambda value is added to position" );
-	static_assert(
-		test_parser_parse_r_str(char_<'a'> >> [](auto&& ctx, auto src, auto& result){return 1;}, "a", 2, 'a'),
-		"lambda value is added to position" );
-	*/
 }
 
 constexpr void test_seq_result_fields() {

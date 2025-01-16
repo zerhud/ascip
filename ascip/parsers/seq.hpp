@@ -55,7 +55,7 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 	template<auto find> constexpr auto call_parse(ascip_details::parser auto& p, auto&& ctx, auto src, auto& result) const {
 		if constexpr (!is_struct_requires_pd) return p.parse(ctx, src, result);
 		else if constexpr (is_field_separator<decltype(auto(p))>) return p.parse(ctx, src, result);
-		else if constexpr ( type_dc<decltype(result)> == type_c<type_any_eq_allow> )
+		else if constexpr (requires{ is_parse_non_result(result).ok; })
 			return p.parse(ctx, src, result);
 		else {
 			return p.parse(ctx, src, ascip_reflection::get<find>(result));

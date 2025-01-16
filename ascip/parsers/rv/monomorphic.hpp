@@ -11,8 +11,18 @@ namespace ascip_details::prs::rv_utils {
 
 template<typename source, typename result> struct monomorphic {
   virtual ~monomorphic() =default ;
-  virtual parse_result parse_mono(int ind, source src) const =0 ;
+  virtual parse_result parse_mono_omit(int ind, source src) const =0 ;
+  virtual parse_result parse_mono_check(int ind, source src) const =0 ;
   virtual parse_result parse_mono(int ind, source src, result& r) const =0 ;
+
+  constexpr parse_result call_parse(int ind, source src, auto& r) const {
+    if constexpr(requires{ is_parsing_without_result(r).ok; })
+      return parse_mono_omit(ind, std::move(src));
+    else if constexpr(requires{ is_checking(r).ok; })
+      return parse_mono_check(ind, std::move(src));
+    else
+      return parse_mono(ind, std::move(src), r);
+  }
 };
 
 template<auto parsers_count, typename parser, typename context, typename source, typename result>
@@ -28,8 +38,12 @@ struct mono_for_rv final : monomorphic<source, result> {
 		if constexpr(cur==parsers_count) return -1;
 		else return cur==ind ? call<cur>(std::move(src), r) : call<cur+1>(ind, std::move(src), r);
 	}
-	constexpr parse_result parse_mono(const int ind, source src) const override {
-		type_any_eq_allow r;
+	constexpr parse_result parse_mono_omit(const int ind, source src) const override {
+		type_parse_without_result r;
+		return call<0>(ind, std::move(src), r);
+	}
+	constexpr parse_result parse_mono_check(const int ind, source src) const override {
+		type_check_parser r;
 		return call<0>(ind, std::move(src), r);
 	}
 	constexpr parse_result parse_mono(const int ind, source src, result& r) const override {

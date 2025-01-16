@@ -36,7 +36,7 @@ template<parser skip, parser base> struct injected_parser : base_parser<injected
 	constexpr injected_parser(const injected_parser&) noexcept =default ;
 	constexpr injected_parser(skip s, base b) : s(std::forward<decltype(s)>(s)), b(std::forward<decltype(b)>(b)) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		type_any_eq_allow skip_result;
+		type_parse_without_result skip_result;
 		auto sr = s.parse(ctx, src, skip_result);
 		sr *= (0<=sr);
 		src += sr;

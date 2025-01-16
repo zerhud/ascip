@@ -59,11 +59,6 @@ template<typename tag, auto ind=0, typename... frames> constexpr auto& search_in
 template<typename tag, auto ind=0, typename... frames> constexpr const auto& search_in_ctx(const tuple<frames...>& ctx) {
   return _search_in_ctx<tag, 0, 0, ind, sizeof...(frames)>(const_cast<tuple<frames...>&>(ctx));
 }
-/*
-template<typename tag, auto ind=0> constexpr auto& search_in_ctx(auto&& ctx) { // for tests
-  return search_in_ctx<tag,ind>(ctx);
-}
-*/
 
 template<typename tag, typename... frames> constexpr bool exists_in_ctx(const tuple<frames...>&) {
   return ((frames::tag == type_c<tag>) + ... );
@@ -87,7 +82,7 @@ template<auto ind, typename tag, typename... frames> constexpr auto crop_ctx(tup
 constexpr void count_new_line(bool result_ok, auto& ctx, auto sym, auto& r) {
 	constexpr bool need_count_new_lines =
 		   exists_in_ctx<new_line_count_tag>(decltype(auto(ctx)){})
-		&& type_dc<decltype(r)> != type_c<type_any_eq_allow>
+		&& !requires{ is_parsing_without_result(r).ok; }
 	;
 	if constexpr (need_count_new_lines)
 		search_in_ctx<new_line_count_tag>(ctx) += (sym == '\n') * result_ok;

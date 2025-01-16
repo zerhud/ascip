@@ -10,16 +10,22 @@
 
 namespace ascip_details {
 
-struct type_any_eq_allow {
+struct type_any_eq_allow { };
+
+struct type_check_parser : type_any_eq_allow {
 	template<typename type> constexpr auto& operator =(const type&){ return *this; }
 	template<typename type> constexpr auto& operator+=(const type&){ return *this; }
 	template<typename type> constexpr auto& operator-=(const type&){ return *this; }
 	template<typename type> constexpr auto& operator/=(const type&){ return *this; }
 	template<typename type> constexpr auto& operator*=(const type&){ return *this; }
 };
-
-struct type_check_parser : type_any_eq_allow {};
-struct type_parse_without_result : type_any_eq_allow {};
+struct type_parse_without_result : type_any_eq_allow {
+	template<typename type> constexpr auto& operator =(const type&){ return *this; }
+	template<typename type> constexpr auto& operator+=(const type&){ return *this; }
+	template<typename type> constexpr auto& operator-=(const type&){ return *this; }
+	template<typename type> constexpr auto& operator/=(const type&){ return *this; }
+	template<typename type> constexpr auto& operator*=(const type&){ return *this; }
+};
 struct result_check_ok_for_clang { constexpr static bool ok = true; };
 
 constexpr auto is_checking(const auto&) { return false; }
@@ -28,13 +34,14 @@ constexpr auto is_parsing_without_result(const auto&) { return false; }
 constexpr auto is_parsing_without_result(const type_parse_without_result&) { return result_check_ok_for_clang{}; }
 
 constexpr auto is_parse_non_result(const auto&) { return false; }
-constexpr auto is_parse_non_result(const type_any_eq_allow&) { return result_check_ok_for_clang{}; } //TODO: delete it
 constexpr auto is_parse_non_result(const type_check_parser&) { return result_check_ok_for_clang{}; }
 constexpr auto is_parse_non_result(const type_parse_without_result&) { return result_check_ok_for_clang{}; }
 
 
-constexpr auto& pop_back(type_any_eq_allow& v){ return v; };
-constexpr auto& emplace_back(type_any_eq_allow& v){ return v; };
+constexpr auto& pop_back(type_check_parser& v){ return v; };
+constexpr auto& pop_back(type_parse_without_result& v){ return v; };
+constexpr auto& emplace_back(type_check_parser& v){ return v; };
+constexpr auto& emplace_back(type_parse_without_result& v){ return v; };
 constexpr void pop(auto& r) requires requires{ pop_back(r); } { pop_back(r); }
 constexpr void pop(auto& r) requires requires{ r.pop_back(); } { r.pop_back(); }
 constexpr void pop(auto& r) { }

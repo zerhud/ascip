@@ -20,7 +20,6 @@ template<string_literal msg, parser type> struct must_parser : base_parser<must_
 
 	constexpr static auto call_if_error(auto& ctx, auto& result, auto orig_ret, auto& src) {
 		if (0 <= orig_ret) return orig_ret;
-		constexpr bool without_result = ascip_details::type_dc<decltype(result)> == ascip_details::type_c<type_any_eq_allow>;
 		auto err = search_in_ctx<err_handler_tag>(ctx);
 		static_assert( !std::is_same_v<std::decay_t<decltype(err)>, ctx_not_found_type>, "for using the must parser a error handler is required" );
 		if constexpr(requires{(*err)(0, msg);}) return (*err)(new_line_count(ctx), msg);

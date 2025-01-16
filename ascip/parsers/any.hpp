@@ -27,7 +27,7 @@ struct any_parser : base_parser<any_parser> {
 	constexpr bool test() const {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-value"
-		char r=0x00; type_any_eq_allow rr;
+		char r=0x00; type_parse_without_result rr;
 		parse(make_test_ctx(), make_source(' '), r) == 1       || (throw __LINE__, 1);
 		(parse(make_test_ctx(), make_source('Z'), r),r) == 'Z' || (throw __LINE__, 1);
 		(parse(make_test_ctx(), make_source('~'), r),r) == '~' || (throw __LINE__, 1);

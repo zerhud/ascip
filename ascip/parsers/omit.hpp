@@ -19,7 +19,7 @@ template<ascip_details::parser parser> struct omit_parser : base_parser<omit_par
 	constexpr omit_parser(const omit_parser&) =default ;
 	constexpr omit_parser(parser p) : p(std::move(p)) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto&) const {
-		type_any_eq_allow r;
+		type_parse_without_result r;
 		return p.parse(ctx, src, r);
 	}
 };

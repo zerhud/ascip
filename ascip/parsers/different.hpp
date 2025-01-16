@@ -15,7 +15,7 @@ template<parser left, parser right> struct different_parser : base_parser<differ
 	right rp;
 	constexpr different_parser( left l, right r ) : lp(l), rp(r) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		type_any_eq_allow fake_result;
+		type_parse_without_result fake_result;
 		if(rp.parse(ctx, src, fake_result) >= 0) return -1;
 		return lp.parse(ctx, src, result);
 	}

@@ -21,9 +21,7 @@ template<auto ind>
 struct seq_recursion_parser : base_parser<seq_recursion_parser<ind>> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		const auto* req = *search_in_ctx<seq_stack_tag, ind>(ctx);
-		if constexpr( type_dc<decltype(result)> == type_c<type_any_eq_allow> )
-			return src ? req->parse_mono(src) : -1;
-		else return src ? req->parse_mono(src, result) : -1;
+		return src ? req->call_parse(src, result) : -1 ;
 	}
 };
 

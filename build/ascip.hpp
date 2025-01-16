@@ -10829,16 +10829,38 @@ template<typename type> concept empbackable = requires(type& r){ emplace_back(r)
 
 namespace ascip_details {
 
-struct type_any_eq_allow {
+struct type_any_eq_allow { };
+
+struct type_check_parser : type_any_eq_allow {
 	template<typename type> constexpr auto& operator =(const type&){ return *this; }
 	template<typename type> constexpr auto& operator+=(const type&){ return *this; }
 	template<typename type> constexpr auto& operator-=(const type&){ return *this; }
 	template<typename type> constexpr auto& operator/=(const type&){ return *this; }
 	template<typename type> constexpr auto& operator*=(const type&){ return *this; }
 };
+struct type_parse_without_result : type_any_eq_allow {
+	template<typename type> constexpr auto& operator =(const type&){ return *this; }
+	template<typename type> constexpr auto& operator+=(const type&){ return *this; }
+	template<typename type> constexpr auto& operator-=(const type&){ return *this; }
+	template<typename type> constexpr auto& operator/=(const type&){ return *this; }
+	template<typename type> constexpr auto& operator*=(const type&){ return *this; }
+};
+struct result_check_ok_for_clang { constexpr static bool ok = true; };
 
-constexpr auto& pop_back(type_any_eq_allow& v){ return v; };
-constexpr auto& emplace_back(type_any_eq_allow& v){ return v; };
+constexpr auto is_checking(const auto&) { return false; }
+constexpr auto is_checking(const type_check_parser&) { return result_check_ok_for_clang{}; }
+constexpr auto is_parsing_without_result(const auto&) { return false; }
+constexpr auto is_parsing_without_result(const type_parse_without_result&) { return result_check_ok_for_clang{}; }
+
+constexpr auto is_parse_non_result(const auto&) { return false; }
+constexpr auto is_parse_non_result(const type_check_parser&) { return result_check_ok_for_clang{}; }
+constexpr auto is_parse_non_result(const type_parse_without_result&) { return result_check_ok_for_clang{}; }
+
+
+constexpr auto& pop_back(type_check_parser& v){ return v; };
+constexpr auto& pop_back(type_parse_without_result& v){ return v; };
+constexpr auto& emplace_back(type_check_parser& v){ return v; };
+constexpr auto& emplace_back(type_parse_without_result& v){ return v; };
 constexpr void pop(auto& r) requires requires{ pop_back(r); } { pop_back(r); }
 constexpr void pop(auto& r) requires requires{ r.pop_back(); } { r.pop_back(); }
 constexpr void pop(auto& r) { }
@@ -10915,11 +10937,6 @@ template<typename tag, auto ind=0, typename... frames> constexpr auto& search_in
 template<typename tag, auto ind=0, typename... frames> constexpr const auto& search_in_ctx(const tuple<frames...>& ctx) {
   return _search_in_ctx<tag, 0, 0, ind, sizeof...(frames)>(const_cast<tuple<frames...>&>(ctx));
 }
-/*
-template<typename tag, auto ind=0> constexpr auto& search_in_ctx(auto&& ctx) { // for tests
-  return search_in_ctx<tag,ind>(ctx);
-}
-*/
 
 template<typename tag, typename... frames> constexpr bool exists_in_ctx(const tuple<frames...>&) {
   return ((frames::tag == type_c<tag>) + ... );
@@ -10943,7 +10960,7 @@ template<auto ind, typename tag, typename... frames> constexpr auto crop_ctx(tup
 constexpr void count_new_line(bool result_ok, auto& ctx, auto sym, auto& r) {
 	constexpr bool need_count_new_lines =
 		   exists_in_ctx<new_line_count_tag>(decltype(auto(ctx)){})
-		&& type_dc<decltype(r)> != type_c<type_any_eq_allow>
+		&& !requires{ is_parsing_without_result(r).ok; }
 	;
 	if constexpr (need_count_new_lines)
 		search_in_ctx<new_line_count_tag>(ctx) += (sym == '\n') * result_ok;
@@ -11495,7 +11512,7 @@ namespace ascip_details {
 constexpr auto inject_skipping(auto&& to, auto&& what) ;
 
 constexpr auto parse(auto&& parser, auto src) {
-	type_any_eq_allow r;
+	type_parse_without_result r;
 	return parse(std::forward<decltype(parser)>(parser), src, r);
 }
 
@@ -11866,7 +11883,7 @@ struct any_parser : base_parser<any_parser> {
 		return ret;
 	}
 	constexpr bool test() const {
-		char r=0x00; type_any_eq_allow rr;
+		char r=0x00; type_parse_without_result rr;
 		parse(make_test_ctx(), make_source(' '), r) == 1       || (throw __LINE__, 1);
 		(parse(make_test_ctx(), make_source('Z'), r),r) == 'Z' || (throw __LINE__, 1);
 		(parse(make_test_ctx(), make_source('~'), r),r) == '~' || (throw __LINE__, 1);
@@ -12134,9 +12151,8 @@ template<typename parser, typename act_t> struct semact_parser : base_parser<sem
 	act_t act;
 	[[no_unique_address]] parser p;
 
-	constexpr const parse_result parse(auto&& ctx, auto src, auto& result) const {
-		constexpr bool is_any_arg_pattern = !requires{ act(); };
-		if constexpr(std::is_same_v<type_any_eq_allow&, decltype(result)>)
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
+		if constexpr(requires{is_parse_non_result(result).ok;})
 			return p.parse(std::forward<decltype(ctx)>(ctx), std::move(src), result);
 		else if constexpr(requires{ act(result); requires std::is_pointer_v<decltype(act(result))>;} ) {
 			auto* nr = act(result);
@@ -12175,8 +12191,8 @@ template<typename parser, typename act_type, typename tag> struct exec_before_pa
 	act_type act;
 	[[no_unique_address]] parser p;
 
-	constexpr const parse_result parse(auto&& ctx, auto src, auto& result) const {
-		if constexpr(type_dc<decltype(result)> == type_c<type_any_eq_allow>) return p.parse(ctx, src, result);
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
+		if constexpr(requires{is_parse_non_result(result).ok;}) return p.parse(ctx, src, result);
 		else if constexpr(requires{*act(search_in_ctx<tag>(ctx), result);}) {
 			auto* new_result = act(search_in_ctx<tag>(ctx), result);
 			return p.parse(ctx, src, *new_result);
@@ -12192,9 +12208,9 @@ template<typename parser, typename act_type, typename tag> struct exec_after_par
 	act_type act;
 	[[no_unique_address]] parser p;
 
-	constexpr const parse_result parse(auto&& ctx, auto src, auto& result) const {
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = p.parse(ctx, src, result);
-		if constexpr (type_dc<decltype(result)> != type_c<type_any_eq_allow>) act(search_in_ctx<tag>(ctx), result);
+		if constexpr (!requires{is_parse_non_result(result).ok;}) act(search_in_ctx<tag>(ctx), result);
 		else if constexpr(requires{act(search_in_ctx<tag>(ctx));}) act(search_in_ctx<tag>(ctx));
 		return ret;
 	}
@@ -12344,9 +12360,7 @@ template<auto ind>
 struct seq_recursion_parser : base_parser<seq_recursion_parser<ind>> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		const auto* req = *search_in_ctx<seq_stack_tag, ind>(ctx);
-		if constexpr( type_dc<decltype(result)> == type_c<type_any_eq_allow> )
-			return src ? req->parse_mono(src) : -1;
-		else return src ? req->parse_mono(src, result) : -1;
+		return src ? req->call_parse(src, result) : -1 ;
 	}
 };
 
@@ -12459,8 +12473,18 @@ namespace ascip_details::prs::seq_details {
 
 template<typename source, typename result> struct monomorphic {
   virtual ~monomorphic() =default ;
-  virtual parse_result parse_mono(source src) const =0 ;
+  virtual parse_result parse_mono_omit(source src) const =0 ;
+  virtual parse_result parse_mono_check(source src) const =0 ;
   virtual parse_result parse_mono(source src, result& r) const =0 ;
+
+  constexpr parse_result call_parse(source src, auto& r) const {
+    if constexpr(requires{ is_parsing_without_result(r).ok; })
+      return parse_mono_omit(std::move(src));
+    else if constexpr(requires{ is_checking(r).ok; })
+      return parse_mono_check(std::move(src));
+    else
+      return parse_mono(std::move(src), r);
+  }
 };
 
 template<typename parser, typename context, typename source, typename result>
@@ -12469,8 +12493,12 @@ struct mono_for_seq final : monomorphic<source, result> {
 	const parser* self;
 	mutable context ctx;
 	constexpr mono_for_seq(const parser* self, context ctx) : self(self), ctx(std::move(ctx)) {}
-	constexpr parse_result parse_mono(source src) const override {
-		type_any_eq_allow r;
+	constexpr parse_result parse_mono_omit(source src) const override {
+		type_parse_without_result r;
+		return self->parse_without_prep(ctx, src, r);
+	}
+	constexpr parse_result parse_mono_check(source src) const override {
+		type_check_parser r;
 		return self->parse_without_prep(ctx, src, r);
 	}
 	constexpr parse_result parse_mono(source src, result& r) const override {
@@ -12525,7 +12553,7 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 	template<auto find> constexpr auto call_parse(ascip_details::parser auto& p, auto&& ctx, auto src, auto& result) const {
 		if constexpr (!is_struct_requires_pd) return p.parse(ctx, src, result);
 		else if constexpr (is_field_separator<decltype(auto(p))>) return p.parse(ctx, src, result);
-		else if constexpr ( type_dc<decltype(result)> == type_c<type_any_eq_allow> )
+		else if constexpr (requires{ is_parse_non_result(result).ok; })
 			return p.parse(ctx, src, result);
 		else {
 			return p.parse(ctx, src, ascip_reflection::get<find>(result));
@@ -12646,7 +12674,6 @@ template<string_literal msg, parser type> struct must_parser : base_parser<must_
 
 	constexpr static auto call_if_error(auto& ctx, auto& result, auto orig_ret, auto& src) {
 		if (0 <= orig_ret) return orig_ret;
-		constexpr bool without_result = ascip_details::type_dc<decltype(result)> == ascip_details::type_c<type_any_eq_allow>;
 		auto err = search_in_ctx<err_handler_tag>(ctx);
 		static_assert( !std::is_same_v<std::decay_t<decltype(err)>, ctx_not_found_type>, "for using the must parser a error handler is required" );
 		if constexpr(requires{(*err)(0, msg);}) return (*err)(new_line_count(ctx), msg);
@@ -12734,7 +12761,7 @@ template<ascip_details::parser parser> struct omit_parser : base_parser<omit_par
 	constexpr omit_parser(const omit_parser&) =default ;
 	constexpr omit_parser(parser p) : p(std::move(p)) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto&) const {
-		type_any_eq_allow r;
+		type_parse_without_result r;
 		return p.parse(ctx, src, r);
 	}
 };
@@ -12783,7 +12810,7 @@ template<auto val, parser parser> struct tmpl_as_parser : base_parser<tmpl_as_pa
 	constexpr tmpl_as_parser(const tmpl_as_parser&) =default ;
 	constexpr tmpl_as_parser(parser p) : p(std::move(p)) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		type_any_eq_allow r;
+		type_parse_without_result r;
 		auto shift = p.parse(ctx, static_cast<decltype(auto(src))&&>(src), r);
 		if(shift >= 0) result = val;
 		return shift;
@@ -12803,7 +12830,7 @@ template<typename value_t, parser parser> struct as_parser : base_parser<as_pars
 	constexpr as_parser(const as_parser&) =default ;
 	constexpr as_parser(value_t val, parser p) : val(std::move(val)), p(std::move(p)) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		type_any_eq_allow r;
+		type_parse_without_result r;
 		auto shift = p.parse(ctx, std::move(src), r);
 		if(shift >= 0) result = val;
 		return shift;
@@ -12864,8 +12891,15 @@ namespace variant_details {
 template<typename source, typename result>
 struct monomorphic {
   virtual ~monomorphic() =default ;
-  virtual parse_result parse_mono(source) =0 ;
+  virtual parse_result parse_mono_omit(source) =0 ;
+  virtual parse_result parse_mono_check(source) =0 ;
   virtual parse_result parse_mono(source, result&) =0 ;
+
+  constexpr parse_result call_parse(source src, auto& r) {
+    if constexpr (requires { is_parsing_without_result(r).ok; }) return parse_mono_omit(src);
+  	else if constexpr (requires{ is_checking(r).ok; }) return parse_mono_check(src);
+  	else return parse_mono(src, r);
+  }
 };
 
 template<typename parser, typename context, typename source, typename result>
@@ -12874,8 +12908,12 @@ struct monomorphic_impl : monomorphic<source, result> {
   context ctx;
 
   constexpr monomorphic_impl(const parser* v, context ctx) : v(v), ctx(std::move(ctx)) {}
-  constexpr parse_result parse_mono(source src) override {
-    type_any_eq_allow fr;
+  constexpr parse_result parse_mono_omit(source src) override {
+    type_parse_without_result fr;
+    return v->template parse_ind<0>(ctx, src, fr);
+  }
+  constexpr parse_result parse_mono_check(source src) override {
+    type_check_parser fr;
     return v->template parse_ind<0>(ctx, src, fr);
   }
   constexpr parse_result parse_mono(source src, result& r) override {
@@ -12897,8 +12935,7 @@ template<parser parser> struct use_variant_result_parser : base_parser<use_varia
 template<auto ind> struct variant_recursion_parser : base_parser<variant_recursion_parser<ind>> {
 	constexpr static parse_result parse(auto&& ctx, auto src, auto& result) {
 		auto* var = *search_in_ctx<variant_stack_tag, ind>(ctx);
-		if constexpr (type_dc<decltype(result)> == type_c<type_any_eq_allow>) return var->parse_mono(src);
-		else return var->parse_mono(src, result);
+		return var->call_parse(src, result);
 	}
 };
 
@@ -12925,7 +12962,7 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
 		auto prs = [&](auto&& r){ return get<ind>(seq).parse(ctx, src, variant_result<cur_ind<ind>()>(r)); };
 		if constexpr (ind+1 == sizeof...(parsers)) return prs(result);
 		else {
-			auto parse_result = prs(type_any_eq_allow{});
+			auto parse_result = prs(type_check_parser{});
 			if(parse_result >= 0) return prs(result);
 			return parse_ind<ind+1>(ctx, src, result);
 		}
@@ -13023,7 +13060,7 @@ template<parser left, parser right> struct different_parser : base_parser<differ
 	right rp;
 	constexpr different_parser( left l, right r ) : lp(l), rp(r) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		type_any_eq_allow fake_result;
+		type_parse_without_result fake_result;
 		if(rp.parse(ctx, src, fake_result) >= 0) return -1;
 		return lp.parse(ctx, src, result);
 	}
@@ -13222,7 +13259,7 @@ struct binary_list_parser : base_parser<binary_list_parser<left, right>> {
 	right rp;
 	constexpr binary_list_parser(left l, right r) : lp(l), rp(r) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		type_any_eq_allow fake_result;
+		type_parse_without_result fake_result;
 		auto ret = call_parse(ctx, src, result);
 		if(ret<0) pop(result);
 		auto cur = ret;
@@ -13325,16 +13362,16 @@ struct result_checker_parser : base_parser<result_checker_parser<good_result, pa
 	parser p;
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		static_assert(
-			   std::is_same_v<type_any_eq_allow, std::decay_t<decltype(result)>>
+			   requires{is_parse_non_result(result).ok;}
 			|| std::is_same_v<good_result, std::decay_t<decltype(result)>>
 			, "can only parser to required type" );
-		return p.parse(static_cast<decltype(ctx)&&>(ctx), static_cast<decltype(auto(src))&&>(src), result);
+		return p.parse(static_cast<decltype(ctx)&&>(ctx), std::move(src), result);
 	}
 };
 template<typename needed, parser type> struct cast_parser : base_parser<cast_parser<needed,type>> {
 	type p;
 	constexpr static auto& check_result(auto& result) {
-		if constexpr( std::is_same_v<std::decay_t<decltype(result)>, type_any_eq_allow> ) return result;
+		if constexpr( requires{is_parse_non_result(result).ok;} ) return result;
 		else {
 			static_assert(requires{ static_cast<needed&>(result); }, "the result must to be castable to needed type" );
 			return static_cast<needed&>(result);
@@ -13363,10 +13400,10 @@ constexpr static bool test_checkers() {
 	static_assert( requires(char& r) {
 		cast<char>(ca).parse(make_test_ctx(),a::make_source('a'),r);
 		});
-	static_assert( requires(type_any_eq_allow& r) {
+	static_assert( requires(type_parse_without_result& r) {
 		check<char>(ca).parse(make_test_ctx(),a::make_source('a'),r);
 		});
-	static_assert( requires(type_any_eq_allow& r) {
+	static_assert( requires(type_check_parser& r) {
 		cast<char>(ca).parse(make_test_ctx(),a::make_source('a'),r);
 		});
 	return true;
@@ -13424,8 +13461,18 @@ namespace ascip_details::prs::rv_utils {
 
 template<typename source, typename result> struct monomorphic {
   virtual ~monomorphic() =default ;
-  virtual parse_result parse_mono(int ind, source src) const =0 ;
+  virtual parse_result parse_mono_omit(int ind, source src) const =0 ;
+  virtual parse_result parse_mono_check(int ind, source src) const =0 ;
   virtual parse_result parse_mono(int ind, source src, result& r) const =0 ;
+
+  constexpr parse_result call_parse(int ind, source src, auto& r) const {
+    if constexpr(requires{ is_parsing_without_result(r).ok; })
+      return parse_mono_omit(ind, std::move(src));
+    else if constexpr(requires{ is_checking(r).ok; })
+      return parse_mono_check(ind, std::move(src));
+    else
+      return parse_mono(ind, std::move(src), r);
+  }
 };
 
 template<auto parsers_count, typename parser, typename context, typename source, typename result>
@@ -13441,8 +13488,12 @@ struct mono_for_rv final : monomorphic<source, result> {
 		if constexpr(cur==parsers_count) return -1;
 		else return cur==ind ? call<cur>(std::move(src), r) : call<cur+1>(ind, std::move(src), r);
 	}
-	constexpr parse_result parse_mono(const int ind, source src) const override {
-		type_any_eq_allow r;
+	constexpr parse_result parse_mono_omit(const int ind, source src) const override {
+		type_parse_without_result r;
+		return call<0>(ind, std::move(src), r);
+	}
+	constexpr parse_result parse_mono_check(const int ind, source src) const override {
+		type_check_parser r;
 		return call<0>(ind, std::move(src), r);
 	}
 	constexpr parse_result parse_mono(const int ind, source src, result& r) const override {
@@ -13470,38 +13521,33 @@ constexpr auto mk_mono(const auto* parser, auto ctx, [[maybe_unused]] auto src, 
 namespace ascip_details::prs {
 
 struct rvariant_lreq_parser : base_parser<rvariant_lreq_parser> {
-	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		constexpr bool need_in_result = !std::is_same_v<decltype(result), type_any_eq_allow&> ;
-		if constexpr (need_in_result) {
-			result = std::move(*search_in_ctx<rvariant_cpy_result_tag>(ctx));
-			search_in_ctx<rvariant_cpy_result_tag>(ctx) = nullptr;
-		}
-		return 0;
-	}
+  constexpr parse_result parse(auto&& ctx, auto, auto& result) const {
+    if constexpr (!requires{ is_parse_non_result(result).ok; }) {
+      result = std::move(*search_in_ctx<rvariant_cpy_result_tag>(ctx));
+      search_in_ctx<rvariant_cpy_result_tag>(ctx) = nullptr;
+    }
+    return 0;
+  }
 };
 
 template<auto stop_ind>
 struct rvariant_rreq_parser : base_parser<rvariant_rreq_parser<stop_ind>> {
-    constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-        if(!src) return 0;
-        auto* var = *search_in_ctx<rvariant_stack_tag>(ctx);
-        if constexpr(type_dc<decltype(result)> == type_c<type_any_eq_allow>)
-            return var->parse_mono(stop_ind+1, std::move(src));
-        else return var->parse_mono(stop_ind+1, std::move(src), result);
-    }
+  constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
+    if(!src) return 0;
+    auto* var = *search_in_ctx<rvariant_stack_tag>(ctx);
+    return var->call_parse(stop_ind+1, std::move(src), result);
+  }
 };
 
 struct rvariant_rreq_pl_parser : base_parser<rvariant_rreq_pl_parser> {
-	constexpr static parse_result parse(auto&&, auto, auto&) { return 0; }
+  constexpr static parse_result parse(auto&&, auto, auto&) { return 0; }
 };
 
 template<auto ind> struct rvariant_req_parser : base_parser<rvariant_req_parser<ind>> {
-    constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-        auto* var = *search_in_ctx<rvariant_stack_tag, ind>(ctx);
-        if constexpr(type_dc<decltype(result)> == type_c<type_any_eq_allow>)
-            return var->parse_mono(0, std::move(src));
-        else return var->parse_mono(0, std::move(src), result);
-    }
+  constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
+    auto* var = *search_in_ctx<rvariant_stack_tag, ind>(ctx);
+    return var->call_parse(0, std::move(src), result);
+  }
 } ;
 
 }
@@ -13602,7 +13648,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		}
 	}
 	constexpr auto move_result(auto& result) const {
-		if constexpr (std::is_same_v<decltype(result), type_any_eq_allow&>) return result;
+		if constexpr (requires{is_parse_non_result(result).ok;}) return result;
 		else return maker(result);
 	}
 	template<auto ind> constexpr parse_result parse_term(auto&& ctx, auto src, auto& result) const {
@@ -13626,18 +13672,18 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 			else return parse_nonterm<ind-1, stop_pos>(ctx, src, result, shift);
 		}
 		else {
-			type_any_eq_allow result_for_check;
+			type_check_parser result_for_check;
 			auto pr = get<ind>(seq).parse(ctx, src, result_for_check);
 			decltype(pr) prev_pr = 0;
 			while(0 < pr) {
 				prev_pr += pr;
 				auto cur = move_result(result);
-				if constexpr (!std::is_same_v<decltype(result), type_any_eq_allow&>)
+				if constexpr (!requires{is_parse_non_result(result).ok;})
 					search_in_ctx<rvariant_cpy_result_tag>(ctx) = &cur;
 				src += get<ind>(seq).parse(ctx, src, variant_result<cur_ind<ind>()>(result));
 				pr = get<ind>(seq).parse(ctx, src, result_for_check);
 			}
-			auto total_shift = shift + (prev_pr*(prev_pr>0));
+			auto total_shift = shift + prev_pr*(prev_pr>0);
 			if constexpr (ind==0) return total_shift;
 			else return parse_nonterm<ind-1, stop_pos>(ctx, src, result, total_shift);
 		}
@@ -13852,7 +13898,7 @@ template<parser skip, parser base> struct injected_parser : base_parser<injected
 	constexpr injected_parser(const injected_parser&) noexcept =default ;
 	constexpr injected_parser(skip s, base b) : s(std::forward<decltype(s)>(s)), b(std::forward<decltype(b)>(b)) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		type_any_eq_allow skip_result;
+		type_parse_without_result skip_result;
 		auto sr = s.parse(ctx, src, skip_result);
 		sr *= (0<=sr);
 		src += sr;
