@@ -23,6 +23,7 @@ static_assert( ascip_details::prs::test_reparse<ascip>() );
 static_assert( ascip_details::prs::test_checkers<ascip>() );
 static_assert( ascip_details::prs::test_injection<ascip>() );
 static_assert( ascip_details::prs::test_must_parser<ascip>() );
+static_assert( ascip_details::prs::test_def_parser<ascip>() );
 static_assert( ascip_details::prs::test_rvariant<ascip>() );
 static_assert( ascip_details::prs::context_parsers<ascip>() );
 

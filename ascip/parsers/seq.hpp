@@ -6,6 +6,8 @@
 //          https://www.boost.org/LICENSE_1_0.txt)
 
 #include "base.hpp"
+#include "def.hpp"
+#include "must.hpp"
 #include "value.hpp"
 #include "seq/common.hpp"
 #include "seq/use_seq_result.hpp"
@@ -49,6 +51,9 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 	constexpr static bool is_struct_requires_pd = is_struct_requires<parsers...>;
 	constexpr static bool is_recursion_enabled = (_exists_in<parsers>(is_type_checker<seq_enable_recursion_parser>) + ...) ;
 
+	template<typename type> constexpr static bool is_def_parser = _exists_in<type>(is_spec_checker<def_parser>);
+	template<typename type> constexpr static bool is_must_parser = _exists_in<type>(prs::is_must_parser);
+
 	template<typename type> constexpr static int num_field_val() { return grab_num_val<type, opt_seq_parser, seq_num_rfield_val>(); }
 	template<typename type> constexpr static auto inc_field_val() { return grab_num_val<type, opt_seq_parser, seq_inc_rfield_val>(); }
 
@@ -67,6 +72,7 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 			( (find + is_inc_field_before<cur_t> + (-1*is_dec_field_before<cur_t>) + inc_field_val<cur_t>()) * !is_num_field_val<cur_t> );
 		constexpr auto nxt_field = cur_field + is_inc_field_after<cur_t> + (-1*is_dec_field_after<cur_t>) + is_field_separator<cur_t>;
 
+		if constexpr(requires{is_checking(result).ok;} && is_must_parser<cur_t>) return 0;
 		auto& cur = get<pind>(seq);
 		auto ret = call_parse<cur_field>(cur, ctx, src, result);
 		src += ret * (0 <= ret);
@@ -74,6 +80,7 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		if constexpr (pind+1 == sizeof...(parsers)) return ret;
 		else {
 			if( ret < 0 ) return ret;
+			if constexpr (is_def_parser<cur_t> && requires{is_checking(result).ok;}) return ret;
 			auto req = parse_seq<nxt_field, pind+1, tail...>(ctx, src, result);
 			return req*(req<0) + (ret+req)*(0<=req);
 		}

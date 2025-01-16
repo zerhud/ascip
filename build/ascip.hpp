@@ -12264,6 +12264,117 @@ constexpr bool context_parsers() {
 //          https://www.boost.org/LICENSE_1_0.txt)
 
 
+       
+
+//          Copyright Hudyaev Alexey 2025.
+// Distributed under the Boost Software License, Version 1.0.
+//    (See accompanying file LICENSE_1_0.txt or copy at
+//          https://www.boost.org/LICENSE_1_0.txt)
+
+
+
+
+namespace ascip_details::prs {
+
+template<parser type> struct def_parser : base_parser<def_parser<type>> { type p; };
+
+template<parser type> constexpr auto def(type&& p) {
+  return def_parser<std::decay_t<type>>{ std::forward<decltype(p)>(p) };
+}
+
+template<typename p, template<auto>class t=p::template tmpl>
+constexpr bool test_def_parser() {
+  static_assert( [] {
+    char r{};
+    auto pr = parse(t<'a'>::char_ >> def(t<'b'>::char_) >> t<'c'>::char_, p::make_source("abc"), r);
+    return (pr==3) + 2*(r=='c');
+  }() == 3 );
+  static_assert( [] {
+    type_parse_without_result r{};
+    return parse(t<'a'>::char_ >> def(t<'b'>::char_) >> t<'c'>::char_, p::make_source("abc"), r);
+  }() == 3 );
+  static_assert( [] {
+    type_check_parser r{};
+    return parse(t<'a'>::char_ >> def(t<'b'>::char_) >> t<'c'>::char_, p::make_source("abc"), r);
+  }() == 2 );
+  return true;
+}
+
+}
+       
+
+//          Copyright Hudyaev Alexey 2025.
+// Distributed under the Boost Software License, Version 1.0.
+//    (See accompanying file LICENSE_1_0.txt or copy at
+//          https://www.boost.org/LICENSE_1_0.txt)
+
+
+
+
+
+namespace ascip_details::prs {
+template<string_literal msg, parser type> struct must_parser : base_parser<must_parser<msg, type>> {
+	type p;
+	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
+		auto ret = p.parse(ctx, src, result);
+		return call_if_error(ctx, result, ret, src);
+	}
+
+	constexpr static auto call_if_error(auto& ctx, auto& result, auto orig_ret, auto& src) {
+		if (0 <= orig_ret) return orig_ret;
+		auto err = search_in_ctx<err_handler_tag>(ctx);
+		static_assert( !std::is_same_v<std::decay_t<decltype(err)>, ctx_not_found_type>, "for using the must parser a error handler is required" );
+		if constexpr(requires{(*err)(0, msg);}) return (*err)(new_line_count(ctx), msg);
+		else if constexpr(requires{(*err)(0, src, msg);}) return (*err)(new_line_count(ctx), src, msg);
+		else if constexpr(requires{(*err)(msg);}) return (*err)(msg);
+		else if constexpr(requires{(*err)(result, 0, msg);}) return (*err)(result, new_line_count(ctx), msg);
+		else if constexpr(requires{(*err)(result, src, 0, msg);}) return (*err)(result, src, new_line_count(ctx), msg);
+		else {
+			static_assert( requires{(*err)(result, msg);}, "the error handler have to request no result as parameter or it have to be a template parameter" );
+			return (*err)(result, msg);
+		}
+	}
+};
+
+constexpr static auto is_must_parser = [](const auto* p) {
+	constexpr auto checker = []<string_literal msg, parser type>(const must_parser<msg, type>*){ return true; };
+	return requires{ checker(p); };
+};
+
+template<parser left, typename right> constexpr auto operator>(left&& l, right&& r) {
+	return std::move(l) >> must<"unknown">(std::forward<decltype(r)>(r));
+}
+
+template<string_literal msg> constexpr auto must(parser auto&& p) {
+	return must_parser<msg, std::decay_t<decltype(p)>>{ {}, std::forward<decltype(p)>(p) };
+}
+
+template<typename p, template<auto>class t=p::template tmpl>
+constexpr bool test_must_parser() {
+	static_assert( []{
+		char r='z';
+		const auto err_method = [&](...){return -10;};
+		return (t<'a'>::char_ >> t<'b'>::char_ >> must<"t">(t<'c'>::char_)).parse(make_test_ctx(&err_method), make_source("abe"), r);
+	}() == -10, "error lambda are called");
+
+	const auto err_method = [](
+			auto&,
+			auto line_number,
+			auto message){
+		line_number /= (line_number==2);
+		return (-3 * (message=="unknown")) + (-4 * (message=="test"));
+	};
+	static_assert( [&]{ char r=0x00;
+		return (p::any >> t<'a'>::char_ >> t<'b'>::char_ > t<'c'>::char_).parse(make_test_ctx(&err_method), make_source("\nabe"), r);
+	}() == -3, "on error: sources are on start sequence and on rule where the error");
+	static_assert( [&]{ char r=0x00;
+		return (p::any >> t<'a'>::char_ >> t<'b'>::char_ >> must<"test">(t<'c'>::char_)).parse(make_test_ctx(&err_method), make_source("\nabe"), r);
+	}() == -4, "on error: sources are on start sequence and on rule where the error");
+
+	return true;
+}
+
+} // namespace ascip_details::prs
 
        
 
@@ -12547,6 +12658,9 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 	constexpr static bool is_struct_requires_pd = is_struct_requires<parsers...>;
 	constexpr static bool is_recursion_enabled = (_exists_in<parsers>(is_type_checker<seq_enable_recursion_parser>) + ...) ;
 
+	template<typename type> constexpr static bool is_def_parser = _exists_in<type>(is_spec_checker<def_parser>);
+	template<typename type> constexpr static bool is_must_parser = _exists_in<type>(prs::is_must_parser);
+
 	template<typename type> constexpr static int num_field_val() { return grab_num_val<type, opt_seq_parser, seq_num_rfield_val>(); }
 	template<typename type> constexpr static auto inc_field_val() { return grab_num_val<type, opt_seq_parser, seq_inc_rfield_val>(); }
 
@@ -12565,6 +12679,7 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 			( (find + is_inc_field_before<cur_t> + (-1*is_dec_field_before<cur_t>) + inc_field_val<cur_t>()) * !is_num_field_val<cur_t> );
 		constexpr auto nxt_field = cur_field + is_inc_field_after<cur_t> + (-1*is_dec_field_after<cur_t>) + is_field_separator<cur_t>;
 
+		if constexpr(requires{is_checking(result).ok;} && is_must_parser<cur_t>) return 0;
 		auto& cur = get<pind>(seq);
 		auto ret = call_parse<cur_field>(cur, ctx, src, result);
 		src += ret * (0 <= ret);
@@ -12572,6 +12687,7 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		if constexpr (pind+1 == sizeof...(parsers)) return ret;
 		else {
 			if( ret < 0 ) return ret;
+			if constexpr (is_def_parser<cur_t> && requires{is_checking(result).ok;}) return ret;
 			auto req = parse_seq<nxt_field, pind+1, tail...>(ctx, src, result);
 			return req*(req<0) + (ret+req)*(0<=req);
 		}
@@ -12652,76 +12768,8 @@ constexpr static auto transform(seq_parser<list...>&& src, auto& ctx) requires r
 }
 
 }
-       
-
-//          Copyright Hudyaev Alexey 2025.
-// Distributed under the Boost Software License, Version 1.0.
-//    (See accompanying file LICENSE_1_0.txt or copy at
-//          https://www.boost.org/LICENSE_1_0.txt)
 
 
-
-
-
-namespace ascip_details::prs {
-
-template<string_literal msg, parser type> struct must_parser : base_parser<must_parser<msg, type>> {
-	type p;
-	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		auto ret = p.parse(ctx, src, result);
-		return call_if_error(ctx, result, ret, src);
-	}
-
-	constexpr static auto call_if_error(auto& ctx, auto& result, auto orig_ret, auto& src) {
-		if (0 <= orig_ret) return orig_ret;
-		auto err = search_in_ctx<err_handler_tag>(ctx);
-		static_assert( !std::is_same_v<std::decay_t<decltype(err)>, ctx_not_found_type>, "for using the must parser a error handler is required" );
-		if constexpr(requires{(*err)(0, msg);}) return (*err)(new_line_count(ctx), msg);
-		else if constexpr(requires{(*err)(0, src, msg);}) return (*err)(new_line_count(ctx), src, msg);
-		else if constexpr(requires{(*err)(msg);}) return (*err)(msg);
-		else if constexpr(requires{(*err)(result, 0, msg);}) return (*err)(result, new_line_count(ctx), msg);
-		else if constexpr(requires{(*err)(result, src, 0, msg);}) return (*err)(result, src, new_line_count(ctx), msg);
-		else {
-			static_assert( requires{(*err)(result, msg);}, "the error handler have to request no result as parameter or it have to be a template parameter" );
-			return (*err)(result, msg);
-		}
-	}
-};
-
-template<parser left, typename right> constexpr auto operator>(left&& l, right&& r) {
-	return std::move(l) >> must<"unknown">(std::forward<decltype(r)>(r));
-}
-
-template<string_literal msg> constexpr auto must(parser auto&& p) {
-	return must_parser<msg, std::decay_t<decltype(p)>>{ {}, std::forward<decltype(p)>(p) };
-}
-
-template<typename p, template<auto>class t=p::template tmpl>
-constexpr bool test_must_parser() {
-	static_assert( []{
-		char r='z';
-		const auto err_method = [&](...){return -10;};
-		return (t<'a'>::char_ >> t<'b'>::char_ >> must<"t">(t<'c'>::char_)).parse(make_test_ctx(&err_method), make_source("abe"), r);
-	}() == -10, "error lambda are called");
-
-	const auto err_method = [](
-			auto&,
-			auto line_number,
-			auto message){
-		line_number /= (line_number==2);
-		return (-3 * (message=="unknown")) + (-4 * (message=="test"));
-	};
-	static_assert( [&]{ char r=0x00;
-		return (p::any >> t<'a'>::char_ >> t<'b'>::char_ > t<'c'>::char_).parse(make_test_ctx(&err_method), make_source("\nabe"), r);
-	}() == -3, "on error: sources are on start sequence and on rule where the error");
-	static_assert( [&]{ char r=0x00;
-		return (p::any >> t<'a'>::char_ >> t<'b'>::char_ >> must<"test">(t<'c'>::char_)).parse(make_test_ctx(&err_method), make_source("\nabe"), r);
-	}() == -4, "on error: sources are on start sequence and on rule where the error");
-
-	return true;
-}
-
-} // namespace ascip_details::prs
        
 
 //          Copyright Hudyaev Alexey 2025.
@@ -12887,19 +12935,18 @@ struct variant_stack_tag {};
 struct variant_stack_result_tag{};
 
 namespace variant_details {
-
-template<typename source, typename result>
+template <typename source, typename result>
 struct monomorphic {
-  virtual ~monomorphic() =default ;
-  virtual parse_result parse_mono_omit(source) =0 ;
-  virtual parse_result parse_mono_check(source) =0 ;
-  virtual parse_result parse_mono(source, result&) =0 ;
+	virtual ~monomorphic() = default ;
+	virtual parse_result parse_mono_omit(source) =0;
+	virtual parse_result parse_mono_check(source) =0;
+	virtual parse_result parse_mono(source, result&) =0;
 
-  constexpr parse_result call_parse(source src, auto& r) {
-    if constexpr (requires { is_parsing_without_result(r).ok; }) return parse_mono_omit(src);
-  	else if constexpr (requires{ is_checking(r).ok; }) return parse_mono_check(src);
-  	else return parse_mono(src, r);
-  }
+	constexpr parse_result call_parse(source src, auto& r) {
+		if constexpr (requires { is_parsing_without_result(r).ok; }) return parse_mono_omit(src);
+		else if constexpr (requires { is_checking(r).ok; }) return parse_mono_check(src);
+		else return parse_mono(src, r);
+	}
 };
 
 template<typename parser, typename context, typename source, typename result>
@@ -12967,12 +13014,13 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
 			return parse_ind<ind+1>(ctx, src, result);
 		}
 	}
+
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-        using mono_type = variant_details::monomorphic<decltype(src), std::decay_t<decltype(result)>>;
-        mono_type* mono_ptr;
-        auto nctx = make_ctx<variant_stack_tag>(&mono_ptr, make_ctx<variant_stack_result_tag>(&result, ctx));
-        auto mono = variant_details::mk_mono(this, nctx, src, result);
-        mono_ptr = &mono;
+		using mono_type = variant_details::monomorphic<decltype(src), std::decay_t<decltype(result)>>;
+		mono_type* mono_ptr;
+		auto nctx = make_ctx<variant_stack_tag>(&mono_ptr, make_ctx<variant_stack_result_tag>(&result, ctx));
+		auto mono = variant_details::mk_mono(this, nctx, src, result);
+		mono_ptr = &mono;
 		return mono.parse_mono(src, result);
 	}
 

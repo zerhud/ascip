@@ -17,6 +17,7 @@
 #include "parsers/semact.hpp"
 #include "parsers/seq.hpp"
 #include "parsers/must.hpp"
+#include "parsers/def.hpp"
 #include "parsers/omit.hpp"
 #include "parsers/vriant.hpp"
 #include "parsers/as.hpp"

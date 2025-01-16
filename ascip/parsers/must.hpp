@@ -10,7 +10,6 @@
 #include "../details/string_literal.hpp"
 
 namespace ascip_details::prs {
-
 template<string_literal msg, parser type> struct must_parser : base_parser<must_parser<msg, type>> {
 	type p;
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
@@ -32,6 +31,11 @@ template<string_literal msg, parser type> struct must_parser : base_parser<must_
 			return (*err)(result, msg);
 		}
 	}
+};
+
+constexpr static auto is_must_parser = [](const auto* p) {
+	constexpr auto checker = []<string_literal msg, parser type>(const must_parser<msg, type>*){ return true; };
+	return requires{ checker(p); };
 };
 
 template<parser left, typename right> constexpr auto operator>(left&& l, right&& r) {
