@@ -5,7 +5,7 @@
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          https://www.boost.org/LICENSE_1_0.txt)
 
-#include <utility>
+#include <type_traits>
 #include "concepts.hpp"
 
 namespace ascip_details {
@@ -17,6 +17,21 @@ struct type_any_eq_allow {
 	template<typename type> constexpr auto& operator/=(const type&){ return *this; }
 	template<typename type> constexpr auto& operator*=(const type&){ return *this; }
 };
+
+struct type_check_parser : type_any_eq_allow {};
+struct type_parse_without_result : type_any_eq_allow {};
+struct result_check_ok_for_clang { constexpr static bool ok = true; };
+
+constexpr auto is_checking(const auto&) { return false; }
+constexpr auto is_checking(const type_check_parser&) { return result_check_ok_for_clang{}; }
+constexpr auto is_parsing_without_result(const auto&) { return false; }
+constexpr auto is_parsing_without_result(const type_parse_without_result&) { return result_check_ok_for_clang{}; }
+
+constexpr auto is_parse_non_result(const auto&) { return false; }
+constexpr auto is_parse_non_result(const type_any_eq_allow&) { return result_check_ok_for_clang{}; } //TODO: delete it
+constexpr auto is_parse_non_result(const type_check_parser&) { return result_check_ok_for_clang{}; }
+constexpr auto is_parse_non_result(const type_parse_without_result&) { return result_check_ok_for_clang{}; }
+
 
 constexpr auto& pop_back(type_any_eq_allow& v){ return v; };
 constexpr auto& emplace_back(type_any_eq_allow& v){ return v; };
