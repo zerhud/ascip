@@ -11,9 +11,10 @@
 
 namespace ascip_details::prs {
 
-struct cur_shift_parser : base_parser<cur_shift_parser> {
-	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		eq(result, *search_in_ctx<seq_shift_stack_tag>(ctx));
+template<auto ind> struct seq_shift_parser : base_parser<seq_shift_parser<ind>> {
+	constexpr static bool is_special_info_parser=true;
+	constexpr parse_result parse(auto&& ctx, auto, auto& result) const {
+		eq(result, *search_in_ctx<ind, seq_shift_stack_tag>(ctx));
 		return 0;
 	}
 };

@@ -12,12 +12,30 @@ namespace ascip_details {
 template<typename type, template<typename...>class tmpl> constexpr bool is_specialization_of = false;
 template<template<typename...>class type, typename... args> constexpr bool is_specialization_of<type<args...>, type> = true;
 
+template<typename...> struct type_list {};
 template<typename,auto...> struct seq_type {};
 template<typename t> struct type_holder { using type = t; t operator+() const ; };
 template<typename t> constexpr auto type_c = type_holder<t>{};
 template<typename t> constexpr auto type_dc = type_holder<std::decay_t<t>>{};
 template<typename l, typename r> constexpr bool operator==(type_holder<l>, type_holder<r>) { return false; }
 template<typename t> constexpr bool operator==(type_holder<t>, type_holder<t>) { return true; }
+template<typename type, typename... list> constexpr bool contains(type_list<list...>, type_holder<type> s) {
+	return ((s == type_c<list>) + ... );
+}
+template<typename... in_list, typename... what> constexpr bool contains_all(type_list<in_list...> in, type_list<what...>) {
+	return (contains(in, type_c<what>) * ...);
+}
+template<typename... in_list, typename... what> constexpr bool contains_any(type_list<in_list...> in, type_list<what...>) {
+	return (contains(in, type_c<what>) + ...);
+}
+
+static_assert( contains(type_list<int,char>{}, type_c<int>) );
+static_assert( !contains(type_list<int,char>{}, type_c<double>) );
+static_assert( contains_all(type_list<int,char,double>{}, type_list<int>{}) );
+static_assert( contains_all(type_list<int,char,double>{}, type_list<int,double>{}) );
+static_assert( !contains_all(type_list<int,char,double>{}, type_list<int,unsigned>{}) );
+static_assert( contains_any(type_list<int,char,double>{}, type_list<int,unsigned>{}) );
+static_assert( !contains_any(type_list<int,char,double>{}, type_list<long,unsigned>{}) );
 
 template<typename type, auto ind> struct tuple_value {
 	type value; //NOTE: we cannot downcast for some reason in get method later, so we need in the fucky g methods

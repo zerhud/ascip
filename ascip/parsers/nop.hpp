@@ -11,7 +11,8 @@
 namespace ascip_details::prs {
 
 struct nop_parser : base_parser<nop_parser> {
-	constexpr parse_result parse(auto&&, const auto&, auto&) const {
+	constexpr static bool is_special_info_parser=true;
+	constexpr static parse_result parse(auto&&, const auto&, auto&) {
 		return 0;
 	}
 };

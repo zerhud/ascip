@@ -49,6 +49,7 @@ struct injection_mutator {
 		constexpr const bool is_opt_seq_parser = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, opt_seq_parser>;
 		constexpr const bool is_num_seq_parser = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, seq_num_rfield_val>;
 		constexpr const bool is_inc_seq_parser = ascip_details::is_specialization_of<std::decay_t<decltype(p)>, seq_inc_rfield_val>;
+		constexpr const bool is_special_info_parser = requires{ p.is_special_info_parser; };
 
 		constexpr const bool is_parser_for_skip =
 			   is_opt_seq_parser
@@ -58,6 +59,7 @@ struct injection_mutator {
 			|| is_parser_diff
 			|| is_num_seq_parser
 			|| is_inc_seq_parser
+			|| is_special_info_parser
 			;
 
 		if constexpr (is_parser_lexeme && is_inside_lexeme_deep) return p.p;

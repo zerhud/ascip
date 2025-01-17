@@ -7,6 +7,8 @@
 #include "ascip.hpp"
 #include "factory.hpp"
 
+struct shift_result { char s{}; int shift{}; };
+
 constexpr void test_unary_list() {
 	test_parser_parse(std::vector<char>(), *char_<'a'>, "", 0);
 	static_assert(test_parser_parse(std::vector<char>(), *char_<'a'>, "", 0).size() == 0);
@@ -23,6 +25,15 @@ constexpr void test_unary_list() {
 
 	static_assert(test_cmp_vec( test_parser_parse(std::string(),+(char_<'a'>|char_<'b'>), "aab", 3), 'a', 'a', 'b' ));
 #endif
+
+	static_assert( [] {
+		std::vector<shift_result> r;
+		auto pr = parse(+(p::alpha++ >> p::ulist_shift<0>), +p::space, p::make_source("a    b c d e"), r);
+		return (pr==12) + 2*(r.size()==5)
+		+ 4*(r[1].shift==1) + 8*(r[2].shift==5)
+		+ 16*(r[3].shift==2) + 32*(r[0].shift==0)
+		;
+	}() == 63 );
 }
 
 constexpr void test_binary_list() {
@@ -32,6 +43,14 @@ constexpr void test_binary_list() {
 	static_assert(test_cmp_vec( test_parser_parse(std::vector<char>(), lower % d10, "a1", 1), 'a' ));
 	static_assert(test_cmp_vec( test_parser_parse(std::vector<char>(), lower % d10, "A1", -1) ));
 	static_assert(test_cmp_vec( test_parser_parse(std::vector<char>(), ((lower >> lower) % ',')([](auto&r){return p::fwd(r);}), "ab,cd", 5), 'a','b','c','d' ));
+	static_assert([] {
+		std::vector<shift_result> r;
+		auto pr = parse((p::alpha++ >> p::blist_shift<0>) % ',', +p::space, p::make_source("a ,  b, c ,d ,e"), r);
+		return (pr==15) + 2*(r.size()==5)
+		+ 4*(r[1].shift==3) + 8*(r[2].shift==4)
+		+ 16*(r[3].shift==4) + 32*(r[0].shift==0)
+		;
+	}() == 63 );
 }
 
 int main(int,char**) {

@@ -27,7 +27,7 @@ template<typename parser, typename act_type, typename... tags> struct ctx_use_pa
 
 	constexpr const parse_result parse(auto&& ctx, auto src, auto& result) const {
 		auto ret = p.parse(ctx, src, result);
-		if(-1 < ret) act(result, search_in_ctx<tags, 0>(ctx)...);
+		if(-1 < ret) act(result, search_in_ctx<0, tags>(ctx)...);
 		return ret;
 	}
 };
@@ -37,8 +37,8 @@ template<typename parser, typename act_type, typename... tags> struct ctx_use_as
 	[[no_unique_address]] parser p;
 
 	constexpr const parse_result parse(auto&& ctx, auto src, auto& result) const {
-		auto ret = p.parse(ctx, src, search_in_ctx<tags, 0>(ctx)...);
-		if(-1 < ret) act(result, search_in_ctx<tags, 0>(ctx)...);
+		auto ret = p.parse(ctx, src, search_in_ctx<0, tags>(ctx)...);
+		if(-1 < ret) act(result, search_in_ctx<0, tags>(ctx)...);
 		return ret;
 	}
 };

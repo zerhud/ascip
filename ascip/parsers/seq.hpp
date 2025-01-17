@@ -20,7 +20,7 @@
 namespace ascip_details::prs {
 
 template<string_literal message, parser type> struct seq_error_parser ;
-template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser<parsers...>>, seq_tag {
+template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser<parsers...>> {
 	tuple<parsers...> seq;
 
 	constexpr opt_seq_parser() =default ;
@@ -76,7 +76,7 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		auto& cur = get<pind>(seq);
 		auto ret = call_parse<cur_field>(cur, ctx, src, result);
 		src += ret * (0 <= ret);
-		*search_in_ctx<seq_shift_stack_tag>(ctx) += ret * (0 <= ret);
+		*search_in_ctx<seq_shift_stack_tag>(ctx) = ret;
 		if constexpr (pind+1 == sizeof...(parsers)) return ret;
 		else {
 			if( ret < 0 ) return ret;

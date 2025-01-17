@@ -12,29 +12,39 @@
 
 namespace ascip_details::prs {
 
+struct binary_list_shift_tag {};
+
+template<auto ind> struct binary_list_shift_parser : base_parser<binary_list_shift_parser<ind>> {
+	constexpr static bool is_special_info_parser=true;
+	constexpr static parse_result parse(auto&& ctx, auto, auto& result) {
+		eq(result, *search_in_ctx<ind, binary_list_shift_tag>(ctx));
+		return 0;
+	}
+};
+
 template<parser left, parser right>
 struct binary_list_parser : base_parser<binary_list_parser<left, right>> {
 	left lp;
 	right rp;
 	constexpr binary_list_parser(left l, right r) : lp(l), rp(r) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
+		parse_result shift_storage=0;
+		auto nctx = make_ctx<binary_list_shift_tag, list_shift_tag>(&shift_storage, ctx);
 		type_parse_without_result fake_result;
-		auto ret = call_parse(ctx, src, result);
-		if(ret<0) pop(result);
-		auto cur = ret;
-		while(cur > 0) {
-			src += cur;
-			auto r_res = rp.parse(ctx, src, fake_result);
-			if( r_res <= 0 ) break;
-			src += r_res;
-			cur = call_parse(ctx, src, result);
+		parse_result skip=0, cur = 0, ret = -1;
+		while (skip >= 0) {
+			src += skip;
+			cur = call_parse(nctx, src, result);
 			if( cur <= 0 ) {
 				pop(result);
 				break;
 			}
-			ret += cur + r_res;
+			ret += skip + cur;
+			src += cur;
+			skip = rp.parse(nctx, src, fake_result);
+			shift_storage = skip*(skip>=0) + cur*(cur>=0);
 		}
-		return ret;
+		return (ret+1)*(0<=ret) + ret*(ret<0);
 	}
 	constexpr auto call_parse(auto&& ctx, auto&& src, auto& result) const {
 		constexpr bool is_fwd = is_specialization_of<std::decay_t<decltype(result)>, forwarder>;

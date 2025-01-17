@@ -82,17 +82,17 @@ constexpr void test_seq_shift_pos() {
 	}() == 2, "can parse current position");
 	static_assert( std::is_same_v<decltype(auto(char_<'a'> >> char_<'b'>)), decltype(auto(char_<'a'> >> char_<'b'>))>,
 			"even if it different declarations it's the same parser and we can use one instead of other instance" );
-	constexpr auto abcd = char_<'a'>++ >> char_<'b'>++ >> (char_<'c'> >> ++char_<'d'> >> ++p::cur_shift) >> ++p::cur_shift;
+	constexpr auto abcd = char_<'a'>++ >> char_<'b'>++ >> (char_<'c'> >> ++char_<'d'> >> ++p::seq_shift<0>) >> ++p::seq_shift<0>;
 	static_assert( [&]{
 		struct { char a='z', b='z'; struct { char c{},d{}; int shift1{};} i; int shift2{}; } r;
 		abcd.parse(make_test_ctx(), make_source("abcd"), r);
-		return r.i.shift1 + r.shift2;
-	}() == 6, "can parse current shift");
-	constexpr auto ab_req = p::seq_enable_recursion >> (char_<'a'>|'b') >> -use_seq_result(_char<'('> >> use_seq_result(p::req<0>) >> _char<')'> >> ++p::cur_shift) >> ++p::cur_shift;
+		return (r.i.shift1==1) + 2*(r.shift2==2);
+	}() == 3, "can parse current shift");
+	constexpr auto ab_req = p::seq_enable_recursion >> (char_<'a'>|'b') >> -use_seq_result(_char<'('> >> use_seq_result(p::req<0>) >> _char<')'> >> ++p::seq_shift<0>) >> ++p::seq_shift<0>;
 	static_assert( [&]{
 		struct { char a='z'; int shift; } r;
 		ab_req.parse(make_test_ctx(), make_source("a(b)"), r);
-		return (r.a=='b') + 2*(r.shift==4); // a, (b) => 1 + 3 == 4
+		return (r.a=='b') + 2*(r.shift==3); // (b) == 3
 	}() == 3, "can parse current shift in recursion (the last brace is included)");
 }
 

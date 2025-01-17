@@ -35,7 +35,7 @@ struct rvariant_rreq_pl_parser : base_parser<rvariant_rreq_pl_parser> {
 
 template<auto ind> struct rvariant_req_parser : base_parser<rvariant_req_parser<ind>> {
   constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-    auto* var = *search_in_ctx<rvariant_stack_tag, ind>(ctx);
+    auto* var = *search_in_ctx<ind, rvariant_stack_tag>(ctx);
     return var->call_parse(0, std::move(src), result);
   }
 } ;

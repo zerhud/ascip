@@ -10,7 +10,7 @@
 namespace ascip_details {
 
 struct adl_tag {};
-struct seq_tag {};
+struct list_shift_tag {};
 using parse_result = decltype(-1);
 
 namespace prs { template<typename parser> struct base_parser; }
@@ -35,8 +35,4 @@ template<typename parser> struct base_parser : adl_tag {
 };
 
 } // namespace ascip_details::prs
-
-namespace ascip_details {
-} // namespace ascip_details
-
 

@@ -30,11 +30,11 @@ struct ascip {
   constexpr static auto digit = ascip_details::prs::range_parser<'0','9'>{};
   constexpr static auto d10 = ascip_details::prs::range_parser<'0', '9'>{};
   constexpr static auto ascii = ascip_details::prs::range_parser<(char)0x01,(char)0x7F>{};
-  constexpr static auto alpha = lower | upper;
+  constexpr static auto alpha = lexeme(lower | upper);
 
   // sequence
   constexpr static auto cur_pos = ascip_details::prs::cur_pos_parser{};
-  constexpr static auto cur_shift = ascip_details::prs::cur_shift_parser{};
+  template<auto ind> constexpr static auto seq_shift = ascip_details::prs::seq_shift_parser<ind>{};
   template<auto ind> constexpr static auto req = ascip_details::prs::seq_recursion_parser<ind>{};
   constexpr static auto seq_enable_recursion = ascip_details::prs::seq_enable_recursion_parser{};
   constexpr static ascip_details::prs::seq_inc_rfield sfs{} ;
@@ -53,8 +53,11 @@ struct ascip {
   constexpr static ascip_details::prs::rvariant_rreq_pl_parser rv_rreq{};
   template<auto stop_ind> constexpr static ascip_details::prs::rvariant_rreq_parser<stop_ind> _rv_rreq{};
   template<auto ind> constexpr static auto rv_req = ascip_details::prs::rvariant_req_parser<ind>{};
-
   template<auto ind> constexpr static auto r_req  = ascip_details::prs::variant_recursion_parser<ind>{};
+
+  // lists
+  template<auto ind> constexpr static auto ulist_shift = ascip_details::prs::unary_list_shift_parser<ind>{};
+  template<auto ind> constexpr static auto blist_shift = ascip_details::prs::binary_list_shift_parser<ind>{};
 
   constexpr static auto dquoted_string = lexeme(_char<'"'> >> *(as<'"'>(char_<'\\'> >> char_<'"'>)| (ascip::any - char_<'"'>)) >> _char<'"'>);
   constexpr static auto squoted_string = lexeme(_char<'\''> >> *(as<'\''>(char_<'\\'> >> char_<'\''>)| (ascip::any - char_<'\''>)) >> _char<'\''>);
@@ -73,6 +76,9 @@ struct ascip {
     constexpr static auto& rv_req = ascip::rv_req<s>;
     constexpr static auto& r_req = ascip::r_req<s>;
     constexpr static auto& uint_ = ascip::uint_<s>;
+    constexpr static auto& seq_shift = ascip::seq_shift<s>;
+    constexpr static auto& ulist_shift = ascip::ulist_shift<s>;
+    constexpr static auto& blist_shift = ascip::blist_shift<s>;
   };
 };
 

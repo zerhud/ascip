@@ -76,20 +76,15 @@ constexpr void test_context() {
 	}()==true, "exists_in_ctx by tag only" );
 	static_assert( []{ v1_t v1; v2_t v2;
 		auto ctx2 = make_ctx<t1_t>(v2, make_ctx<t1_t>(v1));
-		return search_in_ctx<t1_t,0>(ctx2).v;
+		return search_in_ctx<0, t1_t>(ctx2).v;
 	}()==2, "can find by ind" );
 	static_assert( []{ v1_t v1; v2_t v2;
 		auto ctx2 = make_ctx<t1_t>(v2, make_ctx<t1_t>(v1));
-		return search_in_ctx<t1_t,1>(ctx2).v;
+		return search_in_ctx<1, t1_t>(ctx2).v;
 	}()==1, "can find by ind" );
 	static_assert(  exists_in_ctx<t1_t>(make_ctx<t1_t>(v1_t{})) );
 	static_assert( !exists_in_ctx<t2_t>(make_ctx<t1_t>(v1_t{})) );
-	(void)( static_cast<const decltype(ctx_not_found)&>(search_in_ctx<t2_t,0>(make_ctx<t1_t>(v2_t{}, make_ctx<t1_t>(v1_t{})))) );
-	static_assert( [] {
-		auto ctx = make_ctx<t3_t>(v3_t{}, make_ctx<t2_t>(v2_t{}, make_ctx<t1_t>(v1_t{})));
-		auto cropped = crop_ctx<0, t2_t>(std::move(ctx));
-		return (size(cropped)==3) + 2*exists_in_ctx<t1_t>(cropped) + 4*exists_in_ctx<t2_t>(cropped);
-	}() == 7 );
+	(void)( static_cast<const decltype(ctx_not_found)&>(search_in_ctx<0, t2_t>(make_ctx<t1_t>(v2_t{}, make_ctx<t1_t>(v1_t{})))) );
 }
 
 int main(int,char**) {

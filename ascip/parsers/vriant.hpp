@@ -65,7 +65,7 @@ template<parser parser> struct use_variant_result_parser : base_parser<use_varia
 
 template<auto ind> struct variant_recursion_parser : base_parser<variant_recursion_parser<ind>> {
 	constexpr static parse_result parse(auto&& ctx, auto src, auto& result) {
-		auto* var = *search_in_ctx<variant_stack_tag, ind>(ctx);
+		auto* var = *search_in_ctx<ind, variant_stack_tag>(ctx);
 		return var->call_parse(src, result);
 	}
 };

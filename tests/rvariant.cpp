@@ -59,7 +59,7 @@ constexpr bool test_rvariant_dexpr() {
 		 std::variant<mul_expr, div_expr>,
 		 pow_expr,
 		 double, std::string
-	       > {};
+	> {};
 	constexpr auto pls_ind = 0;
 	constexpr auto mul_ind = 3;
 	constexpr auto pow_ind = 4;

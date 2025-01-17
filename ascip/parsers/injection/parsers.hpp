@@ -40,7 +40,7 @@ template<parser skip, parser base> struct injected_parser : base_parser<injected
 		auto sr = s.parse(ctx, src, skip_result);
 		sr *= (0<=sr);
 		src += sr;
-		auto mr = src ? b.parse(ctx, src, result) : -1;
+		auto mr = b.parse(ctx, src, result);
 		return (sr * (0<=mr)) + mr; // 0<=mr ? mr+sr : mr;
 	}
 };
