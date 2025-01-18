@@ -15,6 +15,7 @@
 
 namespace ascip_details::prs {
 
+struct variant_shift_tag {};
 struct variant_stack_tag {};
 struct variant_stack_result_tag{};
 
@@ -61,6 +62,17 @@ constexpr auto mk_mono(const parser* p, context ctx, source src, result& r) {
 
 template<parser parser> struct use_variant_result_parser : base_parser<use_variant_result_parser<parser>> {
 	parser p;
+	constexpr parse_result parse(auto&& ctx, auto src, auto&) const {
+		return p.parse(ctx, src, *search_in_ctx<variant_stack_result_tag>(ctx));
+	}
+};
+
+template<auto ind> struct variant_shift_parser : base_parser<variant_shift_parser<ind>> {
+	constexpr static bool is_special_info_parser=true;
+	constexpr static parse_result parse(auto&& ctx, auto, auto& result) {
+		eq(result, *search_in_ctx<ind, variant_shift_tag>(ctx));
+		return 0;
+	}
 };
 
 template<auto ind> struct variant_recursion_parser : base_parser<variant_recursion_parser<ind>> {
@@ -80,8 +92,7 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
 
 	template<auto ind, auto cnt, auto cur, typename cur_parser, typename... tail>
 	constexpr static auto _cur_ind() {
-		//TODO: if it will be like -use_variant_result the skip variable evaluates to false (opt_parser<use_variant_result_parser<...>>)
-		constexpr const bool skip = is_specialization_of<cur_parser, use_variant_result_parser>;
+		constexpr bool skip = is_specialization_of<cur_parser, use_variant_result_parser>;
 		if constexpr (ind == cnt) {
 			if constexpr (skip) return -1;
 			else return cur;
@@ -90,7 +101,11 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
 	}
 	template<auto ind> consteval static auto cur_ind() { return _cur_ind<ind,0,0,parsers...>(); }
 	template<auto ind> constexpr auto parse_ind(auto&& ctx, auto& src, auto& result) const {
-		auto prs = [&](auto&& r){ return get<ind>(seq).parse(ctx, src, variant_result<cur_ind<ind>()>(r)); };
+		auto prs = [&](auto&& r) {
+			auto ret = get<ind>(seq).parse(ctx, src, variant_result<cur_ind<ind>()>(r));
+			*search_in_ctx<variant_shift_tag>(ctx) = ret * (0<=ret);
+			return ret;
+		};
 		if constexpr (ind+1 == sizeof...(parsers)) return prs(result);
 		else {
 			auto parse_result = prs(type_check_parser{});
@@ -102,7 +117,10 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		using mono_type = variant_details::monomorphic<decltype(src), std::decay_t<decltype(result)>>;
 		mono_type* mono_ptr;
-		auto nctx = make_ctx<variant_stack_tag>(&mono_ptr, make_ctx<variant_stack_result_tag>(&result, ctx));
+		parse_result shift_storage=0;
+		auto nctx = make_ctx<variant_shift_tag>(&shift_storage,
+			make_ctx<variant_stack_tag>(&mono_ptr,
+				make_ctx<variant_stack_result_tag>(&result, ctx)));
 		auto mono = variant_details::mk_mono(this, nctx, src, result);
 		mono_ptr = &mono;
 		return mono.parse_mono(src, result);
@@ -145,6 +163,13 @@ constexpr static bool test_variant() {
 		const auto pr = run_parse(t<'a'>::char_ | t<'b'>::char_ >> t<0>::r_req, "bbba", r);
 		return (pr==4) + 2*(r=='a');
 	}() == 3 );
+
+	struct req_result{ char s{}; parse_result shift{}; };
+	static_assert( [&] {
+		req_result r;
+		const auto pr = run_parse(prs::nop++ >> --t<'a'>::char_ | t<'b'>::char_++ >> use_variant_result(t<0>::r_req) >> t<0>::variant_shift, "bbba", r);
+		return (pr==4) + 2*(r.s=='a') + 4*(r.shift == 3);
+	}() == 7 );
 
 	return true;
 }
