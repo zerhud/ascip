@@ -37,22 +37,21 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 	}
 	template<auto ind> constexpr parse_result parse_term(auto&& ctx, auto src, auto& result) const {
 		if constexpr (ind == 0) {
-			if constexpr (is_term<ind>()) return get<ind>(seq).parse(ctx, src, result); //TODO: write test and fix, here have to be variant_result function used
+			if constexpr (is_term<ind>()) return get<ind>(seq).parse(ctx, src, variant_result<cur_ind<ind>()>(result));
 			else return -1;
 		}
 		else if constexpr (!is_term<ind>()) return parse_term<ind-1>(ctx, src, result);
 		else {
 			auto cur = get<ind>(seq).parse(ctx, src, variant_result<cur_ind<ind>()>(result));
 			if(0 <= cur) return cur;
-			if constexpr (ind==0) return cur;
-			else return parse_term<ind-1>(ctx, src, result);
+			return parse_term<ind-1>(ctx, src, result);
 		}
 	}
 	template<auto ind, auto stop_pos> constexpr parse_result parse_nonterm(auto&& ctx, auto src, auto& result, auto shift) const {
 		if(!src) return shift;
 		if constexpr (ind < stop_pos) return shift;
 		else if constexpr (is_term<ind>()) {
-			if constexpr (ind == 0) return 0;
+			if constexpr (ind == 0) return shift;
 			else return parse_nonterm<ind-1, stop_pos>(ctx, src, result, shift);
 		}
 		else {

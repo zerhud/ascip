@@ -96,7 +96,7 @@ struct neasted_binary {
 
 struct neasted_a : neasted_binary {};
 struct neasted_b : neasted_binary {};
-struct neasted_expr : std::variant< neasted_a, neasted_b, int > {};
+struct neasted_expr : std::variant< int, neasted_a, neasted_b > {};
 
 struct outter_expr;
 using outter_fwd = std::unique_ptr<outter_expr>;
@@ -114,9 +114,9 @@ using parser = ascip;
 constexpr auto mk_neasted() {
 	auto mk = [](auto& r){ r.reset(new (std::decay_t<decltype(*r)>){}); return r.get(); };
 	return rv( [](auto& r){ return std::unique_ptr<neasted_expr>( new neasted_expr{std::move(r)} ); }
+	, parser::int_
 	, cast<neasted_binary>( parser::rv_lreq >> ++def(parser::_char<'+'>) >> parser::rv_rreq(mk) )
 	, cast<neasted_binary>( parser::rv_lreq >> ++def(parser::_char<'-'>) >> parser::rv_rreq(mk) )
-	, parser::int_
 	, rv_result( def(parser::_char<'('>) >> parser::rv_req<0> >> parser::_char<')'> )
 	);
 }
