@@ -11,6 +11,7 @@ namespace ascip_details::prs {
 
 struct rvariant_stack_tag {};
 struct rvariant_cpy_result_tag {};
+struct rvariant_shift_tag {};
 
 template<typename, parser...> struct rvariant_parser;
 

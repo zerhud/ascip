@@ -11,6 +11,7 @@
 namespace ascip_details::prs {
 
 struct rvariant_lreq_parser : base_parser<rvariant_lreq_parser> {
+  constexpr static bool is_special_info_parser=true;
   constexpr parse_result parse(auto&& ctx, auto, auto& result) const {
     if constexpr (!requires{ is_parse_non_result(result).ok; }) {
       result = std::move(*search_in_ctx<rvariant_cpy_result_tag>(ctx));
