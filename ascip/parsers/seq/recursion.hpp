@@ -14,6 +14,7 @@
 namespace ascip_details::prs {
 
 struct seq_enable_recursion_parser : base_parser<seq_enable_recursion_parser> {
+  constexpr static bool is_special_info_parser=true;
 	constexpr static parse_result parse(auto&&, auto&, auto&) { return 0; }
 };
 

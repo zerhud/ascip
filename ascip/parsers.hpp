@@ -31,3 +31,4 @@
 #include "parsers/rv.hpp"
 #include "parsers/use_ctx.hpp"
 #include "parsers/injection.hpp"
+#include "parsers/any_shift.hpp"

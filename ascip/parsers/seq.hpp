@@ -101,7 +101,7 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const requires (!is_recursion_enabled) {
 		if(!src) return -1;
 		auto shift_store = 0;
-		auto cur_ctx = make_ctx<seq_shift_stack_tag>(&shift_store,
+		auto cur_ctx = make_ctx<seq_shift_stack_tag, any_shift_tag>(&shift_store,
 		  make_ctx<seq_result_stack_tag>(&result, ctx ) ) ;
 		return parse_without_prep(cur_ctx, src, result);
 	}
@@ -110,7 +110,7 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		using mono_type = seq_details::monomorphic<decltype(src), std::decay_t<decltype(result)>>;
 		auto shift_store = 0;
 		const mono_type* mono_ptr;
-		auto cur_ctx = make_ctx<seq_shift_stack_tag>(&shift_store,
+		auto cur_ctx = make_ctx<seq_shift_stack_tag, any_shift_tag>(&shift_store,
 		  make_ctx<seq_result_stack_tag>(&result,
 		  	make_ctx<seq_stack_tag>(&mono_ptr, ctx) ) ) ;
 		auto mono = seq_details::mk_mono(this, cur_ctx, src, result);

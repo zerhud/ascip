@@ -55,11 +55,12 @@ struct ascip {
   template<auto ind> constexpr static auto rv_req = ascip_details::prs::rvariant_req_parser<ind>{};
   template<auto ind> constexpr static auto r_req  = ascip_details::prs::variant_recursion_parser<ind>{};
 
-  // lists
+  // shifts
   template<auto ind> constexpr static auto ulist_shift = ascip_details::prs::unary_list_shift_parser<ind>{};
   template<auto ind> constexpr static auto blist_shift = ascip_details::prs::binary_list_shift_parser<ind>{};
   template<auto ind> constexpr static auto variant_shift = ascip_details::prs::variant_shift_parser<ind>{};
   template<auto ind> constexpr static auto rv_shift = ascip_details::prs::rvariant_shift_parser<ind>{};
+  template<auto ind> constexpr static auto any_shift = ascip_details::prs::any_shift_parser<ind>{};
 
   constexpr static auto dquoted_string = lexeme(_char<'"'> >> *(as<'"'>(char_<'\\'> >> char_<'"'>)| (ascip::any - char_<'"'>)) >> _char<'"'>);
   constexpr static auto squoted_string = lexeme(_char<'\''> >> *(as<'\''>(char_<'\\'> >> char_<'\''>)| (ascip::any - char_<'\''>)) >> _char<'\''>);
@@ -83,6 +84,7 @@ struct ascip {
     constexpr static auto& blist_shift = ascip::blist_shift<s>;
     constexpr static auto& variant_shift = ascip::variant_shift<s>;
     constexpr static auto& rv_shift = ascip::rv_shift<s>;
+    constexpr static auto& any_shift = ascip::any_shift<s>;
   };
 };
 

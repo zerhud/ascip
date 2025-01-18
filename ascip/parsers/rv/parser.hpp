@@ -88,7 +88,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		using mono_type = rv_utils::monomorphic<decltype(src), std::decay_t<decltype(result)>>;
 		const mono_type* mono_ptr;
 		parse_result shift_storage=0;
-		auto rctx = make_ctx<rvariant_shift_tag>(&shift_storage,
+		auto rctx = make_ctx<rvariant_shift_tag, any_shift_tag>(&shift_storage,
 			make_ctx<rvariant_stack_tag>(&mono_ptr,
 			make_ctx<rvariant_cpy_result_tag>((copied_result_type*)nullptr, ctx) ) );
 		auto mono = rv_utils::mk_mono(this, rctx, src, result);

@@ -30,7 +30,7 @@ template<parser parser> struct unary_list_parser : base_parser<unary_list_parser
 	constexpr unary_list_parser(parser p) : p(std::move(p)) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		parse_result shift_storage = 0;
-		auto nctx = make_ctx<list_shift_tag, unary_list_shift_tag>(&shift_storage, ctx);
+		auto nctx = make_ctx<list_shift_tag, unary_list_shift_tag, any_shift_tag>(&shift_storage, ctx);
 		parse_result ret = -1;
 		parse_result cur_r = 0;
 		while (src && 0<=cur_r) {

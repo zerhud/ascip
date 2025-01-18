@@ -26,6 +26,7 @@ static_assert( ascip_details::prs::test_must_parser<ascip>() );
 static_assert( ascip_details::prs::test_def_parser<ascip>() );
 static_assert( ascip_details::prs::test_rvariant<ascip>() );
 static_assert( ascip_details::prs::context_parsers<ascip>() );
+static_assert( ascip_details::prs::test_any_shift<ascip>() );
 
 static_assert( ascip_details::prs::test_semact<ascip>() );
 static_assert( ascip_details::test_exists_in<ascip>() );

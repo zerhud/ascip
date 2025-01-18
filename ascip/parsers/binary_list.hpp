@@ -29,7 +29,7 @@ struct binary_list_parser : base_parser<binary_list_parser<left, right>> {
 	constexpr binary_list_parser(left l, right r) : lp(l), rp(r) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		parse_result shift_storage=0;
-		auto nctx = make_ctx<binary_list_shift_tag, list_shift_tag>(&shift_storage, ctx);
+		auto nctx = make_ctx<binary_list_shift_tag, list_shift_tag, any_shift_tag>(&shift_storage, ctx);
 		type_parse_without_result fake_result;
 		parse_result skip=0, cur = 0, ret = -1;
 		while (skip >= 0) {

@@ -8,8 +8,8 @@
 #include <utility>
 
 namespace ascip_details {
-
 struct adl_tag {};
+struct any_shift_tag {};
 struct list_shift_tag {};
 using parse_result = decltype(-1);
 

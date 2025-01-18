@@ -11615,8 +11615,8 @@ constexpr void write_out_error_msg(
 
 
 namespace ascip_details {
-
 struct adl_tag {};
+struct any_shift_tag {};
 struct list_shift_tag {};
 using parse_result = decltype(-1);
 
@@ -12730,7 +12730,7 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		using mono_type = seq_details::monomorphic<decltype(src), std::decay_t<decltype(result)>>;
 		auto shift_store = 0;
 		const mono_type* mono_ptr;
-		auto cur_ctx = make_ctx<seq_shift_stack_tag>(&shift_store,
+		auto cur_ctx = make_ctx<seq_shift_stack_tag, any_shift_tag>(&shift_store,
 		  make_ctx<seq_result_stack_tag>(&result,
 		  	make_ctx<seq_stack_tag>(&mono_ptr, ctx) ) ) ;
 		auto mono = seq_details::mk_mono(this, cur_ctx, src, result);
@@ -13047,7 +13047,7 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
 		using mono_type = variant_details::monomorphic<decltype(src), std::decay_t<decltype(result)>>;
 		mono_type* mono_ptr;
 		parse_result shift_storage=0;
-		auto nctx = make_ctx<variant_shift_tag>(&shift_storage,
+		auto nctx = make_ctx<variant_shift_tag, any_shift_tag>(&shift_storage,
 			make_ctx<variant_stack_tag>(&mono_ptr,
 				make_ctx<variant_stack_result_tag>(&result, ctx)));
 		auto mono = variant_details::mk_mono(this, nctx, src, result);
@@ -13308,7 +13308,7 @@ template<parser parser> struct unary_list_parser : base_parser<unary_list_parser
 	constexpr unary_list_parser(parser p) : p(std::move(p)) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		parse_result shift_storage = 0;
-		auto nctx = make_ctx<list_shift_tag, unary_list_shift_tag>(&shift_storage, ctx);
+		auto nctx = make_ctx<list_shift_tag, unary_list_shift_tag, any_shift_tag>(&shift_storage, ctx);
 		parse_result ret = -1;
 		parse_result cur_r = 0;
 		while (src && 0<=cur_r) {
@@ -13367,7 +13367,7 @@ struct binary_list_parser : base_parser<binary_list_parser<left, right>> {
 	constexpr binary_list_parser(left l, right r) : lp(l), rp(r) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		parse_result shift_storage=0;
-		auto nctx = make_ctx<binary_list_shift_tag, list_shift_tag>(&shift_storage, ctx);
+		auto nctx = make_ctx<binary_list_shift_tag, list_shift_tag, any_shift_tag>(&shift_storage, ctx);
 		type_parse_without_result fake_result;
 		parse_result skip=0, cur = 0, ret = -1;
 		while (skip >= 0) {
@@ -13629,6 +13629,7 @@ constexpr auto mk_mono(const auto* parser, auto ctx, [[maybe_unused]] auto src, 
 namespace ascip_details::prs {
 
 struct rvariant_lreq_parser : base_parser<rvariant_lreq_parser> {
+  constexpr static bool is_special_info_parser=true;
   constexpr parse_result parse(auto&& ctx, auto, auto& result) const {
     if constexpr (!requires{ is_parse_non_result(result).ok; }) {
       result = std::move(*search_in_ctx<rvariant_cpy_result_tag>(ctx));
@@ -13812,7 +13813,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		using mono_type = rv_utils::monomorphic<decltype(src), std::decay_t<decltype(result)>>;
 		const mono_type* mono_ptr;
 		parse_result shift_storage=0;
-		auto rctx = make_ctx<rvariant_shift_tag>(&shift_storage,
+		auto rctx = make_ctx<rvariant_shift_tag, any_shift_tag>(&shift_storage,
 			make_ctx<rvariant_stack_tag>(&mono_ptr,
 			make_ctx<rvariant_cpy_result_tag>((copied_result_type*)nullptr, ctx) ) );
 		auto mono = rv_utils::mk_mono(this, rctx, src, result);
