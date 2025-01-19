@@ -49,9 +49,9 @@ template<string_literal msg> constexpr auto must(parser auto&& p) {
 template<typename p, template<auto>class t=p::template tmpl>
 constexpr bool test_must_parser() {
 	static_assert( []{
-		char r='z';
+		char r='z'; int nls=0;
 		const auto err_method = [&](...){return -10;};
-		return (t<'a'>::char_ >> t<'b'>::char_ >> must<"t">(t<'c'>::char_)).parse(make_test_ctx(&err_method), make_source("abe"), r);
+		return (t<'a'>::char_ >> t<'b'>::char_ >> must<"t">(t<'c'>::char_)).parse(make_test_ctx(&nls, &err_method), make_source("abe"), r);
 	}() == -10, "error lambda are called");
 
 	const auto err_method = [](
@@ -61,10 +61,10 @@ constexpr bool test_must_parser() {
 		line_number /= (line_number==2);
 		return (-3 * (message=="unknown")) + (-4 * (message=="test"));
 	};
-	static_assert( [&]{ char r=0x00; int nls=1; auto ctx = make_ctx<new_line_count_tag>(&nls, make_test_ctx(&err_method));
+	static_assert( [&]{ char r=0x00; int nls=1; auto ctx = make_test_ctx(&nls, &err_method);
 		return (p::any >> t<'a'>::char_ >> t<'b'>::char_ > t<'c'>::char_).parse(ctx, make_source("\nabe"), r);
 	}() == -3, "on error: sources are on start sequence and on rule where the error");
-	static_assert( [&]{ char r=0x00; int nls=1; auto ctx = make_ctx<new_line_count_tag>(&nls, make_test_ctx(&err_method));
+	static_assert( [&]{ char r=0x00; int nls=1; auto ctx = make_test_ctx(&nls, &err_method);
 		return (p::any >> t<'a'>::char_ >> t<'b'>::char_ >> must<"test">(t<'c'>::char_)).parse(ctx, make_source("\nabe"), r);
 	}() == -4, "on error: sources are on start sequence and on rule where the error");
 

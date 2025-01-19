@@ -21,17 +21,12 @@ constexpr void write_out_error_msg(
 		auto src,
 		auto ln
 		) {
-	print_to(os, msg) << '\n';
+	os << "Error in ";
 	print_to(os, fn) << ':' << ln << ' ';
-	auto shift = 0;
-	do{ ++shift; src += -2; } while(src()!='\n');
-	os << '\n';
-	while(src) {
-		auto cur = src();
-		if(cur == '\n') break;
-		os << cur;
-	}
-	os << '\n';
+	print_to(os, msg) << "\n";
+	auto shift = src.back_to_nl();
+	for(auto cur = src(); src; cur = src()) os << cur;
+	os << "\n";
 	for(auto i=0;i<shift;++i) os << '-';
 	os << "^\n";
 }

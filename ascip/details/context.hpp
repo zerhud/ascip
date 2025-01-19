@@ -22,10 +22,16 @@ template<typename value_t, typename... t> struct context_frame {
 constexpr auto make_default_context() {
   return tuple{context_frame<int, new_line_count_tag>{1}};
 }
-constexpr static auto make_default_context(auto err_handler){ return make_ctx<err_handler_tag>(err_handler, make_default_context()); }
+constexpr auto make_default_context(auto* nls) {
+  using st = std::decay_t<decltype(*nls)>;
+  return tuple{context_frame<st*, new_line_count_tag>{nls}};
+}
+constexpr static auto make_default_context(auto* nls, auto err_handler) {
+  return make_ctx<err_handler_tag>(err_handler, make_default_context(nls));
+}
 
 constexpr auto make_test_ctx() { return make_default_context(); }
-constexpr static auto make_test_ctx(auto err_handler){ return make_default_context(std::move(err_handler)); }
+constexpr static auto make_test_ctx(auto* nls, auto err_handler){ return make_default_context(nls, std::move(err_handler)); }
 
 template<template<typename...>class tuple, typename... types> constexpr decltype(auto) repack(tuple<types...>&& tup, auto&& fnc) {
   return [&]<auto... inds>(std::index_sequence<inds...>){

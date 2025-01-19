@@ -9,6 +9,12 @@
 
 namespace ascip_details {
 
+constexpr auto back_to_nl(auto& src, auto& ind) {
+	auto prev = ind;
+	while (ind>0 &&  src[--ind]!='\n');
+	return prev - ++ind;
+}
+
 template<ascip_details::string_view type>
 constexpr static auto make_source(type&& src) {
 	struct strsrc {
@@ -17,6 +23,7 @@ constexpr static auto make_source(type&& src) {
 		constexpr auto operator()(){ return src[ind++]; }
 		constexpr explicit operator bool() const { return ind < src.size(); }
 		constexpr auto& operator += (int v) { ind+=v; return *this; }
+		constexpr auto back_to_nl() { return ascip_details::back_to_nl(src, ind); }
 	} ret{ std::forward<decltype(src)>(src) };
 	return ret;
 }
@@ -40,6 +47,7 @@ constexpr static auto make_source(const auto* vec) {
 		constexpr auto operator()(){ return val[ind++]; }
 		constexpr explicit operator bool() const { return ind < sz-1; }
 		constexpr auto& operator += (const int v) { ind+=v; return *this; }
+		constexpr auto back_to_nl() { return ascip_details::back_to_nl(val, ind); }
 	} ret{ vec, strlen(vec) };
 	return ret;
 }
