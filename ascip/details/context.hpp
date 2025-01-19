@@ -9,11 +9,11 @@
 #include "values.hpp"
 
 namespace ascip_details {
+
 struct skip_parser_tag{};
 struct err_handler_tag{};
-struct new_line_count_tag {}; //TODO: fix new line counter or remove it
-//NOTE: store in context, copy in prev context if parser not failed
-//      or store in parse method variable and put a pointer to the context, make resetter to restore value on fail
+struct new_line_count_tag {};
+struct inverted_result_tag {};
 
 template<typename value_t, typename... t> struct context_frame {
   constexpr static auto tags = type_list<t...>{};
@@ -68,19 +68,51 @@ template<typename... _tags, typename... frames> constexpr bool exists_in_ctx(con
 }
 
 
+constexpr auto& new_line_counter(auto& ctx) {
+  if constexpr (requires{*search_in_ctx<new_line_count_tag>(ctx);}) return *search_in_ctx<new_line_count_tag>(ctx);
+  else return search_in_ctx<new_line_count_tag>(ctx);
+}
+struct fucky_clang { constexpr static bool ok=true; };
+consteval auto need_count_new_lines(auto& ctx) {
+  constexpr bool exists_val = requires{ search_in_ctx<new_line_count_tag>(ctx) = 1; };
+  constexpr bool exists_ptr = requires{ *search_in_ctx<new_line_count_tag>(ctx) = 1; };
+  if constexpr (exists_ptr || exists_val) return fucky_clang{};
+  else return false;
+}
+consteval auto need_count_new_lines(auto& ctx, auto& r) {
+  if constexpr (!requires{ is_checking(r).ok; } && requires{need_count_new_lines(ctx).ok;}) return fucky_clang{};
+  else return false;
+}
 constexpr void count_new_line(bool result_ok, auto& ctx, auto sym, auto& r) {
-	constexpr bool need_count_new_lines =
-		   exists_in_ctx<new_line_count_tag>(decltype(auto(ctx)){})
-		&& !requires{ is_parsing_without_result(r).ok; }
-	;
-	if constexpr (need_count_new_lines)
-		search_in_ctx<new_line_count_tag>(ctx) += (sym == '\n') * result_ok;
+	if constexpr (requires{need_count_new_lines(ctx, r).ok;}) {
+	  constexpr bool is_result_inverted = exists_in_ctx<inverted_result_tag>(decltype(auto(ctx)){});
+	  if constexpr (is_result_inverted) new_line_counter(ctx) += (sym == '\n') * !result_ok;
+	  else new_line_counter(ctx) += (sym == '\n') * result_ok;
+	}
 }
 
 constexpr auto new_line_count(auto& ctx) {
-  auto& result = search_in_ctx<new_line_count_tag>(ctx);
-  if constexpr (requires{result == 0;}) return result;
-  else return 0;
+  if constexpr (!requires{need_count_new_lines(ctx).ok;}) return 0;
+  else return new_line_counter(ctx);
+}
+
+struct new_line_counter_resetter_fake {
+  constexpr static void update(auto&&...) {}
+};
+
+template<typename storage>
+struct new_line_counter_resetter {
+  storage* val;
+  storage prev;
+  constexpr explicit new_line_counter_resetter(auto& ctx) : val(&new_line_counter(ctx)), prev(*val) {}
+  constexpr ~new_line_counter_resetter() { *val = prev; }
+  constexpr void update(auto pr) { prev = *val*(pr<=0) + prev*(0<pr); }
+};
+
+constexpr auto make_new_line_count_resetter(auto& ctx, auto& r) {
+  using storage_type = std::decay_t<decltype(new_line_counter(ctx))>;
+  if constexpr (!requires{need_count_new_lines(ctx, r).ok;}) return new_line_counter_resetter_fake{};
+  else return new_line_counter_resetter<storage_type>{ctx};
 }
 
 } // namespace ascip_details

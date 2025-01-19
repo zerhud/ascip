@@ -20,7 +20,10 @@ template<parser parser> struct negate_parser : base_parser<negate_parser<parser>
 	constexpr negate_parser(const negate_parser&) =default ;
 	constexpr negate_parser(parser p) : p(std::move(p)) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		auto ret = p.parse(ctx, std::move(src), result);
+		auto nctx = make_ctx<inverted_result_tag>(1, ctx);
+		//auto nl_resetter = make_new_line_count_resetter(nctx, result);
+		auto ret = p.parse(nctx, std::move(src), result);
+		//TODO: BUG: !(char_<'a'> >> char_<'b'>) returns 1 ?
 		return ret * (-1); //TODO: what if the ret is 0?
 	}
 };
@@ -43,6 +46,19 @@ constexpr static bool test_negate() {
 	static_assert( ({char r{};(!!t<'a'>::char_).parse(make_test_ctx(), make_source('a'), r);}) == 1 );
 	static_assert( ({char r{};(!!!!t<'a'>::char_).parse(make_test_ctx(), make_source('a'), r);r;}) == 'a' );
 #endif
+
+	static_assert( [] {
+		int nls=0; char r{};
+		auto ctx = make_ctx<new_line_count_tag>(&nls);
+		auto pr = (!t<'\n'>::char_).parse(ctx, a::make_source("\n"), r);
+		return (pr<0) + 2*(nls==0);
+	}() == 3 );
+	static_assert( [] {
+		int nls=0; char r{};
+		auto ctx = make_ctx<new_line_count_tag>(&nls);
+		auto pr = (!t<'a'>::char_).parse(ctx, a::make_source("\n"), r);
+		return (pr==1) + 2*(nls==1);
+	}() == 3 );
 
 	static_cast<const decltype(auto(t<'a'>::char_))&>(!!t<'a'>::char_);
 	static_cast<const decltype(auto(t<'a'>::char_))&>(!!!!t<'a'>::char_);

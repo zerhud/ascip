@@ -10820,6 +10820,104 @@ template<typename... types> tuple(types&&...) -> tuple<std::decay_t<types>...>;
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          https://www.boost.org/LICENSE_1_0.txt)
 
+       
+
+//          Copyright Hudyaev Alexey 2025.
+// Distributed under the Boost Software License, Version 1.0.
+//    (See accompanying file LICENSE_1_0.txt or copy at
+//          https://www.boost.org/LICENSE_1_0.txt)
+
+
+namespace ascip_details {
+template<auto... inds, template<typename...>class wrapper, typename... parsers>
+constexpr static bool exists_in_get(const wrapper<parsers...>* seq, const auto& checker, const auto& stop) {
+	if constexpr (sizeof...(inds) == sizeof...(parsers)) return false;
+	else return
+		(!stop((std::decay_t<decltype(get<sizeof...(inds)>(*seq))>*)nullptr)
+		&& (
+		      checker((std::decay_t<decltype(get<sizeof...(inds)>(*seq))>*)nullptr)
+		   || exists_in((std::decay_t<decltype(get<sizeof...(inds)>(*seq))>*)nullptr, checker, stop)
+		   )
+		)
+		|| exists_in_get<inds..., sizeof...(inds)>(seq, checker, stop)
+		;
+}
+template<template<typename>class wrapper, typename parser>
+constexpr static bool exists_in_derived(const wrapper<parser>* src, const auto& checker, const auto& stop) {
+	if(stop(src)) return false;
+	if(checker(src)) return true;
+	return exists_in(static_cast<const parser*>(src), checker, stop);
+}
+
+constexpr static bool exists_in(auto&& src, const auto& checker, const auto& stop) {
+	return exists_in(&src, checker, stop);
+}
+
+constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) requires (!requires{typename std::decay_t<decltype(*src)>::type_in_base;}){
+	return false;
+}
+constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) {
+	if(stop(src)) return false;
+	if(checker(src)) return true;
+	if constexpr (std::is_same_v<typename std::decay_t<decltype(*src)>::type_in_base, std::decay_t<decltype(*src)>>)
+		return checker(src);
+	else return exists_in_derived(src, checker, stop);
+}
+constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) requires requires{ src->p; } {
+	using type = std::decay_t<decltype(src->p)>;
+	return stop(src) ? false : checker(src) || exists_in((type*)nullptr, checker, stop);
+}
+constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) requires requires{ src->lp; } {
+	using ltype = std::decay_t<decltype(src->lp)>;
+	using rtype = std::decay_t<decltype(src->rp)>;
+	if(stop(src)) return false;
+	const bool lstop = stop((ltype*)nullptr);
+	const bool rstop = stop((rtype*)nullptr);
+	return checker(src)
+		|| (!lstop&&checker((ltype*)nullptr))
+		|| (!rstop&&checker((rtype*)nullptr))
+		|| (!lstop&&exists_in((ltype*)nullptr, checker, stop))
+		|| (!rstop&&exists_in((rtype*)nullptr, checker, stop))
+		;
+}
+constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) requires requires{ src->seq; } {
+	using seq_t = decltype(src->seq);
+	if(stop(src)) return false;
+	return checker(src) || exists_in_get((seq_t*)nullptr, checker, stop); }
+constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) requires requires{ src->s; src->b; } {
+	//NOTE: it's for injected_parser, but without forward declaration
+	if(stop(src)) return false;
+	const auto* ptr = static_cast<const std::decay_t<decltype(src->b)>*>(nullptr);
+	if(checker(ptr)) return true;
+	return exists_in(ptr, checker, stop) ; }
+
+template<typename p, template<auto>class t=p::template tmpl>
+constexpr static bool test_exists_in() {
+	auto checker = [](const auto* s){ return std::is_same_v<std::decay_t<decltype(*s)>, std::decay_t<decltype(t<'a'>::char_)>>; };
+	auto pass = [](const auto* s){ return false; };
+	auto stop = [](const auto* s){ return true; };
+	static_assert(  exists_in(t<'a'>::char_, checker, pass) );
+	static_assert( !exists_in(t<'a'>::char_, checker, stop) );
+	static_assert( !exists_in(t<'b'>::char_, checker, pass) );
+	static_assert( !exists_in(t<'b'>::char_, checker, stop) );
+	static_assert(  exists_in(skip(t<'a'>::char_), checker, pass) );
+	static_assert( !exists_in(skip(t<'a'>::char_), checker, stop) );
+	static_assert( !exists_in(skip(t<'b'>::char_), checker, pass) );
+	static_assert(  exists_in(t<'b'>::char_ | t<'a'>::char_, checker, pass) );
+	static_assert( !exists_in(t<'b'>::char_ | t<'a'>::char_, checker, stop) );
+	static_assert( !exists_in(t<'b'>::char_ | t<'x'>::char_, checker, pass) );
+	static_assert(  exists_in(t<'b'>::char_ - t<'a'>::char_, checker, pass) );
+	static_assert( !exists_in(t<'b'>::char_ - t<'a'>::char_, checker, stop) );
+	static_assert( !exists_in(t<'b'>::char_ - t<'x'>::char_, checker, pass) );
+	static_assert(  exists_in(t<'c'>::char_ >> (t<'b'>::char_ - t<'a'>::char_), checker, pass) );
+	static_assert(  exists_in(t<'c'>::char_ - (t<'b'>::char_ >> t<'a'>::char_), checker, pass) );
+	static_assert( !exists_in(t<'c'>::char_ - (t<'b'>::char_ >> t<'a'>::char_), checker, stop) );
+	static_assert(  exists_in(skip(t<'c'>::char_ >> t<'b'>::char_ >> t<'a'>::char_++), checker, pass) );
+	static_assert( !exists_in(skip(t<'c'>::char_ >> t<'b'>::char_ >> t<'a'>::char_++), checker, stop) );
+	return true;
+}
+
+} // namespace ascip_details
 
        
 
@@ -10905,11 +11003,11 @@ template<auto cind> constexpr auto& variant_result(auto& result) {
 }
 
 namespace ascip_details {
+
 struct skip_parser_tag{};
 struct err_handler_tag{};
-struct new_line_count_tag {}; //TODO: fix new line counter or remove it
-//NOTE: store in context, copy in prev context if parser not failed
-//      or store in parse method variable and put a pointer to the context, make resetter to restore value on fail
+struct new_line_count_tag {};
+struct inverted_result_tag {};
 
 template<typename value_t, typename... t> struct context_frame {
   constexpr static auto tags = type_list<t...>{};
@@ -10964,19 +11062,51 @@ template<typename... _tags, typename... frames> constexpr bool exists_in_ctx(con
 }
 
 
+constexpr auto& new_line_counter(auto& ctx) {
+  if constexpr (requires{*search_in_ctx<new_line_count_tag>(ctx);}) return *search_in_ctx<new_line_count_tag>(ctx);
+  else return search_in_ctx<new_line_count_tag>(ctx);
+}
+struct fucky_clang { constexpr static bool ok=true; };
+consteval auto need_count_new_lines(auto& ctx) {
+  constexpr bool exists_val = requires{ search_in_ctx<new_line_count_tag>(ctx) = 1; };
+  constexpr bool exists_ptr = requires{ *search_in_ctx<new_line_count_tag>(ctx) = 1; };
+  if constexpr (exists_ptr || exists_val) return fucky_clang{};
+  else return false;
+}
+consteval auto need_count_new_lines(auto& ctx, auto& r) {
+  if constexpr (!requires{ is_checking(r).ok; } && requires{need_count_new_lines(ctx).ok;}) return fucky_clang{};
+  else return false;
+}
 constexpr void count_new_line(bool result_ok, auto& ctx, auto sym, auto& r) {
-	constexpr bool need_count_new_lines =
-		   exists_in_ctx<new_line_count_tag>(decltype(auto(ctx)){})
-		&& !requires{ is_parsing_without_result(r).ok; }
-	;
-	if constexpr (need_count_new_lines)
-		search_in_ctx<new_line_count_tag>(ctx) += (sym == '\n') * result_ok;
+	if constexpr (requires{need_count_new_lines(ctx, r).ok;}) {
+	  constexpr bool is_result_inverted = exists_in_ctx<inverted_result_tag>(decltype(auto(ctx)){});
+	  if constexpr (is_result_inverted) new_line_counter(ctx) += (sym == '\n') * !result_ok;
+	  else new_line_counter(ctx) += (sym == '\n') * result_ok;
+	}
 }
 
 constexpr auto new_line_count(auto& ctx) {
-  auto& result = search_in_ctx<new_line_count_tag>(ctx);
-  if constexpr (requires{result == 0;}) return result;
-  else return 0;
+  if constexpr (!requires{need_count_new_lines(ctx).ok;}) return 0;
+  else return new_line_counter(ctx);
+}
+
+struct new_line_counter_resetter_fake {
+  constexpr static void update(auto&&...) {}
+};
+
+template<typename storage>
+struct new_line_counter_resetter {
+  storage* val;
+  storage prev;
+  constexpr explicit new_line_counter_resetter(auto& ctx) : val(&new_line_counter(ctx)), prev(*val) {}
+  constexpr ~new_line_counter_resetter() { *val = prev; }
+  constexpr void update(auto pr) { prev = *val*(pr<=0) + prev*(0<pr); }
+};
+
+constexpr auto make_new_line_count_resetter(auto& ctx, auto& r) {
+  using storage_type = std::decay_t<decltype(new_line_counter(ctx))>;
+  if constexpr (!requires{need_count_new_lines(ctx, r).ok;}) return new_line_counter_resetter_fake{};
+  else return new_line_counter_resetter<storage_type>{ctx};
 }
 
 } // namespace ascip_details
@@ -11108,104 +11238,7 @@ constexpr void test_static_string() {
 }
 
 }
-       
 
-//          Copyright Hudyaev Alexey 2025.
-// Distributed under the Boost Software License, Version 1.0.
-//    (See accompanying file LICENSE_1_0.txt or copy at
-//          https://www.boost.org/LICENSE_1_0.txt)
-
-
-namespace ascip_details {
-template<auto... inds, template<typename...>class wrapper, typename... parsers>
-constexpr static bool exists_in_get(const wrapper<parsers...>* seq, const auto& checker, const auto& stop) {
-	if constexpr (sizeof...(inds) == sizeof...(parsers)) return false;
-	else return
-		(!stop((std::decay_t<decltype(get<sizeof...(inds)>(*seq))>*)nullptr)
-		&& (
-		      checker((std::decay_t<decltype(get<sizeof...(inds)>(*seq))>*)nullptr)
-		   || exists_in((std::decay_t<decltype(get<sizeof...(inds)>(*seq))>*)nullptr, checker, stop)
-		   )
-		)
-		|| exists_in_get<inds..., sizeof...(inds)>(seq, checker, stop)
-		;
-}
-template<template<typename>class wrapper, typename parser>
-constexpr static bool exists_in_derived(const wrapper<parser>* src, const auto& checker, const auto& stop) {
-	if(stop(src)) return false;
-	if(checker(src)) return true;
-	return exists_in(static_cast<const parser*>(src), checker, stop);
-}
-
-constexpr static bool exists_in(auto&& src, const auto& checker, const auto& stop) {
-	return exists_in(&src, checker, stop);
-}
-
-constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) requires (!requires{typename std::decay_t<decltype(*src)>::type_in_base;}){
-	return false;
-}
-constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) {
-	if(stop(src)) return false;
-	if(checker(src)) return true;
-	if constexpr (std::is_same_v<typename std::decay_t<decltype(*src)>::type_in_base, std::decay_t<decltype(*src)>>)
-		return checker(src);
-	else return exists_in_derived(src, checker, stop);
-}
-constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) requires requires{ src->p; } {
-	using type = std::decay_t<decltype(src->p)>;
-	return stop(src) ? false : checker(src) || exists_in((type*)nullptr, checker, stop);
-}
-constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) requires requires{ src->lp; } {
-	using ltype = std::decay_t<decltype(src->lp)>;
-	using rtype = std::decay_t<decltype(src->rp)>;
-	if(stop(src)) return false;
-	const bool lstop = stop((ltype*)nullptr);
-	const bool rstop = stop((rtype*)nullptr);
-	return checker(src)
-		|| (!lstop&&checker((ltype*)nullptr))
-		|| (!rstop&&checker((rtype*)nullptr))
-		|| (!lstop&&exists_in((ltype*)nullptr, checker, stop))
-		|| (!rstop&&exists_in((rtype*)nullptr, checker, stop))
-		;
-}
-constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) requires requires{ src->seq; } {
-	using seq_t = decltype(src->seq);
-	if(stop(src)) return false;
-	return checker(src) || exists_in_get((seq_t*)nullptr, checker, stop); }
-constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop) requires requires{ src->s; src->b; } {
-	//NOTE: it's for injected_parser, but without forward declaration
-	if(stop(src)) return false;
-	const auto* ptr = static_cast<const std::decay_t<decltype(src->b)>*>(nullptr);
-	if(checker(ptr)) return true;
-	return exists_in(ptr, checker, stop) ; }
-
-template<typename p, template<auto>class t=p::template tmpl>
-constexpr static bool test_exists_in() {
-	auto checker = [](const auto* s){ return std::is_same_v<std::decay_t<decltype(*s)>, std::decay_t<decltype(t<'a'>::char_)>>; };
-	auto pass = [](const auto* s){ return false; };
-	auto stop = [](const auto* s){ return true; };
-	static_assert(  exists_in(t<'a'>::char_, checker, pass) );
-	static_assert( !exists_in(t<'a'>::char_, checker, stop) );
-	static_assert( !exists_in(t<'b'>::char_, checker, pass) );
-	static_assert( !exists_in(t<'b'>::char_, checker, stop) );
-	static_assert(  exists_in(skip(t<'a'>::char_), checker, pass) );
-	static_assert( !exists_in(skip(t<'a'>::char_), checker, stop) );
-	static_assert( !exists_in(skip(t<'b'>::char_), checker, pass) );
-	static_assert(  exists_in(t<'b'>::char_ | t<'a'>::char_, checker, pass) );
-	static_assert( !exists_in(t<'b'>::char_ | t<'a'>::char_, checker, stop) );
-	static_assert( !exists_in(t<'b'>::char_ | t<'x'>::char_, checker, pass) );
-	static_assert(  exists_in(t<'b'>::char_ - t<'a'>::char_, checker, pass) );
-	static_assert( !exists_in(t<'b'>::char_ - t<'a'>::char_, checker, stop) );
-	static_assert( !exists_in(t<'b'>::char_ - t<'x'>::char_, checker, pass) );
-	static_assert(  exists_in(t<'c'>::char_ >> (t<'b'>::char_ - t<'a'>::char_), checker, pass) );
-	static_assert(  exists_in(t<'c'>::char_ - (t<'b'>::char_ >> t<'a'>::char_), checker, pass) );
-	static_assert( !exists_in(t<'c'>::char_ - (t<'b'>::char_ >> t<'a'>::char_), checker, stop) );
-	static_assert(  exists_in(skip(t<'c'>::char_ >> t<'b'>::char_ >> t<'a'>::char_++), checker, pass) );
-	static_assert( !exists_in(skip(t<'c'>::char_ >> t<'b'>::char_ >> t<'a'>::char_++), checker, stop) );
-	return true;
-}
-
-} // namespace ascip_details
        
 
 //          Copyright Hudyaev Alexey 2025.
@@ -11668,9 +11701,10 @@ struct nop_parser : base_parser<nop_parser> {
 namespace ascip_details::prs {
 template <auto sym> struct char_parser : base_parser<char_parser<sym>> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		const bool ok = src() == sym;
-		eq(ok, result, sym);
-		count_new_line(ok, ctx, sym, result);
+		auto cur = src();
+		const bool ok = cur == sym;
+		eq(ok, result, cur);
+		count_new_line(ok, ctx, cur, result);
 		return -1 + 2 * ok;
 	}
 
@@ -12477,6 +12511,7 @@ struct cur_pos_parser : base_parser<cur_pos_parser> {
 namespace ascip_details::prs {
 
 struct seq_enable_recursion_parser : base_parser<seq_enable_recursion_parser> {
+  constexpr static bool is_special_info_parser=true;
 	constexpr static parse_result parse(auto&&, auto&, auto&) { return 0; }
 };
 
@@ -12720,10 +12755,13 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const requires (!is_recursion_enabled) {
 		if(!src) return -1;
+		auto nl_controller = make_new_line_count_resetter(ctx, result);
 		auto shift_store = 0;
-		auto cur_ctx = make_ctx<seq_shift_stack_tag>(&shift_store,
+		auto cur_ctx = make_ctx<seq_shift_stack_tag, any_shift_tag>(&shift_store,
 		  make_ctx<seq_result_stack_tag>(&result, ctx ) ) ;
-		return parse_without_prep(cur_ctx, src, result);
+		auto ret = parse_without_prep(cur_ctx, src, result);
+		nl_controller.update(ret);
+		return ret;
 	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const requires is_recursion_enabled {
 		if(!src) return -1;
@@ -12735,7 +12773,10 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		  	make_ctx<seq_stack_tag>(&mono_ptr, ctx) ) ) ;
 		auto mono = seq_details::mk_mono(this, cur_ctx, src, result);
 		mono_ptr = &mono;
-		return mono.parse_mono(src, result);
+		auto nl_controller = make_new_line_count_resetter(ctx, result);
+		auto ret = mono.parse_mono(src, result);
+		nl_controller.update(ret);
+		return ret;
 	}
 };
 template<typename... p> opt_seq_parser(p...) -> opt_seq_parser<std::decay_t<p>...>;
@@ -13146,7 +13187,7 @@ template<parser left, parser right> struct different_parser : base_parser<differ
 	right rp;
 	constexpr different_parser( left l, right r ) : lp(l), rp(r) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		type_parse_without_result fake_result;
+		type_check_parser fake_result;
 		if(rp.parse(ctx, src, fake_result) >= 0) return -1;
 		return lp.parse(ctx, src, result);
 	}
@@ -13160,6 +13201,14 @@ template<typename a, template<auto>class t=a::template tmpl>
 constexpr static bool test_different() {
 
 
+	static_assert( [] {
+		char r{};
+		parse_result nls=0;
+		auto ctx = make_ctx<new_line_count_tag>(&nls);
+		auto parser = +(a::any - t<'\n'>::char_);
+		auto pr = parser.parse(ctx, a::make_source("ab\n"), r);
+		return (pr==2) + 2*(nls==0);
+	}() == 3 );
 	return true;
 }
 
@@ -13244,7 +13293,10 @@ template<parser parser> struct negate_parser : base_parser<negate_parser<parser>
 	constexpr negate_parser(const negate_parser&) =default ;
 	constexpr negate_parser(parser p) : p(std::move(p)) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		auto ret = p.parse(ctx, std::move(src), result);
+		auto nctx = make_ctx<inverted_result_tag>(1, ctx);
+		//auto nl_resetter = make_new_line_count_resetter(nctx, result);
+		auto ret = p.parse(nctx, std::move(src), result);
+		//TODO: BUG: !(char_<'a'> >> char_<'b'>) returns 1 ?
 		return ret * (-1); //TODO: what if the ret is 0?
 	}
 };
@@ -13265,6 +13317,19 @@ constexpr static bool test_negate() {
 	static_assert( ({char r{};(!!t<'a'>::char_).parse(make_test_ctx(), make_source('a'), r);}) == 1 );
 	static_assert( ({char r{};(!!!!t<'a'>::char_).parse(make_test_ctx(), make_source('a'), r);r;}) == 'a' );
 
+
+	static_assert( [] {
+		int nls=0; char r{};
+		auto ctx = make_ctx<new_line_count_tag>(&nls);
+		auto pr = (!t<'\n'>::char_).parse(ctx, a::make_source("\n"), r);
+		return (pr<0) + 2*(nls==0);
+	}() == 3 );
+	static_assert( [] {
+		int nls=0; char r{};
+		auto ctx = make_ctx<new_line_count_tag>(&nls);
+		auto pr = (!t<'a'>::char_).parse(ctx, a::make_source("\n"), r);
+		return (pr==1) + 2*(nls==1);
+	}() == 3 );
 
 	static_cast<const decltype(auto(t<'a'>::char_))&>(!!t<'a'>::char_);
 	static_cast<const decltype(auto(t<'a'>::char_))&>(!!!!t<'a'>::char_);
@@ -14255,6 +14320,41 @@ constexpr static bool test_injection() {
 
 }
 }
+       
+
+//          Copyright Hudyaev Alexey 2025.
+// Distributed under the Boost Software License, Version 1.0.
+//    (See accompanying file LICENSE_1_0.txt or copy at
+//          https://www.boost.org/LICENSE_1_0.txt)
+
+
+
+
+namespace ascip_details::prs {
+
+template<auto ind> struct any_shift_parser : base_parser<any_shift_parser<ind>> {
+	constexpr static bool is_special_info_parser=true;
+  constexpr static parse_result parse(auto&& ctx, auto, auto& result) {
+    eq(result, *search_in_ctx<ind, any_shift_tag>(ctx));
+    return 0;
+  }
+};
+
+template<typename p, template<auto>class t=p::template tmpl>
+constexpr bool test_any_shift() {
+  struct result{ char s{}; int shift{}; };
+  static_assert( [] { result r;
+    auto pr = parse(t<'a'>::char_ >> ++t<0>::any_shift, +p::space, p::make_source("  a"), r);
+    return (pr==3) + 2*(r.shift==3);
+  }() == 3 );
+  static_assert( [] { result r;
+    auto pr = parse(p::seq_enable_recursion >> t<'a'>::char_ >> ++t<0>::any_shift, +p::space, p::make_source("  a"), r);
+    return (pr==3) + 2*(r.shift==3);
+  }() == 3 );
+  return true;
+}
+
+}
 
 struct ascip {
   using parse_result = ascip_details::parse_result;
@@ -14303,11 +14403,13 @@ struct ascip {
   template<auto ind> constexpr static auto rv_req = ascip_details::prs::rvariant_req_parser<ind>{};
   template<auto ind> constexpr static auto r_req  = ascip_details::prs::variant_recursion_parser<ind>{};
 
-  // lists
+  // shifts
   template<auto ind> constexpr static auto ulist_shift = ascip_details::prs::unary_list_shift_parser<ind>{};
   template<auto ind> constexpr static auto blist_shift = ascip_details::prs::binary_list_shift_parser<ind>{};
   template<auto ind> constexpr static auto variant_shift = ascip_details::prs::variant_shift_parser<ind>{};
   template<auto ind> constexpr static auto rv_shift = ascip_details::prs::rvariant_shift_parser<ind>{};
+  template<auto ind> constexpr static auto any_shift = ascip_details::prs::any_shift_parser<ind>{};
+  template<auto ind> constexpr static auto shift = ascip_details::prs::any_shift_parser<ind>{};
 
   constexpr static auto dquoted_string = lexeme(_char<'"'> >> *(as<'"'>(char_<'\\'> >> char_<'"'>)| (ascip::any - char_<'"'>)) >> _char<'"'>);
   constexpr static auto squoted_string = lexeme(_char<'\''> >> *(as<'\''>(char_<'\\'> >> char_<'\''>)| (ascip::any - char_<'\''>)) >> _char<'\''>);
@@ -14331,6 +14433,8 @@ struct ascip {
     constexpr static auto& blist_shift = ascip::blist_shift<s>;
     constexpr static auto& variant_shift = ascip::variant_shift<s>;
     constexpr static auto& rv_shift = ascip::rv_shift<s>;
+    constexpr static auto& any_shift = ascip::any_shift<s>;
+    constexpr static auto& shift = ascip::shift<s>;
   };
 };
 

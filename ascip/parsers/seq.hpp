@@ -100,10 +100,13 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const requires (!is_recursion_enabled) {
 		if(!src) return -1;
+		auto nl_controller = make_new_line_count_resetter(ctx, result);
 		auto shift_store = 0;
 		auto cur_ctx = make_ctx<seq_shift_stack_tag, any_shift_tag>(&shift_store,
 		  make_ctx<seq_result_stack_tag>(&result, ctx ) ) ;
-		return parse_without_prep(cur_ctx, src, result);
+		auto ret = parse_without_prep(cur_ctx, src, result);
+		nl_controller.update(ret);
+		return ret;
 	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const requires is_recursion_enabled {
 		if(!src) return -1;
@@ -115,7 +118,10 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		  	make_ctx<seq_stack_tag>(&mono_ptr, ctx) ) ) ;
 		auto mono = seq_details::mk_mono(this, cur_ctx, src, result);
 		mono_ptr = &mono;
-		return mono.parse_mono(src, result);
+		auto nl_controller = make_new_line_count_resetter(ctx, result);
+		auto ret = mono.parse_mono(src, result);
+		nl_controller.update(ret);
+		return ret;
 	}
 };
 template<typename... p> opt_seq_parser(p...) -> opt_seq_parser<std::decay_t<p>...>;

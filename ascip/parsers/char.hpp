@@ -12,9 +12,10 @@
 namespace ascip_details::prs {
 template <auto sym> struct char_parser : base_parser<char_parser<sym>> {
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		const bool ok = src() == sym;
-		eq(ok, result, sym);
-		count_new_line(ok, ctx, sym, result);
+		auto cur = src();
+		const bool ok = cur == sym;
+		eq(ok, result, cur);
+		count_new_line(ok, ctx, cur, result);
 		return -1 + 2 * ok;
 	}
 

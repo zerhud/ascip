@@ -15,7 +15,7 @@ template<parser left, parser right> struct different_parser : base_parser<differ
 	right rp;
 	constexpr different_parser( left l, right r ) : lp(l), rp(r) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		type_parse_without_result fake_result;
+		type_check_parser fake_result;
 		if(rp.parse(ctx, src, fake_result) >= 0) return -1;
 		return lp.parse(ctx, src, result);
 	}
@@ -31,6 +31,14 @@ constexpr static bool test_different() {
 	static_assert( ({char r='z';(*(a::any - t<'a'>::char_)).parse(a::make_test_ctx(), a::make_source("#$%a"), r);}) == 3, "different parser: stops on it's excluding parser" );
 	static_assert( ({char r='z';(*(a::any - t<'a'>::char_)).parse(a::make_test_ctx(), a::make_source("#$%a"), r);r;}) == '%', "different parser: excluded left result as is" );
 #endif
+	static_assert( [] {
+		char r{};
+		parse_result nls=0;
+		auto ctx = make_ctx<new_line_count_tag>(&nls);
+		auto parser = +(a::any - t<'\n'>::char_);
+		auto pr = parser.parse(ctx, a::make_source("ab\n"), r);
+		return (pr==2) + 2*(nls==0);
+	}() == 3 );
 	return true;
 }
 
