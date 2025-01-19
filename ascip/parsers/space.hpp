@@ -15,8 +15,9 @@ struct space_parser : base_parser<space_parser> {
 	constexpr parse_result parse(auto&& ctx,auto src, auto& r) const {
 		auto sym = src();
 		const bool is_space = 0x07 < sym && sym < '!'; // 0x08 is a backspace
-		count_new_line(is_space, ctx, sym, r);
-		return -1 + 2*is_space;
+		parse_result ret = -1 + 2*is_space;
+		count_new_line(ret, ctx, sym, r);
+		return ret;
 	}
 	constexpr bool test() const {
 #pragma GCC diagnostic push

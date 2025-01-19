@@ -18,8 +18,7 @@ struct any_parser : base_parser<any_parser> {
 		do {
 			cur = src();
 			ascip_details::eq( result, cur );
-			count_new_line(true, ctx, cur, result);
-			++ret;
+			count_new_line(++ret, ctx, cur, result);
 		}
 		while(src && (cur & 0x80)) ;
 		return ret;

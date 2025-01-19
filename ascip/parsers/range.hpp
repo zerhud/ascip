@@ -17,9 +17,10 @@ template<auto from, auto to> struct range_parser : base_parser<range_parser<from
 		auto sym = src();
 		const bool ok = from <= sym && sym <= to;
 		eq( ok, result, sym );
+		parse_result ret = -2 * !ok + 1;
 		if constexpr (from <= '\n' && '\n' <= to)
-			count_new_line(ok, ctx, sym, result);
-		return -2 * !ok + 1;
+			count_new_line(ret, ctx, sym, result);
+		return ret;
 	}
 };
 

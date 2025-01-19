@@ -15,9 +15,10 @@ template<typename t> struct value_parser : base_parser<value_parser<t>> {
 	t val;
 	constexpr value_parser(t v) : val(v) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		const bool ok = src() == val;
-		eq(ok, result, val);
-		count_new_line(ok, ctx, val, result);
+		auto cur = src();
+		const bool ok = cur == val;
+		eq(ok, result, cur);
+		count_new_line(1, ctx, cur, result);
 		return -2 * !ok + 1;
 	}
 

@@ -15,8 +15,9 @@ template <auto sym> struct char_parser : base_parser<char_parser<sym>> {
 		auto cur = src();
 		const bool ok = cur == sym;
 		eq(ok, result, cur);
-		count_new_line(ok, ctx, cur, result);
-		return -1 + 2 * ok;
+		parse_result ret = -1 + 2 * ok;
+		count_new_line(ret, ctx, cur, result);
+		return ret;
 	}
 
 	constexpr bool test() const {

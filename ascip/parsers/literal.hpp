@@ -22,11 +22,11 @@ struct literal_parser : base_parser<literal_parser<val>> {
         return -1;
     }
     while (++i < val.size()) r += (src() == val[i]);
+    parse_result ret = ((r + 1) * (r == val.size())) - 1;
     if constexpr (val.contains('\n')) {
-      const bool ok = ((r + 1) * (r == val.size()) - 1) > 0;
-      val.for_each([&](auto s) { count_new_line(ok, ctx, s, result); });
+      val.for_each([&](auto s) { count_new_line(ret, ctx, s, result); });
     }
-    return ((r + 1) * (r == val.size())) - 1;
+    return ret;
   }
 };
 

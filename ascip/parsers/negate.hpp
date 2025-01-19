@@ -21,7 +21,6 @@ template<parser parser> struct negate_parser : base_parser<negate_parser<parser>
 	constexpr negate_parser(parser p) : p(std::move(p)) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		auto nctx = make_ctx<inverted_result_tag>(1, ctx);
-		//auto nl_resetter = make_new_line_count_resetter(nctx, result);
 		auto ret = p.parse(nctx, std::move(src), result);
 		//TODO: BUG: !(char_<'a'> >> char_<'b'>) returns 1 ?
 		return ret * (-1); //TODO: what if the ret is 0?

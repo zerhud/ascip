@@ -61,11 +61,11 @@ constexpr bool test_must_parser() {
 		line_number /= (line_number==2);
 		return (-3 * (message=="unknown")) + (-4 * (message=="test"));
 	};
-	static_assert( [&]{ char r=0x00;
-		return (p::any >> t<'a'>::char_ >> t<'b'>::char_ > t<'c'>::char_).parse(make_test_ctx(&err_method), make_source("\nabe"), r);
+	static_assert( [&]{ char r=0x00; int nls=1; auto ctx = make_ctx<new_line_count_tag>(&nls, make_test_ctx(&err_method));
+		return (p::any >> t<'a'>::char_ >> t<'b'>::char_ > t<'c'>::char_).parse(ctx, make_source("\nabe"), r);
 	}() == -3, "on error: sources are on start sequence and on rule where the error");
-	static_assert( [&]{ char r=0x00;
-		return (p::any >> t<'a'>::char_ >> t<'b'>::char_ >> must<"test">(t<'c'>::char_)).parse(make_test_ctx(&err_method), make_source("\nabe"), r);
+	static_assert( [&]{ char r=0x00; int nls=1; auto ctx = make_ctx<new_line_count_tag>(&nls, make_test_ctx(&err_method));
+		return (p::any >> t<'a'>::char_ >> t<'b'>::char_ >> must<"test">(t<'c'>::char_)).parse(ctx, make_source("\nabe"), r);
 	}() == -4, "on error: sources are on start sequence and on rule where the error");
 
 	return true;

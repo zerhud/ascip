@@ -83,11 +83,11 @@ consteval auto need_count_new_lines(auto& ctx, auto& r) {
   if constexpr (!requires{ is_checking(r).ok; } && requires{need_count_new_lines(ctx).ok;}) return fucky_clang{};
   else return false;
 }
-constexpr void count_new_line(bool result_ok, auto& ctx, auto sym, auto& r) {
+constexpr void count_new_line(auto p_result, auto& ctx, auto sym, auto& r) {
 	if constexpr (requires{need_count_new_lines(ctx, r).ok;}) {
 	  constexpr bool is_result_inverted = exists_in_ctx<inverted_result_tag>(decltype(auto(ctx)){});
-	  if constexpr (is_result_inverted) new_line_counter(ctx) += (sym == '\n') * !result_ok;
-	  else new_line_counter(ctx) += (sym == '\n') * result_ok;
+	  if constexpr (is_result_inverted) new_line_counter(ctx) += (sym == '\n') * (p_result < 0);
+	  else new_line_counter(ctx) += (sym == '\n') * (p_result > 0);
 	}
 }
 

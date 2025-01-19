@@ -12,6 +12,7 @@ namespace ascip_details::prs {
 template<parser parser> struct reparse_parser : base_parser<reparse_parser<parser>> {
 	parser p;
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
+		auto nlr = make_new_line_count_resetter(ctx, result);
 		auto r = p.parse(static_cast<decltype(ctx)&&>(ctx), src, result);
 		return r * (r<0);
 	}
@@ -33,6 +34,12 @@ constexpr static bool test_reparse() {
 		char r='z';
 		auto p = (reparse(t<'b'>::char_) >> a::any).parse(a::make_test_ctx(), a::make_source("ab"), r);
 		return (p==-1) + 2*(r=='z');
+	}() == 3);
+	static_assert( [] {
+		char r{}; int nls=7;
+		auto ctx = make_ctx<new_line_count_tag>(&nls);
+		auto p = reparse(t<'\n'>::char_).parse(ctx, a::make_source("\n"), r);
+		return (p==0) + 2*(nls==7);
 	}() == 3);
 	return true;
 }
