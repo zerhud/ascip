@@ -258,7 +258,7 @@ struct new_line_counter_resetter {
   storage prev;
   constexpr explicit new_line_counter_resetter(auto& ctx) : val(&new_line_counter(ctx)), prev(*val) {}
   constexpr ~new_line_counter_resetter() { *val = prev; }
-  constexpr void update(auto pr) { prev = *val*(pr<=0) + prev*(0<pr); }
+  constexpr void update(auto pr) { prev = prev*(pr<=0) + (*val)*(0<pr); }
 };
 
 constexpr auto make_new_line_count_resetter(auto& ctx, auto& r) {
@@ -1891,7 +1891,6 @@ constexpr static auto transform_special(prs::seq_num_rfield_val<ptype, value>&& 
 
 
 
-
 namespace ascip_details::prs::seq_details {
 
 template<typename source, typename result> struct monomorphic {
@@ -2174,7 +2173,7 @@ template<auto val, parser parser> struct tmpl_as_parser : base_parser<tmpl_as_pa
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		type_parse_without_result r;
 		auto shift = p.parse(ctx, static_cast<decltype(auto(src))&&>(src), r);
-		if(shift >= 0) result = val;
+		eq(shift >= 0, result, val);
 		return shift;
 	}
 };
@@ -2194,7 +2193,7 @@ template<typename value_t, parser parser> struct as_parser : base_parser<as_pars
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		type_parse_without_result r;
 		auto shift = p.parse(ctx, std::move(src), r);
-		if(shift >= 0) result = val;
+		eq(shift >= 0, result, val);
 		return shift;
 	}
 };
@@ -3341,19 +3340,26 @@ template<parser pt> struct skip_parser : base_parser<skip_parser<pt>> { [[no_uni
 template<parser skip, parser base> struct injected_parser : base_parser<injected_parser<skip,base>> {
 	[[no_unique_address]] skip s;
 	[[no_unique_address]] base b;
+	static type_parse_without_result skip_result;
 	constexpr injected_parser() noexcept =default ;
 	constexpr injected_parser(injected_parser&&) noexcept =default ;
 	constexpr injected_parser(const injected_parser&) noexcept =default ;
 	constexpr injected_parser(skip s, base b) : s(std::forward<decltype(s)>(s)), b(std::forward<decltype(b)>(b)) {}
+	constexpr static auto& get_result_for_skipper(auto& result) {
+		if constexpr(requires{is_checking(result).ok;}) return result;
+		else return skip_result;
+	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		type_parse_without_result skip_result;
-		auto sr = s.parse(ctx, src, skip_result);
+		auto sr = s.parse(ctx, src, get_result_for_skipper(result));
 		sr *= (0<=sr);
 		src += sr;
+		if(!src) return -1;
 		auto mr = b.parse(ctx, src, result);
 		return (sr * (0<=mr)) + mr; // 0<=mr ? mr+sr : mr;
 	}
 };
+
+template<parser skip, parser base> type_parse_without_result injected_parser<skip, base>::skip_result{};
 
 } // namespace ascip_details::prs
 
@@ -3654,6 +3660,7 @@ struct ascip {
   constexpr static ascip_details::prs::seq_inc_rfield sfs{} ;
 
   // functions
+  constexpr static auto make_default_context(auto&&... args) { return ascip_details::make_default_context(std::forward<decltype(args)>(args)...); }
   constexpr static auto make_test_ctx(auto&&... args) { return ascip_details::make_test_ctx(std::forward<decltype(args)>(args)...); }
   constexpr static auto make_source(auto&& src) { return ascip_details::make_source(std::forward<decltype(src)>(src)); }
   constexpr static auto inject_skipping(auto&& p, auto&& s) { return ascip_details::inject_skipping(std::forward<decltype(p)>(p), std::forward<decltype(s)>(s) ); }

@@ -5,7 +5,6 @@
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          https://www.boost.org/LICENSE_1_0.txt)
 
-#include "common.hpp"
 #include "../base.hpp"
 
 namespace ascip_details::prs::seq_details {

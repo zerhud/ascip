@@ -137,8 +137,8 @@ static_assert( [] {
 static_assert( [] {
 	char r{};
 	int line_count=0;
-	auto ctx = make_ctx<ascip_details::new_line_count_tag>(&line_count, p::make_test_ctx());
-	auto parser = p::inject_skipping(char_<'a'> >> char_<'b'> >> char_<'c'> | char_<'a'> >> char_<'b'> >> char_<'d'>, +p::space);
+	auto ctx = p::make_default_context(&line_count);
+	auto parser = p::inject_skipping((char_<'a'> >> char_<'b'> >> char_<'c'>) | (char_<'a'> >> char_<'b'> >> char_<'d'>), +p::space);
 	auto pr = parser.parse(ctx, p::make_source("\na\n\nb\n\nd"), r);
 	return (pr==8) + 2*(new_line_count(ctx)==5);
 }() == 3 );

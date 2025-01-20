@@ -40,6 +40,7 @@ struct ascip {
   constexpr static ascip_details::prs::seq_inc_rfield sfs{} ;
 
   // functions
+  constexpr static auto make_default_context(auto&&... args) { return ascip_details::make_default_context(std::forward<decltype(args)>(args)...); }
   constexpr static auto make_test_ctx(auto&&... args) { return ascip_details::make_test_ctx(std::forward<decltype(args)>(args)...); }
   constexpr static auto make_source(auto&& src) { return ascip_details::make_source(std::forward<decltype(src)>(src)); }
   constexpr static auto inject_skipping(auto&& p, auto&& s) { return ascip_details::inject_skipping(std::forward<decltype(p)>(p), std::forward<decltype(s)>(s) ); }

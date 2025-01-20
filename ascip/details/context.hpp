@@ -112,7 +112,7 @@ struct new_line_counter_resetter {
   storage prev;
   constexpr explicit new_line_counter_resetter(auto& ctx) : val(&new_line_counter(ctx)), prev(*val) {}
   constexpr ~new_line_counter_resetter() { *val = prev; }
-  constexpr void update(auto pr) { prev = *val*(pr<=0) + prev*(0<pr); }
+  constexpr void update(auto pr) { prev = prev*(pr<=0) + (*val)*(0<pr); }
 };
 
 constexpr auto make_new_line_count_resetter(auto& ctx, auto& r) {
