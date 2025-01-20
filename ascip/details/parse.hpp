@@ -5,8 +5,6 @@
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          https://www.boost.org/LICENSE_1_0.txt)
 
-#include <ascip/parsers/base.hpp>
-
 #include "values.hpp"
 #include "context.hpp"
 
@@ -21,20 +19,20 @@ constexpr auto parse(auto&& parser, auto src) {
 
 constexpr auto parse(auto&& parser, auto src, auto& result) {
 	using parser_type = std::decay_t<decltype(parser)>;
-	parse_result nls = 1;
+	long int nls = 1;
 	return parser.parse(make_default_context(&nls), src, result);
 }
 
 constexpr auto parse(auto&& parser, const auto& skip, auto src, auto& result) {
 	using parser_type = std::decay_t<decltype(parser)>;
-	parse_result nls = 1;
+	long int nls = 1;
 	auto ctx = make_ctx<skip_parser_tag>( skip, make_default_context(&nls) );
 	return inject_skipping(auto(parser), std::forward<decltype(skip)>(skip)).parse(ctx, src, result);
 }
 
 constexpr auto parse(auto&& parser, auto&& skip, auto src, auto& result, const auto& err) {
 	using parser_type = std::decay_t<decltype(parser)>;
-	parse_result nls = 1;
+	long int nls = 1;
 	auto ctx = make_ctx<skip_parser_tag>( skip, make_default_context(&nls, &err) );
 	return inject_skipping(auto(parser), std::move(skip)).parse(ctx, src, result);
 }
