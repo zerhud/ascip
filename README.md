@@ -123,7 +123,7 @@ note
 - `_char` instead of `char_` . the first one omits its value, the second one stores it to result.
 - there is no `lexeme()`: we don't use skip parser here. (you can pass it as second argument.)
 - static_assert check works only inside constexpr
-- [see full example on godbolt](https://godbolt.org/z/fn5qjbnxj)
+- [see full example on godbolt](https://godbolt.org/z/oPYxd7YP6)
 
 ## poison
 ok, but what about poison? ascip supports any compatibl type. for example std::vector and std::list can be used for same parser:
@@ -141,10 +141,10 @@ return r.size() != 3;
 
 Generally, all types what implements emplace_back and pop_back (or emplace_back and pop_back in adl) can be used as an container.
 
-[example in godbolt](https://godbolt.org/z/6anMfTGbs)
+[example in godbolt](https://godbolt.org/z/7j4j793qf)
 
 ## recursion
-what about recursion? we can write a class wrapper with redefined operator = for it can be used to create a value. or we can create recursion value in lambda. for example let's parse a type like `box<list<string>, int>`. i use a vector of unique_ptr for simplify this example. [please see full example on godbolt](https://godbolt.org/z/7cs3dTq83)
+what about recursion? we can write a class wrapper with redefined operator = for it can be used to create a value. or we can create recursion value in lambda. for example let's parse a type like `box<list<string>, int>`. i use a vector of unique_ptr for simplify this example. [please see full example on godbolt](https://godbolt.org/z/a5Gfv8v7v)
 
 the parser is:
 ```
@@ -179,7 +179,7 @@ as we can see the `type_p` parser contains two sequences:
 the `req` parser calls parser recursively by number starts from current. so `req<0>` calls the `subtype` parser and `req<1>` calls the `type_p` parser. (the numeration starts from zero.)
 
 ## inheritance
-due to an language limitations we cannot parse into struct with inheritance same way as simple struct. [here is example](https://godbolt.org/z/rb8Gsrcfz) showing how to parse in such case.
+due to an language limitations we cannot parse into struct with inheritance same way as simple struct. [here is example](https://godbolt.org/z/W3vYf6x8s) showing how to parse in such case.
 
 primary code is
 ```
@@ -194,7 +194,7 @@ please note:
 - instead of casting the result we can provide a static method `struct_fields_count()` in the type, returning the count of fields in the type
 
 ## left recursion
-we can also use `rv_lreq` and `rv_rreq` parsers for left recursion. for example let's parse some expression. [here is full example](https://godbolt.org/z/cEbvMhM3e). the example seems to big, you can pay attention on make_grammar function only.
+we can also use `rv_lreq` and `rv_rreq` parsers for left recursion. for example let's parse some expression. [here is full example](https://godbolt.org/z/Y4qv5MeEz). the example seems to big, you can pay attention on make_grammar function only.
 
 ```
 	return rv( [](auto& r){ return std::unique_ptr<expr>( new expr{std::move(r)} ); }
