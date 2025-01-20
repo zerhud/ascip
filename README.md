@@ -62,7 +62,7 @@ here is a list of available parsers. you can find examples below
 - `char_<'a'>` char with concrete value (it can to be wide char and so on). and `_char<'a'>` is same with omitted value.
 - `lit<"string">` is a string literal. please note the string literal right inside the template parameter. unfortunatly it can to be called only with template keyword, or, with same way as terms parsers, but using `sterm` insead of `term` or `tmpl`.
 - `operator |` for parse variant. the result will be created with 1) `template<auto ind> create(auto& var)` method or with 2) `template<auto ind> constepxr auto& emplace(auto &var)` 3) `template<auto ind> constexpr auto& emplace()` method. or 4) the result will be used as is
-- `r_req<number>` for parse variant recursively. use the number to identify the variant which will be rerun (the current is 0, parent is 1 and so on).
+- `v_req<number>` for parse variant recursively. use the number to identify the variant which will be rerun (the current is 0, parent is 1 and so on).
 - `operator !` for negate parser
 - `unary -` for parse optional value. if there is no value, the default constructor will be used.
 - `binary -` for parse one value except other

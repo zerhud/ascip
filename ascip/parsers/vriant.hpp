@@ -160,14 +160,14 @@ constexpr static bool test_variant() {
 
 	static_assert( [&] {
 		char r{'z'};
-		const auto pr = run_parse(t<'a'>::char_ | t<'b'>::char_ >> t<0>::r_req, "bbba", r);
+		const auto pr = run_parse(t<'a'>::char_ | t<'b'>::char_ >> t<0>::v_req, "bbba", r);
 		return (pr==4) + 2*(r=='a');
 	}() == 3 );
 
 	struct req_result{ char s{}; parse_result shift{}; };
 	static_assert( [&] {
 		req_result r;
-		const auto pr = run_parse(prs::nop++ >> --t<'a'>::char_ | t<'b'>::char_++ >> use_variant_result(t<0>::r_req) >> t<0>::variant_shift, "bbba", r);
+		const auto pr = run_parse(prs::nop++ >> --t<'a'>::char_ | t<'b'>::char_++ >> use_variant_result(t<0>::v_req) >> t<0>::variant_shift, "bbba", r);
 		return (pr==4) + 2*(r.s=='a') + 4*(r.shift == 3);
 	}() == 7 );
 
