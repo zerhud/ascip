@@ -295,6 +295,7 @@ constexpr static auto make_source(type&& src) {
 		constexpr explicit operator bool() const { return ind < src.size(); }
 		constexpr auto& operator += (int v) { ind+=v; return *this; }
 		constexpr auto back_to_nl() { return ascip_details::back_to_nl(src, ind); }
+		constexpr static bool can_read_after_end() { return false; }
 	} ret{ std::forward<decltype(src)>(src) };
 	return ret;
 }
@@ -319,8 +320,15 @@ constexpr static auto make_source(const auto* vec) {
 		constexpr explicit operator bool() const { return ind < sz-1; }
 		constexpr auto& operator += (const int v) { ind+=v; return *this; }
 		constexpr auto back_to_nl() { return ascip_details::back_to_nl(val, ind); }
+		constexpr static bool can_read_after_end() { return true; }
 	} ret{ vec, strlen(vec) };
 	return ret;
+}
+
+template<typename src_type> constexpr bool can_read_after_end() {
+	if constexpr (requires{src_type::can_read_after_end();})
+		return src_type::can_read_after_end();
+	else return false;
 }
 
 constexpr auto pos(const auto& src) {
@@ -3353,7 +3361,7 @@ template<parser skip, parser base> struct injected_parser : base_parser<injected
 		auto sr = s.parse(ctx, src, get_result_for_skipper(result));
 		sr *= (0<=sr);
 		src += sr;
-		if(!src) return -1;
+		if constexpr (!can_read_after_end<decltype(src)>()) if(!src) return -1;
 		auto mr = b.parse(ctx, src, result);
 		return (sr * (0<=mr)) + mr; // 0<=mr ? mr+sr : mr;
 	}

@@ -24,6 +24,7 @@ constexpr static auto make_source(type&& src) {
 		constexpr explicit operator bool() const { return ind < src.size(); }
 		constexpr auto& operator += (int v) { ind+=v; return *this; }
 		constexpr auto back_to_nl() { return ascip_details::back_to_nl(src, ind); }
+		constexpr static bool can_read_after_end() { return false; }
 	} ret{ std::forward<decltype(src)>(src) };
 	return ret;
 }
@@ -48,8 +49,15 @@ constexpr static auto make_source(const auto* vec) {
 		constexpr explicit operator bool() const { return ind < sz-1; }
 		constexpr auto& operator += (const int v) { ind+=v; return *this; }
 		constexpr auto back_to_nl() { return ascip_details::back_to_nl(val, ind); }
+		constexpr static bool can_read_after_end() { return true; }
 	} ret{ vec, strlen(vec) };
 	return ret;
+}
+
+template<typename src_type> constexpr bool can_read_after_end() {
+	if constexpr (requires{src_type::can_read_after_end();})
+		return src_type::can_read_after_end();
+	else return false;
 }
 
 constexpr auto pos(const auto& src) {

@@ -44,7 +44,7 @@ template<parser skip, parser base> struct injected_parser : base_parser<injected
 		auto sr = s.parse(ctx, src, get_result_for_skipper(result));
 		sr *= (0<=sr);
 		src += sr;
-		if(!src) return -1;
+		if constexpr (!can_read_after_end<decltype(src)>()) if(!src) return -1;
 		auto mr = b.parse(ctx, src, result);
 		return (sr * (0<=mr)) + mr; // 0<=mr ? mr+sr : mr;
 	}
