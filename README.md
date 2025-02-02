@@ -15,7 +15,7 @@ the file is used in examples (the godbolt can't include other files from url).
 the file is built by gcc, and cann't to be used with clang, so there is
 `build/ascip_clang.hpp` file for use with clang.
 
-after the `ascip.hpp` is included the parser is `using parser = ascip<>;`
+after the `ascip.hpp` is included the parser is `using parser = ascip;`
 
 in the root is `flake.nix` file. so you can use it as flake input and develop with `nix develop`.
 more information about [nix](https://nixos.wiki/wiki/Main_Page) and [nix flakes](https://nixos.wiki/wiki/Flakes).
@@ -25,14 +25,11 @@ for install copy the `ascip.hpp` and `ascip` to directory where your compiler wi
 or pass `-I$(path_to_ascip_dir)` to compiler.
 ## how to parse
 there is three steps:
-1. create a parser specialization
-2. create a data source
-3. use a parse method
+1. pick a parser as `using parser = ascip;` (it will be a few in future)
+1. create a data source
+1. use a parse method
 
 in most cases each step is just a single code line.
-### create a parser specialization
-for most cases the parser creation is just a `using parser = ascip<>;`
-(the template parameter can to be a factory, it used for tests and will be removed soon).
 ### create a data source
 in most cases just we can create a data source for parser with `parser::make_source()` method. for example, if all data is in a std::string_view object named `view` we can create the data source as `parser::make_source(view)`.
 
