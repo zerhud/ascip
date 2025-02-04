@@ -37,7 +37,7 @@ constexpr auto parse(auto&& parser, auto&& skip, auto src, auto& result, const a
 	return inject_skipping(auto(parser), std::move(skip)).parse(ctx, src, result);
 }
 
-constexpr auto parse_with_ctx(const auto& ctx, auto&& parser, auto src, auto& result) {
+constexpr auto continue_parse(const auto& ctx, auto&& parser, auto src, auto& result) {
 	auto err = search_in_ctx<err_handler_tag>(ctx);
 	auto skip = search_in_ctx<skip_parser_tag>(ctx);
 	constexpr bool skip_found = !std::is_same_v<ctx_not_found_type, decltype(skip)>;

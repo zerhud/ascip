@@ -180,22 +180,22 @@ namespace ascip_details {
 
 template<typename... parsers>
 constexpr auto operator|(prs::variant_parser<parsers...>&& left, parser auto&& right) {
-	return [&]<auto... inds>(std::index_sequence<inds...>) {
-		return prs::variant_parser<parsers..., std::decay_t<decltype(right)>>{ get<inds>(left.seq)..., std::forward<decltype(right)>(right) };
-    }(std::make_index_sequence<sizeof...(parsers)>{});
+  return [&]<auto... inds>(std::index_sequence<inds...>) {
+   return prs::variant_parser<parsers..., std::decay_t<decltype(right)>>{ get<inds>(left.seq)..., std::forward<decltype(right)>(right) };
+  }(std::make_index_sequence<sizeof...(parsers)>{});
 }
 constexpr auto operator|(auto&& left, parser auto&& right) {
-	return prs::variant_parser( std::forward<decltype(left)>(left), std::forward<decltype(right)>(right) );
+  return prs::variant_parser( std::forward<decltype(left)>(left), std::forward<decltype(right)>(right) );
 }
 constexpr auto operator|(auto&& left, nonparser auto&& right) {
-	using left_type = std::decay_t<decltype(left)>;
-	constexpr bool is_left_variant = is_specialization_of<std::decay_t<decltype(left)>, prs::variant_parser>;
-	if constexpr (is_left_variant) return std::forward<decltype(left)>(left).clang_crash_workaround(right);
-	else return prs::variant_parser<left_type>(std::forward<decltype(left)>(left)).clang_crash_workaround(right);
+  using left_type = std::decay_t<decltype(left)>;
+  constexpr bool is_left_variant = is_specialization_of<std::decay_t<decltype(left)>, prs::variant_parser>;
+  if constexpr (is_left_variant) return std::forward<decltype(left)>(left).clang_crash_workaround(right);
+  else return prs::variant_parser<left_type>(std::forward<decltype(left)>(left)).clang_crash_workaround(right);
 }
 
 template<parser type> constexpr auto use_variant_result(const type& p) {
-	return prs::use_variant_result_parser<type>{ {}, p };
+  return prs::use_variant_result_parser<type>{ {}, p };
 }
 
 }
