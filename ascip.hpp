@@ -35,7 +35,7 @@ struct ascip {
   // sequence
   constexpr static auto cur_pos = ascip_details::prs::cur_pos_parser{};
   template<auto ind> constexpr static auto seq_shift = ascip_details::prs::seq_shift_parser<ind>{};
-  template<auto ind> constexpr static auto req = ascip_details::prs::seq_recursion_parser<ind>{};
+  template<auto ind> constexpr static auto rec = ascip_details::prs::seq_recursion_parser<ind>{};
   constexpr static auto seq_enable_recursion = ascip_details::prs::seq_enable_recursion_parser{};
   constexpr static ascip_details::prs::seq_inc_rfield sfs{} ;
 
@@ -50,11 +50,11 @@ struct ascip {
   }
 
   // rvariant
-  constexpr static ascip_details::prs::rvariant_lreq_parser rv_lreq{};
-  constexpr static ascip_details::prs::rvariant_rreq_pl_parser rv_rreq{};
-  template<auto stop_ind> constexpr static ascip_details::prs::rvariant_rreq_parser<stop_ind> _rv_rreq{};
-  template<auto ind> constexpr static auto rv_req = ascip_details::prs::rvariant_req_parser<ind>{};
-  template<auto ind> constexpr static auto v_req  = ascip_details::prs::variant_recursion_parser<ind>{};
+  constexpr static ascip_details::prs::rvariant_lrec_parser rv_lrec{};
+  constexpr static ascip_details::prs::rvariant_rrec_pl_parser rv_rrec{};
+  template<auto stop_ind> constexpr static ascip_details::prs::rvariant_rrec_parser<stop_ind> _rv_rrec{};
+  template<auto ind> constexpr static auto rv_rec = ascip_details::prs::rvariant_rec_parser<ind>{};
+  template<auto ind> constexpr static auto v_rec  = ascip_details::prs::variant_recursion_parser<ind>{};
 
   // shifts
   template<auto ind> constexpr static auto ulist_shift = ascip_details::prs::unary_list_shift_parser<ind>{};
@@ -76,10 +76,10 @@ struct ascip {
     constexpr static auto& space = ascip::space;
     constexpr static auto& any = ascip::any;
     constexpr static auto& nl = ascip::nl;
-    constexpr static auto& req = ascip::req<s>;
-    constexpr static auto& _rv_rreq = ascip::_rv_rreq<s>;
-    constexpr static auto& rv_req = ascip::rv_req<s>;
-    constexpr static auto& v_req = ascip::v_req<s>;
+    constexpr static auto& rec = ascip::rec<s>;
+    constexpr static auto& _rv_rrec = ascip::_rv_rrec<s>;
+    constexpr static auto& rv_rec = ascip::rv_rec<s>;
+    constexpr static auto& v_rec = ascip::v_rec<s>;
     constexpr static auto& uint_ = ascip::uint_<s>;
     constexpr static auto& seq_shift = ascip::seq_shift<s>;
     constexpr static auto& ulist_shift = ascip::ulist_shift<s>;

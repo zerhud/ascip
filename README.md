@@ -45,7 +45,7 @@ there is a few parse methods (`src` parameter is a data source described above).
 - `parse(parser, src, result)` do the same as above and try to store result into the `result` parameter
 - `parse(parser, skip_parser, src, result)` do the same as above and skip all what corresponds to the `skip_parser`
 - `parse(parser, skip_parser, src, result, error_handler)` to the same as above and call the `error_handler` on error in parse (see the `>` parser)
-- `parse_with_ctx(ctx, parser, src, result)` tries to get the `skip_parser` and `error_handler` from context. the methods is for calling from external parser - a parser class created by user.
+- `continue_parse(ctx, parser, src, result)` tries to get the `skip_parser` and `error_handler` from context. the method is for calling from external parser – a parser class created by user to hide big parser.
 ## parser list
 here is a list of available parsers. you can find examples below
 - `int_` an integer if it can to be stored to result
@@ -59,7 +59,7 @@ here is a list of available parsers. you can find examples below
 - `char_<'a'>` char with concrete value (it can to be wide char and so on). and `_char<'a'>` is same with omitted value.
 - `lit<"string">` is a string literal. please note the string literal right inside the template parameter. unfortunatly it can to be called only with template keyword, or, with same way as terms parsers, but using `sterm` insead of `term` or `tmpl`.
 - `operator |` for parse variant. the result will be created with 1) `template<auto ind> create(auto& var)` method or with 2) `template<auto ind> constepxr auto& emplace(auto &var)` 3) `template<auto ind> constexpr auto& emplace()` method. or 4) the result will be used as is
-- `v_req<number>` for parse variant recursively. use the number to identify the variant which will be rerun (the current is 0, parent is 1 and so on).
+- `v_rec<number>` for parse variant recursively. use the number to identify the variant which will be rerun (the current is 0, parent is 1 and so on).
 - `operator !` for negate parser
 - `unary -` for parse optional value. if there is no value, the default constructor will be used.
 - `binary -` for parse one value except other
@@ -80,8 +80,8 @@ here is a list of available parsers. you can find examples below
 with sequence parser can be used
 - `cur_pos` just stores to result current position, parse nothing
 - `cur_shift` for store to its result current shift position from sequence start
-- `req<number>` for call the sequence (or parent sequence) recursively. the req parser also can be combined with `()` operator with lambda for create recursion result value.
-- `seq_enable_recursion` parser enables recursion for sequence parser, without it the `req` parser won't work. the parser allow to speed up the compilation time (most of the sequence parsers won't have a recursion).
+- `rec<number>` for call the sequence (or parent sequence) recursively. the `rec` parser also can be combined with `()` operator with lambda for create recursion result value.
+- `seq_enable_recursion` parser enables recursion for sequence parser, without it the `rec` parser won't work. the parser allow to speed up the compilation time (most of the sequence parsers won't have a recursion).
 - `++` prefix or postfix for increase result's field number to store the parser result. prefix `++` will increase the number for current parser and postfix `++` - for next parser.
 - `--` same as `++` but decrease the number
 - `finc<number>` method. same as `++` or `--` but you can specify the number will be added to current position (the number can also to be negative). the parser should to be the most outter one: char_<'a'> >> -finc<3>(char_<'b'>) will not work.
@@ -146,7 +146,7 @@ what about recursion? we can write a class wrapper with redefined operator = for
 the parser is:
 ```
 constexpr auto ident = lexeme(letter >> *(letter | d10 | char_<'_'>));
-constexpr auto type_p = ident++ >> -(omit(char_<'<'>) >> ascip::req<1>([](auto&r){r.reset(new type());return r.get();}) % ',' >> omit(char_<'>'>));
+constexpr auto type_p = ident++ >> -(omit(char_<'<'>) >> ascip::rec<1>([](auto&r){r.reset(new type());return r.get();}) % ',' >> omit(char_<'>'>));
 ```
 NOTE: lambda for create recursion holder has to return pointer (or smart pointer).
 
@@ -157,7 +157,7 @@ constexpr auto type_p =
              // so the ident will be stored on first result field and next item to second
   >> -(      // - is an optional parser
        omit(char_<'<'>) // omits a value
-    >> ascip::req<1> // reqursively calls parser. 1 - the number of sequence parsers (as current - number)
+    >> ascip::rec<1> // recursively calls parser. 1 - the number of sequence parsers (as current - number)
        ([](...){...}) // lambda for create object for store recursion. it get an empty unqie_ptr what emplace_back to result.
        % ','
     >> omit(char_<'>'>)
@@ -166,14 +166,14 @@ constexpr auto type_p =
 ```
 what is the `<1>`? let's rewrite the `type_p` parser like this:
 ```
-constexpr auto constexpr auto subtype = omit(char_<'<'>) >> ascip::req<1>([](auto&r){r.reset(new type());return r.get();}) % ',' >> omit(char_<'>'>);
+constexpr auto constexpr auto subtype = omit(char_<'<'>) >> ascip::rec<1>([](auto&r){r.reset(new type());return r.get();}) % ',' >> omit(char_<'>'>);
 constexpr auto type_p = ident++ >> -subtype;
 ```
 as we can see the `type_p` parser contains two sequences: 
 1. `ident` and
 2. optional `subtype` parser definition.
 
-the `req` parser calls parser recursively by number starts from current. so `req<0>` calls the `subtype` parser and `req<1>` calls the `type_p` parser. (the numeration starts from zero.)
+the `rec` parser calls parser recursively by number starts from current. so `rec<0>` calls the `subtype` parser and `rec<1>` calls the `type_p` parser. (the numeration starts from zero.)
 
 ## inheritance
 due to an language limitations we cannot parse into struct with inheritance same way as simple struct. [here is example](https://godbolt.org/z/W3vYf6x8s) showing how to parse in such case.
@@ -191,29 +191,29 @@ please note:
 - instead of casting the result we can provide a static method `struct_fields_count()` in the type, returning the count of fields in the type
 
 ## left recursion
-we can also use `rv_lreq` and `rv_rreq` parsers for left recursion. for example let's parse some expression. [here is full example](https://godbolt.org/z/Y4qv5MeEz). the example seems to big, you can pay attention on make_grammar function only.
+we can also use `rv_lrec` and `rv_rrec` parsers for left recursion. for example let's parse some expression. [here is full example](https://godbolt.org/z/Y4qv5MeEz). the example seems to big, you can pay attention on make_grammar function only.
 
 ```
 	return rv( [](auto& r){ return std::unique_ptr<expr>( new expr{std::move(r)} ); }
-	  , cast<ternary_expr>(gh::rv_lreq >> th<'?'>::_char >> ++gh::rv_rreq(result_maker) >> th<':'>::_char >> ++gh::rv_rreq(result_maker))
-	  , cast<binary_expr>(gh::rv_lreq >> th<'+'>::_char >> ++gh::rv_rreq(result_maker))
-	  , cast<binary_expr>(gh::rv_lreq >> th<'-'>::_char >> ++gh::rv_rreq(result_maker))
-	  , cast<binary_expr>(gh::rv_lreq >> th<'*'>::_char >> ++gh::rv_rreq(result_maker))
-	  , cast<binary_expr>(gh::rv_lreq >> th<'/'>::_char >> ++gh::rv_rreq(result_maker))
-	  , cast<binary_expr>(gh::rv_lreq >> th<'%'>::_char >> ++gh::rv_rreq(result_maker))
-	  , cast<binary_expr>(gh::rv_lreq >> gh::template lit<"**"> >> ++gh::rv_rreq(result_maker))
-	  , rv_result(th<'('>::_char >> th<0>::rv_req >> th<')'>::_char)
+	  , cast<ternary_expr>(gh::rv_lrec >> th<'?'>::_char >> ++gh::rv_rrec(result_maker) >> th<':'>::_char >> ++gh::rv_rrec(result_maker))
+	  , cast<binary_expr>(gh::rv_lrec >> th<'+'>::_char >> ++gh::rv_rrec(result_maker))
+	  , cast<binary_expr>(gh::rv_lrec >> th<'-'>::_char >> ++gh::rv_rrec(result_maker))
+	  , cast<binary_expr>(gh::rv_lrec >> th<'*'>::_char >> ++gh::rv_rrec(result_maker))
+	  , cast<binary_expr>(gh::rv_lrec >> th<'/'>::_char >> ++gh::rv_rrec(result_maker))
+	  , cast<binary_expr>(gh::rv_lrec >> th<'%'>::_char >> ++gh::rv_rrec(result_maker))
+	  , cast<binary_expr>(gh::rv_lrec >> gh::template lit<"**"> >> ++gh::rv_rrec(result_maker))
+	  , rv_result(th<'('>::_char >> th<0>::rv_rec >> th<')'>::_char)
 	  , term
 	);
 ```
 
 please note:
 1. we use `rv` function for create reversive variant. the variant parses from the last item to the first one. also, it dosen't stop on succssed parser (is stops only if parse terminals). note also, the most prioirty parser is on top.
-2. we use `rv_lreq` parser only on leftmost part of parser in the variant (before terminal)
-3. we use `rv_rreq` parser in other parts of parser (after terminal) in the variant. it just parses the next parser from the variant (from a expression parser).
-4. we use `rv_req` parser to run the whole `rv` parser recursively. they parser accepts template parameter - a number of parser, the current `rv` parser is 0, outter parser, if present, is 1 and so on.
+2. we use `rv_lrec` parser only on leftmost part of parser in the variant (before terminal)
+3. we use `rv_rrec` parser in other parts of parser (after terminal) in the variant. it just parses the next parser from the variant (from a expression parser).
+4. we use `rv_rec` parser to run the whole `rv` parser recursively. they parser accepts template parameter - a number of parser, the current `rv` parser is 0, outter parser, if present, is 1 and so on.
 5. the `rv_result` function is used for skip index in resulting variant. if it won't be called the resulting variant must to same sized as the parser.
-6. any parser can have semantic action and result maker methods. here it's done as `gh::rv_rreq(result_maker)`. the result maker should accept single parameter, in our case it will be the `right` field in `binary_expr` structure and returns the `expr`. the `result_maker` needed because `std::unique_ptr` is used and parser don't know how to create the field. but the field can has some type which creates result it self (for example in constructor and destroy result in descructor). in such case the `result_maker` can to be omitted. the result maker returns pointer or reference to created result.
+6. any parser can have semantic action and result maker methods. here it's done as `gh::rv_rrec(result_maker)`. the result maker should accept single parameter, in our case it will be the `right` field in `binary_expr` structure and returns the `expr`. the `result_maker` needed because `std::unique_ptr` is used and parser don't know how to create the field. but the field can has some type which creates result it self (for example in constructor and destroy result in descructor). in such case the `result_maker` can to be omitted. the result maker returns pointer or reference to created result.
 7. the first `rv` parameter is also result creator. it creates the result for `left` field only. the result will be moved inside the parser.
 8. we can parse plus and minus as single parser, so it will be all left recursive, but it can be like in the example: the minus operator is less priority then the plus operator (the expression (1+(2-3)) has same result as ((1+2)-3)).
 9. `rv` parses as `n*m` where `n` is symbols count and `m` is parsers count

@@ -6,7 +6,7 @@
 //          https://www.boost.org/LICENSE_1_0.txt)
 
 #include <utility>
-#include "req.hpp"
+#include "rec.hpp"
 #include "parser.hpp"
 
 namespace ascip_details::prs {
@@ -17,8 +17,8 @@ struct rvariant_mutator {
 	constexpr static auto create_ctx() { return context{}; }
 	constexpr static auto create_ctx(auto&&,auto&&) { return context{}; }
 	template<typename type>
-	constexpr static auto apply(rvariant_rreq_pl_parser&&,auto&&) {
-		return rvariant_rreq_parser<ind>{};
+	constexpr static auto apply(rvariant_rrec_pl_parser&&,auto&&) {
+		return rvariant_rrec_parser<ind>{};
 	}
 };
 

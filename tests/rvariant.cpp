@@ -9,21 +9,21 @@
 #include "factory.hpp"
 
 constexpr auto& int_ = p::int_;
-constexpr auto& rv_lreq = p::rv_lreq;
-constexpr auto& rv_rreq = p::rv_rreq;
+constexpr auto& rv_lrec = p::rv_lrec;
+constexpr auto& rv_rrec = p::rv_rrec;
 
 template<typename dbl_expr>
 constexpr auto test_rvariant_val(auto r, auto&& maker, auto pr, auto&& src) {
 	constexpr auto rmaker = [](auto& r){ r.reset(new (std::decay_t<decltype(*r)>){}); return r.get(); };
 	auto var = rv(std::forward<decltype(maker)>(maker)
-		, cast<dbl_expr>(rv_lreq++ >> _char<'+'> >> rv_rreq(rmaker))
-		, cast<dbl_expr>(rv_lreq++ >> _char<'-'> >> rv_rreq(rmaker))
+		, cast<dbl_expr>(rv_lrec++ >> _char<'+'> >> rv_rrec(rmaker))
+		, cast<dbl_expr>(rv_lrec++ >> _char<'-'> >> rv_rrec(rmaker))
 		, int_
-		, cast<dbl_expr>(rv_lreq++ >> _char<'*'> >> rv_rreq(rmaker)) | cast<dbl_expr>(rv_lreq++ >> _char<'/'> >> rv_rreq(rmaker))
-		, cast<dbl_expr>(rv_lreq++ >> lit<"**"> >> rv_rreq(rmaker))
+		, cast<dbl_expr>(rv_lrec++ >> _char<'*'> >> rv_rrec(rmaker)) | cast<dbl_expr>(rv_lrec++ >> _char<'/'> >> rv_rrec(rmaker))
+		, cast<dbl_expr>(rv_lrec++ >> lit<"**"> >> rv_rrec(rmaker))
 		, p::fp
 		, p::quoted_string
-		, rv_result(_char<'('> >> p::template rv_req<0> >> _char<')'>)
+		, rv_result(_char<'('> >> p::template rv_rec<0> >> _char<')'>)
 		) ;
 	auto cr = var.parse(make_test_ctx(), make_source(src), r);
 	cr /= (cr == pr);
@@ -116,19 +116,19 @@ constexpr auto mk_neasted() {
 	auto mk = [](auto& r){ r.reset(new (std::decay_t<decltype(*r)>){}); return r.get(); };
 	return rv( [](auto& r){ return std::unique_ptr<neasted_expr>( new neasted_expr{std::move(r)} ); }
 	, parser::int_
-	, cast<neasted_binary>( parser::rv_lreq >> fnum<2>(parser::rv_shift<0>) >> --def(parser::_char<'+'>) >> parser::rv_rreq(mk) )
-	, cast<neasted_binary>( parser::rv_lreq >> fnum<2>(parser::rv_shift<0>) >> --def(parser::_char<'-'>) >> parser::rv_rreq(mk) )
-	, rv_result( def(parser::_char<'('>) >> parser::rv_req<0> >> parser::_char<')'> )
+	, cast<neasted_binary>( parser::rv_lrec >> fnum<2>(parser::rv_shift<0>) >> --def(parser::_char<'+'>) >> parser::rv_rrec(mk) )
+	, cast<neasted_binary>( parser::rv_lrec >> fnum<2>(parser::rv_shift<0>) >> --def(parser::_char<'-'>) >> parser::rv_rrec(mk) )
+	, rv_result( def(parser::_char<'('>) >> parser::rv_rec<0> >> parser::_char<')'> )
 	);
 }
 constexpr auto mk_outter() {
 	auto mk = [](auto& r){ r.reset(new (std::decay_t<decltype(*r)>){}); return r.get(); };
 	return rv( [](auto& r){ return std::unique_ptr<outter_expr>( new outter_expr{std::move(r)} ); }
-	, cast<outter_binary>( parser::rv_lreq >> ++parser::_char<'+'> >> parser::rv_rreq(mk) )
-	, cast<outter_binary>( parser::rv_lreq >> ++parser::_char<'-'> >> parser::rv_rreq(mk) )
+	, cast<outter_binary>( parser::rv_lrec >> ++parser::_char<'+'> >> parser::rv_rrec(mk) )
+	, cast<outter_binary>( parser::rv_lrec >> ++parser::_char<'-'> >> parser::rv_rrec(mk) )
 	, def(parser::_char<'{'>) >> mk_neasted() >> parser::_char<'}'>
 	, parser::char_<'a'>
-	, rv_result( def(parser::_char<'('>) >> parser::rv_req<0> >> parser::_char<')'> )
+	, rv_result( def(parser::_char<'('>) >> parser::rv_rec<0> >> parser::_char<')'> )
 	);
 }
 

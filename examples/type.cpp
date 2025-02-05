@@ -22,8 +22,8 @@ constexpr auto make_grammar() {
 		ident++ //++ for increase result field number
 		>> gh::seq_enable_recursion // now we can restart the parser, it will be the number 0
 		                            // (if there was an inner parser with enabled recursion, this parser will be number 1, and so on)
-		>> -(term<'<'>::_char // req with () operator, we pass lambda to create the result for recursion
-			>> (term<0>::req([](auto& r) { // the 0: we call the closest parser with enabled recursion
+		>> -(term<'<'>::_char // rec with () operator, we pass lambda to create the result for recursion
+			>> (term<0>::rec([](auto& r) { // the 0: we call the closest parser with enabled recursion
 				r.reset(new type());
 				return r.get(); // we can also return a reference, but it requires to specify the lambda return type
 			}) % ',')

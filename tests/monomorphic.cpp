@@ -22,10 +22,10 @@ constexpr auto test_rvariant_val() {
 	constexpr auto maker = [](auto& r){ return std::unique_ptr<expr_rt>( new expr_rt{std::move(r)} ); };
 	constexpr auto rmaker = [](auto& r){ r.reset(new (std::decay_t<decltype(*r)>){}); return r.get(); };
 	return rv(std::forward<decltype(maker)>(maker)
-		, cast<dbl_expr>(p::rv_lreq++ >> _char<'+'> >> p::rv_rreq(rmaker))
-		, cast<dbl_expr>(p::rv_lreq++ >> _char<'*'> >> p::rv_rreq(rmaker))
+		, cast<dbl_expr>(p::rv_lrec++ >> _char<'+'> >> p::rv_rrec(rmaker))
+		, cast<dbl_expr>(p::rv_lrec++ >> _char<'*'> >> p::rv_rrec(rmaker))
 		, p::int_
-		, rv_result(_char<'('> >> p::rv_req<0> >> _char<')'>)
+		, rv_result(_char<'('> >> p::rv_rec<0> >> _char<')'>)
 		) ;
 }
 
