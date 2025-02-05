@@ -49,7 +49,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		else {
 			auto cur = get<ind>(seq).parse(ctx, src, variant_result<cur_ind<ind>()>(result));
 			if(cur < 0) return parse_term<ind-1>(ctx, src, result);
-			*search_in_ctx<rvariant_shift_tag>(ctx) = cur;
+            update_shift<rvariant_shift_tag>(ctx, cur);
 			return cur;
 		}
 	}
@@ -70,7 +70,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 				auto pr = get<ind>(seq).parse(ctx, src, variant_result<cur_ind<ind>()>(result));
 				src += pr / (pr>=0);
 				prev_pr += pr;
-				*search_in_ctx<rvariant_shift_tag>(ctx) = pr;
+                update_shift<rvariant_shift_tag>(ctx, pr);
 			}
 			auto total_shift = shift + prev_pr*(prev_pr>0);
 			if constexpr (ind==0) return total_shift;

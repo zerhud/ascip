@@ -2006,7 +2006,7 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		auto& cur = get<pind>(seq);
 		auto ret = call_parse<cur_field>(cur, ctx, src, result);
 		src += ret * (0 <= ret);
-		*search_in_ctx<seq_shift_stack_tag>(ctx) = ret;
+		update_shift<seq_shift_stack_tag>(ctx, ret);
 		if constexpr (pind+1 == sizeof...(parsers)) return ret;
 		else {
 			if( ret < 0 ) return ret;
@@ -2347,7 +2347,6 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
 		auto prs = [&](auto&& r) {
 			auto ret = get<ind>(seq).parse(ctx, src, variant_result<cur_ind<ind>()>(r));
 			update_shift<variant_shift_tag>(ctx, ret);
-			//*search_in_ctx<variant_shift_tag>(ctx) = ret * (0<=ret);
 			return ret;
 		};
 		if constexpr (ind+1 == sizeof...(parsers)) return prs(result);
@@ -2376,16 +2375,11 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
 	template<typename type> constexpr static auto is_type_checker = [](const auto* p){ return type_dc<decltype(*p)> == type_dc<type>; };
 	template<template<typename...>class tmpl> constexpr static auto is_spec_checker = [](const auto* p) { return is_specialization_of<std::decay_t<decltype(*p)>, tmpl>; };
 	template<typename type> constexpr static auto is_castable_checker = [](const auto* p){ return requires{ static_cast<const type*>(p); }; };
-	template<typename type> constexpr static bool _exists_in(auto&& ch) {
-		return exists_in((type*)nullptr, ch, [](const auto* p){
-			return is_spec_checker<variant_parser>(p);
-		});
-	}
+	template<typename type> constexpr static bool _exists_in(auto&& ch) { return exists_in((type*)nullptr, ch, [](const auto* p){ return false; }); }
 	template<typename type> constexpr static bool check_contains_shift = _exists_in<type>(is_castable_checker<variant_shift_parser_tag>);
 	template<typename type> constexpr static bool check_contains_recursion = _exists_in<type>(is_castable_checker<variant_recursion_parser_tag>);
 	template<typename type> constexpr static bool check_use_variant_result = _exists_in<type>(is_spec_checker<use_variant_result_parser>);
 
-	constexpr static bool _() { return (check_contains_recursion<parsers> + ...); }
 	constexpr static bool need_modify_ctx() {
 		return (check_contains_recursion<parsers> + ...) + (check_contains_shift<parsers> + ...) + (check_use_variant_result<parsers> + ...);
 	}
@@ -2422,7 +2416,6 @@ constexpr static bool test_variant() {
 		return (r=='z') + 2*(pr == 0);
 	}() == 3 );
 
-	static_assert( (t<'a'>::char_ | t<'b'>::char_ >> t<0>::v_rec).template check_contains_recursion<decltype(t<'b'>::char_ >> t<0>::v_rec)> );
 	static_assert( (t<'a'>::char_ | t<'b'>::char_ >> t<0>::v_rec).need_modify_ctx() );
 	static_assert( [&] {
 		char r{'z'};
@@ -2436,6 +2429,12 @@ constexpr static bool test_variant() {
 		const auto pr = run_parse(prs::nop++ >> --t<'a'>::char_ | t<'b'>::char_++ >> use_variant_result(t<0>::v_rec) >> t<0>::variant_shift, "bbba", r);
 		return (pr==4) + 2*(r.s=='a') + 4*(r.shift == 3);
 	}() == 7 );
+
+	static_assert( [&] {
+		char r{};
+		const auto pr = run_parse(t<'z'>::char_ | (prs::nop >> (t<'a'>::char_ | t<'b'>::char_ >> t<1>::v_rec)), "bbba", r);
+		return (pr==4) + 2*(r=='a');
+	}() == 3 );
 
 	return true;
 }
@@ -3141,7 +3140,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		else {
 			auto cur = get<ind>(seq).parse(ctx, src, variant_result<cur_ind<ind>()>(result));
 			if(cur < 0) return parse_term<ind-1>(ctx, src, result);
-			*search_in_ctx<rvariant_shift_tag>(ctx) = cur;
+            update_shift<rvariant_shift_tag>(ctx, cur);
 			return cur;
 		}
 	}
@@ -3162,7 +3161,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 				auto pr = get<ind>(seq).parse(ctx, src, variant_result<cur_ind<ind>()>(result));
 				src += pr / (pr>=0);
 				prev_pr += pr;
-				*search_in_ctx<rvariant_shift_tag>(ctx) = pr;
+                update_shift<rvariant_shift_tag>(ctx, pr);
 			}
 			auto total_shift = shift + prev_pr*(prev_pr>0);
 			if constexpr (ind==0) return total_shift;

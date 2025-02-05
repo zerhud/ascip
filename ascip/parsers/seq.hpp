@@ -76,7 +76,7 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		auto& cur = get<pind>(seq);
 		auto ret = call_parse<cur_field>(cur, ctx, src, result);
 		src += ret * (0 <= ret);
-		*search_in_ctx<seq_shift_stack_tag>(ctx) = ret;
+		update_shift<seq_shift_stack_tag>(ctx, ret);
 		if constexpr (pind+1 == sizeof...(parsers)) return ret;
 		else {
 			if( ret < 0 ) return ret;
