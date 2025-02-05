@@ -102,6 +102,10 @@ constexpr auto new_line_count(auto& ctx) {
   else return new_line_counter(ctx);
 }
 
+template<typename type> constexpr auto update_shift(auto& ctx, auto ret) {
+  if constexpr(requires{ *search_in_ctx<type>(ctx) = 1; }) *search_in_ctx<type>(ctx) = ret * (0<=ret);
+}
+
 struct new_line_counter_resetter_fake {
   constexpr static void update(auto&&...) {}
 };

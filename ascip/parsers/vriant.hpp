@@ -67,7 +67,8 @@ template<parser parser> struct use_variant_result_parser : base_parser<use_varia
 	}
 };
 
-template<auto ind> struct variant_shift_parser : base_parser<variant_shift_parser<ind>> {
+struct variant_shift_parser_tag {};
+template<auto ind> struct variant_shift_parser : base_parser<variant_shift_parser<ind>>, variant_shift_parser_tag {
 	constexpr static bool is_special_info_parser=true;
 	constexpr static parse_result parse(auto&& ctx, auto, auto& result) {
 		eq(result, *search_in_ctx<ind, variant_shift_tag>(ctx));
@@ -75,7 +76,8 @@ template<auto ind> struct variant_shift_parser : base_parser<variant_shift_parse
 	}
 };
 
-template<auto ind> struct variant_recursion_parser : base_parser<variant_recursion_parser<ind>> {
+struct variant_recursion_parser_tag {};
+template<auto ind> struct variant_recursion_parser : base_parser<variant_recursion_parser<ind>>, variant_recursion_parser_tag {
 	constexpr static parse_result parse(auto&& ctx, auto src, auto& result) {
 		auto* var = *search_in_ctx<ind, variant_stack_tag>(ctx);
 		return var->call_parse(src, result);
@@ -103,7 +105,7 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
 	template<auto ind> constexpr auto parse_ind(auto&& ctx, auto& src, auto& result) const {
 		auto prs = [&](auto&& r) {
 			auto ret = get<ind>(seq).parse(ctx, src, variant_result<cur_ind<ind>()>(r));
-			*search_in_ctx<variant_shift_tag>(ctx) = ret * (0<=ret);
+			update_shift<variant_shift_tag>(ctx, ret);
 			return ret;
 		};
 		if constexpr (ind+1 == sizeof...(parsers)) return prs(result);
@@ -115,15 +117,30 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
 	}
 
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
-		using mono_type = variant_details::monomorphic<decltype(src), std::decay_t<decltype(result)>>;
-		mono_type* mono_ptr;
-		parse_result shift_storage=0;
-		auto nctx = make_ctx<variant_shift_tag, any_shift_tag>(&shift_storage,
-			make_ctx<variant_stack_tag>(&mono_ptr,
-				make_ctx<variant_stack_result_tag>(&result, ctx)));
-		auto mono = variant_details::mk_mono(this, nctx, src, result);
-		mono_ptr = &mono;
-		return mono.parse_mono(src, result);
+		if constexpr (!need_modify_ctx()) return parse_ind<0>(ctx, src, result);
+		else {
+			using mono_type = variant_details::monomorphic<decltype(src), std::decay_t<decltype(result)>>;
+			mono_type* mono_ptr;
+			parse_result shift_storage=0;
+			auto nctx = make_ctx<variant_shift_tag, any_shift_tag>(&shift_storage,
+				make_ctx<variant_stack_tag>(&mono_ptr,
+					make_ctx<variant_stack_result_tag>(&result, ctx)));
+			auto mono = variant_details::mk_mono(this, nctx, src, result);
+			mono_ptr = &mono;
+			return mono.parse_mono(src, result);
+		}
+	}
+
+	template<typename type> constexpr static auto is_type_checker = [](const auto* p){ return type_dc<decltype(*p)> == type_dc<type>; };
+	template<template<typename...>class tmpl> constexpr static auto is_spec_checker = [](const auto* p) { return is_specialization_of<std::decay_t<decltype(*p)>, tmpl>; };
+	template<typename type> constexpr static auto is_castable_checker = [](const auto* p){ return requires{ static_cast<const type*>(p); }; };
+	template<typename type> constexpr static bool _exists_in(auto&& ch) { return exists_in((type*)nullptr, ch, [](const auto* p){ return false; }); }
+	template<typename type> constexpr static bool check_contains_shift = _exists_in<type>(is_castable_checker<variant_shift_parser_tag>);
+	template<typename type> constexpr static bool check_contains_recursion = _exists_in<type>(is_castable_checker<variant_recursion_parser_tag>);
+	template<typename type> constexpr static bool check_use_variant_result = _exists_in<type>(is_spec_checker<use_variant_result_parser>);
+
+	constexpr static bool need_modify_ctx() {
+		return (check_contains_recursion<parsers> + ...) + (check_contains_shift<parsers> + ...) + (check_use_variant_result<parsers> + ...);
 	}
 
 	constexpr auto clang_crash_workaround(auto r) {
@@ -158,6 +175,7 @@ constexpr static bool test_variant() {
 		return (r=='z') + 2*(pr == 0);
 	}() == 3 );
 
+	static_assert( (t<'a'>::char_ | t<'b'>::char_ >> t<0>::v_rec).need_modify_ctx() );
 	static_assert( [&] {
 		char r{'z'};
 		const auto pr = run_parse(t<'a'>::char_ | t<'b'>::char_ >> t<0>::v_rec, "bbba", r);
@@ -170,6 +188,12 @@ constexpr static bool test_variant() {
 		const auto pr = run_parse(prs::nop++ >> --t<'a'>::char_ | t<'b'>::char_++ >> use_variant_result(t<0>::v_rec) >> t<0>::variant_shift, "bbba", r);
 		return (pr==4) + 2*(r.s=='a') + 4*(r.shift == 3);
 	}() == 7 );
+
+	static_assert( [&] {
+		char r{};
+		const auto pr = run_parse(t<'z'>::char_ | (prs::nop >> (t<'a'>::char_ | t<'b'>::char_ >> t<1>::v_rec)), "bbba", r);
+		return (pr==4) + 2*(r=='a');
+	}() == 3 );
 
 	return true;
 }
