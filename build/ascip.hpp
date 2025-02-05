@@ -2009,7 +2009,8 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 			return p.parse(ctx, src, ascip_reflection::get<find>(result));
 		}
 	}
-	template<auto find, auto pind, typename cur_t, typename... tail> constexpr parse_result parse_seq(auto&& ctx, auto src, auto& result) const {
+	template<auto find, auto pind> constexpr parse_result parse_seq(auto&& ctx, auto src, auto& result) const {
+		using cur_t = __type_pack_element<pind, parsers...>;
 		//TODO: use -1 as last struct field, -2 as the field before last one and so on...
 		constexpr auto cur_field = num_field_val<cur_t>() +
 			( (find + is_inc_field_before<cur_t> + (-1*is_dec_field_before<cur_t>) + inc_field_val<cur_t>()) * !is_num_field_val<cur_t> );
@@ -2024,13 +2025,13 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		else {
 			if( ret < 0 ) return ret;
 			if constexpr (is_def_parser<cur_t> && requires{is_checking(result).ok;}) return ret;
-			auto req = parse_seq<nxt_field, pind+1, tail...>(ctx, src, result);
+			auto req = parse_seq<nxt_field, pind+1>(ctx, src, result);
 			return req*(req<0) + (ret+req)*(0<=req);
 		}
 	}
 
 	constexpr parse_result parse_without_prep(auto&& ctx, auto src, auto& result) const {
-		return parse_seq<0, 0, parsers...>(ctx, src, result);
+		return parse_seq<0, 0>(ctx, src, result);
 	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if(!src) return -1;
