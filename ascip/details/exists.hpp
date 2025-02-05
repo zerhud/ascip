@@ -7,6 +7,7 @@
 
 
 namespace ascip_details {
+//TODO: remove static keyword in methods in this file
 template<auto... inds, template<typename...>class wrapper, typename... parsers>
 constexpr static bool exists_in_get(const wrapper<parsers...>* seq, const auto& checker, const auto& stop) {
 	if constexpr (sizeof...(inds) == sizeof...(parsers)) return false;
@@ -68,6 +69,9 @@ constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop
 	const auto* ptr = static_cast<const std::decay_t<decltype(src->b)>*>(nullptr);
 	if(checker(ptr)) return true;
 	return exists_in(ptr, checker, stop) ; }
+constexpr bool exists_in(auto* src, const auto& checker) {
+	return exists_in(src, checker, [](const auto*){ return false; });
+}
 
 template<typename p, template<auto>class t=p::template tmpl>
 constexpr static bool test_exists_in() {

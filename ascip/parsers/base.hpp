@@ -10,6 +10,7 @@
 namespace ascip_details {
 struct adl_tag {};
 struct any_shift_tag {};
+struct any_shift_parser_tag {};
 struct list_shift_tag {};
 using parse_result = decltype(-1);
 
@@ -17,6 +18,7 @@ namespace prs { template<typename parser> struct base_parser; }
 
 template<typename type> concept parser = std::is_base_of_v<prs::base_parser<std::decay_t<type>>, std::decay_t<type>> ;
 template<typename type> concept nonparser = !parser<type>;
+constexpr auto is_any_shift_parser = [](auto* p){ return requires{static_cast<const any_shift_parser_tag*>(p);}; };
 
 } // namespace ascip_details
 

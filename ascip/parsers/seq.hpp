@@ -57,6 +57,9 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 	template<typename type> constexpr static int num_field_val() { return grab_num_val<type, opt_seq_parser, seq_num_rfield_val>(); }
 	template<typename type> constexpr static auto inc_field_val() { return grab_num_val<type, opt_seq_parser, seq_inc_rfield_val>(); }
 
+	template<typename type> constexpr static bool is_seq_result_required = _exists_in<type>(is_spec_checker<use_seq_result_parser>);
+	template<typename type> constexpr static bool is_shift_required = exists_in((type*)nullptr, is_any_shift_parser);
+
 	template<auto find> constexpr auto call_parse(ascip_details::parser auto& p, auto&& ctx, auto src, auto& result) const {
 		if constexpr (!is_struct_requires_pd) return p.parse(ctx, src, result);
 		else if constexpr (is_field_separator<decltype(auto(p))>) return p.parse(ctx, src, result);
@@ -86,24 +89,17 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		}
 	}
 
-	template<auto find, auto pind> constexpr parse_result parse_and_store_shift(auto&& ctx, auto src, auto& result) const {
-		//static_assert - exists concrete in ctx
-		auto* old_shift = search_in_ctx<seq_shift_stack_tag>(ctx);
-		auto cur_shift = 0;
-		search_in_ctx<seq_shift_stack_tag>(ctx) = &cur_shift;
-		auto ret = parse_seq<find, pind, parsers...>(ctx, src, result);
-		search_in_ctx<seq_shift_stack_tag>(ctx) = old_shift;
-		return ret;
-	}
 	constexpr parse_result parse_without_prep(auto&& ctx, auto src, auto& result) const {
-		return parse_and_store_shift<0,0>(std::forward<decltype(ctx)>(ctx), std::move(src), result);
+		return parse_seq<0, 0, parsers...>(ctx, src, result);
 	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if(!src) return -1;
 		auto nl_controller = make_new_line_count_resetter(ctx, result);
 		auto shift_store = 0;
-		auto cur_ctx = make_ctx<seq_shift_stack_tag, any_shift_tag>(&shift_store,
-		  make_ctx<seq_result_stack_tag>(&result, ctx ) ) ;
+		constexpr bool is_shift_req = (is_shift_required<parsers> + ...) > 0;
+		constexpr bool is_result_req = (is_seq_result_required<parsers> + ...) > 0;
+		auto cur_ctx = make_ctx_if<is_shift_req, seq_shift_stack_tag, any_shift_tag>(&shift_store,
+		  make_ctx_if<is_result_req, seq_result_stack_tag>(&result, ctx ) ) ;
 		auto ret = parse_rswitch(cur_ctx, std::move(src), result);
 		nl_controller.update(ret);
 		return ret;

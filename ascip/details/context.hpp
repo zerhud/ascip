@@ -47,6 +47,10 @@ template<typename... tag, typename value, typename... frames> constexpr auto mak
 template<typename... tag, typename value> constexpr auto make_ctx(value&& val) {
   return make_ctx<tag...>(std::forward<decltype(val)>(val), make_default_context());
 }
+template<bool cond, typename... tag> constexpr auto make_ctx_if(auto&& val, auto prev_ctx) {
+  if constexpr (cond) return make_ctx<tag...>(std::forward<decltype(val)>(val), std::move(prev_ctx));
+  else return std::move(prev_ctx);
+}
 
 constexpr struct ctx_not_found_type {} ctx_not_found ;
 template<auto cur, auto cur_ind, auto ind, auto sz, typename... tag> constexpr auto& _search_in_ctx(type_list<tag...> tags, auto& ctx) {

@@ -14,7 +14,7 @@ namespace ascip_details::prs {
 
 struct unary_list_shift_tag {};
 
-template<auto ind> struct unary_list_shift_parser : base_parser<unary_list_shift_parser<ind>> {
+template<auto ind> struct unary_list_shift_parser : base_parser<unary_list_shift_parser<ind>>, any_shift_parser_tag {
 	constexpr static bool is_special_info_parser=true;
 	constexpr static parse_result parse(auto&& ctx, auto, auto& result) {
 		eq(result, *search_in_ctx<ind, unary_list_shift_tag>(ctx));
@@ -30,7 +30,8 @@ template<parser parser> struct unary_list_parser : base_parser<unary_list_parser
 	constexpr unary_list_parser(parser p) : p(std::move(p)) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		parse_result shift_storage = 0;
-		auto nctx = make_ctx<list_shift_tag, unary_list_shift_tag, any_shift_tag>(&shift_storage, ctx);
+		constexpr bool need_shift = exists_in((parser*)nullptr, is_any_shift_parser);
+		auto nctx = make_ctx_if<need_shift, list_shift_tag, unary_list_shift_tag, any_shift_tag>(&shift_storage, ctx);
 		parse_result ret = -1;
 		parse_result cur_r = 0;
 		while (src && 0<=cur_r) {

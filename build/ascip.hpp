@@ -193,6 +193,10 @@ template<typename... tag, typename value, typename... frames> constexpr auto mak
 template<typename... tag, typename value> constexpr auto make_ctx(value&& val) {
   return make_ctx<tag...>(std::forward<decltype(val)>(val), make_default_context());
 }
+template<bool cond, typename... tag> constexpr auto make_ctx_if(auto&& val, auto prev_ctx) {
+  if constexpr (cond) return make_ctx<tag...>(std::forward<decltype(val)>(val), std::move(prev_ctx));
+  else return std::move(prev_ctx);
+}
 
 constexpr struct ctx_not_found_type {} ctx_not_found ;
 template<auto cur, auto cur_ind, auto ind, auto sz, typename... tag> constexpr auto& _search_in_ctx(type_list<tag...> tags, auto& ctx) {
@@ -425,6 +429,7 @@ constexpr void test_static_string() {
 
 
 namespace ascip_details {
+//TODO: remove static keyword in methods in this file
 template<auto... inds, template<typename...>class wrapper, typename... parsers>
 constexpr static bool exists_in_get(const wrapper<parsers...>* seq, const auto& checker, const auto& stop) {
 	if constexpr (sizeof...(inds) == sizeof...(parsers)) return false;
@@ -486,6 +491,9 @@ constexpr static bool exists_in(auto* src, const auto& checker, const auto& stop
 	const auto* ptr = static_cast<const std::decay_t<decltype(src->b)>*>(nullptr);
 	if(checker(ptr)) return true;
 	return exists_in(ptr, checker, stop) ; }
+constexpr bool exists_in(auto* src, const auto& checker) {
+	return exists_in(src, checker, [](const auto*){ return false; });
+}
 
 template<typename p, template<auto>class t=p::template tmpl>
 constexpr static bool test_exists_in() {
@@ -923,6 +931,7 @@ constexpr void write_out_error_msg(
 namespace ascip_details {
 struct adl_tag {};
 struct any_shift_tag {};
+struct any_shift_parser_tag {};
 struct list_shift_tag {};
 using parse_result = decltype(-1);
 
@@ -930,6 +939,7 @@ namespace prs { template<typename parser> struct base_parser; }
 
 template<typename type> concept parser = std::is_base_of_v<prs::base_parser<std::decay_t<type>>, std::decay_t<type>> ;
 template<typename type> concept nonparser = !parser<type>;
+constexpr auto is_any_shift_parser = [](auto* p){ return requires{static_cast<const any_shift_parser_tag*>(p);}; };
 
 } // namespace ascip_details
 
@@ -1748,7 +1758,7 @@ template<parser type> constexpr auto use_seq_result(type&& p) {
 
 namespace ascip_details::prs {
 
-template<auto ind> struct seq_shift_parser : base_parser<seq_shift_parser<ind>> {
+template<auto ind> struct seq_shift_parser : base_parser<seq_shift_parser<ind>>, any_shift_parser_tag {
 	constexpr static bool is_special_info_parser=true;
 	constexpr parse_result parse(auto&& ctx, auto, auto& result) const {
 		eq(result, *search_in_ctx<ind, seq_shift_stack_tag>(ctx));
@@ -1987,6 +1997,9 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 	template<typename type> constexpr static int num_field_val() { return grab_num_val<type, opt_seq_parser, seq_num_rfield_val>(); }
 	template<typename type> constexpr static auto inc_field_val() { return grab_num_val<type, opt_seq_parser, seq_inc_rfield_val>(); }
 
+	template<typename type> constexpr static bool is_seq_result_required = _exists_in<type>(is_spec_checker<use_seq_result_parser>);
+	template<typename type> constexpr static bool is_shift_required = exists_in((type*)nullptr, is_any_shift_parser);
+
 	template<auto find> constexpr auto call_parse(ascip_details::parser auto& p, auto&& ctx, auto src, auto& result) const {
 		if constexpr (!is_struct_requires_pd) return p.parse(ctx, src, result);
 		else if constexpr (is_field_separator<decltype(auto(p))>) return p.parse(ctx, src, result);
@@ -2016,24 +2029,17 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		}
 	}
 
-	template<auto find, auto pind> constexpr parse_result parse_and_store_shift(auto&& ctx, auto src, auto& result) const {
-		//static_assert - exists concrete in ctx
-		auto* old_shift = search_in_ctx<seq_shift_stack_tag>(ctx);
-		auto cur_shift = 0;
-		search_in_ctx<seq_shift_stack_tag>(ctx) = &cur_shift;
-		auto ret = parse_seq<find, pind, parsers...>(ctx, src, result);
-		search_in_ctx<seq_shift_stack_tag>(ctx) = old_shift;
-		return ret;
-	}
 	constexpr parse_result parse_without_prep(auto&& ctx, auto src, auto& result) const {
-		return parse_and_store_shift<0,0>(std::forward<decltype(ctx)>(ctx), std::move(src), result);
+		return parse_seq<0, 0, parsers...>(ctx, src, result);
 	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		if(!src) return -1;
 		auto nl_controller = make_new_line_count_resetter(ctx, result);
 		auto shift_store = 0;
-		auto cur_ctx = make_ctx<seq_shift_stack_tag, any_shift_tag>(&shift_store,
-		  make_ctx<seq_result_stack_tag>(&result, ctx ) ) ;
+		constexpr bool is_shift_req = (is_shift_required<parsers> + ...) > 0;
+		constexpr bool is_result_req = (is_seq_result_required<parsers> + ...) > 0;
+		auto cur_ctx = make_ctx_if<is_shift_req, seq_shift_stack_tag, any_shift_tag>(&shift_store,
+		  make_ctx_if<is_result_req, seq_result_stack_tag>(&result, ctx ) ) ;
 		auto ret = parse_rswitch(cur_ctx, std::move(src), result);
 		nl_controller.update(ret);
 		return ret;
@@ -2308,8 +2314,7 @@ template<parser parser> struct use_variant_result_parser : base_parser<use_varia
 	}
 };
 
-struct variant_shift_parser_tag {};
-template<auto ind> struct variant_shift_parser : base_parser<variant_shift_parser<ind>>, variant_shift_parser_tag {
+template<auto ind> struct variant_shift_parser : base_parser<variant_shift_parser<ind>>, any_shift_parser_tag {
 	constexpr static bool is_special_info_parser=true;
 	constexpr static parse_result parse(auto&& ctx, auto, auto& result) {
 		eq(result, *search_in_ctx<ind, variant_shift_tag>(ctx));
@@ -2376,7 +2381,7 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
 	template<template<typename...>class tmpl> constexpr static auto is_spec_checker = [](const auto* p) { return is_specialization_of<std::decay_t<decltype(*p)>, tmpl>; };
 	template<typename type> constexpr static auto is_castable_checker = [](const auto* p){ return requires{ static_cast<const type*>(p); }; };
 	template<typename type> constexpr static bool _exists_in(auto&& ch) { return exists_in((type*)nullptr, ch, [](const auto* p){ return false; }); }
-	template<typename type> constexpr static bool check_contains_shift = _exists_in<type>(is_castable_checker<variant_shift_parser_tag>);
+	template<typename type> constexpr static bool check_contains_shift = _exists_in<type>(is_castable_checker<any_shift_parser_tag>);
 	template<typename type> constexpr static bool check_contains_recursion = _exists_in<type>(is_castable_checker<variant_recursion_parser_tag>);
 	template<typename type> constexpr static bool check_use_variant_result = _exists_in<type>(is_spec_checker<use_variant_result_parser>);
 
@@ -2651,7 +2656,7 @@ namespace ascip_details::prs {
 
 struct unary_list_shift_tag {};
 
-template<auto ind> struct unary_list_shift_parser : base_parser<unary_list_shift_parser<ind>> {
+template<auto ind> struct unary_list_shift_parser : base_parser<unary_list_shift_parser<ind>>, any_shift_parser_tag {
 	constexpr static bool is_special_info_parser=true;
 	constexpr static parse_result parse(auto&& ctx, auto, auto& result) {
 		eq(result, *search_in_ctx<ind, unary_list_shift_tag>(ctx));
@@ -2667,7 +2672,8 @@ template<parser parser> struct unary_list_parser : base_parser<unary_list_parser
 	constexpr unary_list_parser(parser p) : p(std::move(p)) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		parse_result shift_storage = 0;
-		auto nctx = make_ctx<list_shift_tag, unary_list_shift_tag, any_shift_tag>(&shift_storage, ctx);
+		constexpr bool need_shift = exists_in((parser*)nullptr, is_any_shift_parser);
+		auto nctx = make_ctx_if<need_shift, list_shift_tag, unary_list_shift_tag, any_shift_tag>(&shift_storage, ctx);
 		parse_result ret = -1;
 		parse_result cur_r = 0;
 		while (src && 0<=cur_r) {
@@ -2711,7 +2717,7 @@ namespace ascip_details::prs {
 
 struct binary_list_shift_tag {};
 
-template<auto ind> struct binary_list_shift_parser : base_parser<binary_list_shift_parser<ind>> {
+template<auto ind> struct binary_list_shift_parser : base_parser<binary_list_shift_parser<ind>>, any_shift_parser_tag {
 	constexpr static bool is_special_info_parser=true;
 	constexpr static parse_result parse(auto&& ctx, auto, auto& result) {
 		eq(result, *search_in_ctx<ind, binary_list_shift_tag>(ctx));
@@ -2726,7 +2732,8 @@ struct binary_list_parser : base_parser<binary_list_parser<left, right>> {
 	constexpr binary_list_parser(left l, right r) : lp(l), rp(r) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		parse_result shift_storage=0;
-		auto nctx = make_ctx<binary_list_shift_tag, list_shift_tag, any_shift_tag>(&shift_storage, ctx);
+		constexpr bool need_shift = exists_in((left*)nullptr, is_any_shift_parser);
+		auto nctx = make_ctx_if<need_shift, binary_list_shift_tag, list_shift_tag, any_shift_tag>(&shift_storage, ctx);
 		type_parse_without_result fake_result;
 		parse_result skip=0, cur = 0, ret = -1;
 		while (skip >= 0) {
@@ -3640,7 +3647,7 @@ constexpr static bool test_injection() {
 
 namespace ascip_details::prs {
 
-template<auto ind> struct any_shift_parser : base_parser<any_shift_parser<ind>> {
+template<auto ind> struct any_shift_parser : base_parser<any_shift_parser<ind>>, any_shift_parser_tag {
 	constexpr static bool is_special_info_parser=true;
   constexpr static parse_result parse(auto&& ctx, auto, auto& result) {
     eq(result, *search_in_ctx<ind, any_shift_tag>(ctx));

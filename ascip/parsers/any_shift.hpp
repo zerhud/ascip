@@ -10,7 +10,7 @@
 
 namespace ascip_details::prs {
 
-template<auto ind> struct any_shift_parser : base_parser<any_shift_parser<ind>> {
+template<auto ind> struct any_shift_parser : base_parser<any_shift_parser<ind>>, any_shift_parser_tag {
 	constexpr static bool is_special_info_parser=true;
   constexpr static parse_result parse(auto&& ctx, auto, auto& result) {
     eq(result, *search_in_ctx<ind, any_shift_tag>(ctx));

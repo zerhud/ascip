@@ -67,8 +67,7 @@ template<parser parser> struct use_variant_result_parser : base_parser<use_varia
 	}
 };
 
-struct variant_shift_parser_tag {};
-template<auto ind> struct variant_shift_parser : base_parser<variant_shift_parser<ind>>, variant_shift_parser_tag {
+template<auto ind> struct variant_shift_parser : base_parser<variant_shift_parser<ind>>, any_shift_parser_tag {
 	constexpr static bool is_special_info_parser=true;
 	constexpr static parse_result parse(auto&& ctx, auto, auto& result) {
 		eq(result, *search_in_ctx<ind, variant_shift_tag>(ctx));
@@ -135,7 +134,7 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
 	template<template<typename...>class tmpl> constexpr static auto is_spec_checker = [](const auto* p) { return is_specialization_of<std::decay_t<decltype(*p)>, tmpl>; };
 	template<typename type> constexpr static auto is_castable_checker = [](const auto* p){ return requires{ static_cast<const type*>(p); }; };
 	template<typename type> constexpr static bool _exists_in(auto&& ch) { return exists_in((type*)nullptr, ch, [](const auto* p){ return false; }); }
-	template<typename type> constexpr static bool check_contains_shift = _exists_in<type>(is_castable_checker<variant_shift_parser_tag>);
+	template<typename type> constexpr static bool check_contains_shift = _exists_in<type>(is_castable_checker<any_shift_parser_tag>);
 	template<typename type> constexpr static bool check_contains_recursion = _exists_in<type>(is_castable_checker<variant_recursion_parser_tag>);
 	template<typename type> constexpr static bool check_use_variant_result = _exists_in<type>(is_spec_checker<use_variant_result_parser>);
 

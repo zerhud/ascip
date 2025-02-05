@@ -14,7 +14,7 @@ namespace ascip_details::prs {
 
 struct binary_list_shift_tag {};
 
-template<auto ind> struct binary_list_shift_parser : base_parser<binary_list_shift_parser<ind>> {
+template<auto ind> struct binary_list_shift_parser : base_parser<binary_list_shift_parser<ind>>, any_shift_parser_tag {
 	constexpr static bool is_special_info_parser=true;
 	constexpr static parse_result parse(auto&& ctx, auto, auto& result) {
 		eq(result, *search_in_ctx<ind, binary_list_shift_tag>(ctx));
@@ -29,7 +29,8 @@ struct binary_list_parser : base_parser<binary_list_parser<left, right>> {
 	constexpr binary_list_parser(left l, right r) : lp(l), rp(r) {}
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
 		parse_result shift_storage=0;
-		auto nctx = make_ctx<binary_list_shift_tag, list_shift_tag, any_shift_tag>(&shift_storage, ctx);
+		constexpr bool need_shift = exists_in((left*)nullptr, is_any_shift_parser);
+		auto nctx = make_ctx_if<need_shift, binary_list_shift_tag, list_shift_tag, any_shift_tag>(&shift_storage, ctx);
 		type_parse_without_result fake_result;
 		parse_result skip=0, cur = 0, ret = -1;
 		while (skip >= 0) {
