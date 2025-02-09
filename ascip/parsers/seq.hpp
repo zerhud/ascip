@@ -57,7 +57,7 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 	template<typename type> constexpr static int num_field_val() { return grab_num_val<type, opt_seq_parser, seq_num_rfield_val>(); }
 	template<typename type> constexpr static auto inc_field_val() { return grab_num_val<type, opt_seq_parser, seq_inc_rfield_val>(); }
 
-	template<typename type> constexpr static bool is_seq_result_required = _exists_in<type>(is_spec_checker<use_seq_result_parser>);
+	template<typename type> constexpr static bool is_seq_result_required = exists_use_result<seq_result_stack_tag, type, opt_seq_parser>();
 	template<typename type> constexpr static bool is_shift_required = exists_in((type*)nullptr, is_any_shift_parser);
 
 	template<auto find> constexpr auto call_parse(ascip_details::parser auto& p, auto&& ctx, auto src, auto& result) const {
@@ -100,7 +100,7 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		constexpr bool is_shift_req = (is_shift_required<parsers> + ...) > 0;
 		constexpr bool is_result_req = (is_seq_result_required<parsers> + ...) > 0;
 		auto cur_ctx = make_ctx_if<is_shift_req, seq_shift_stack_tag, any_shift_tag>(&shift_store,
-		  replace_in_ctx<is_result_req, seq_result_stack_tag, use_result_tag>(&result, ctx ) ) ;
+		  replace_in_ctx<is_result_req, seq_result_stack_tag>(&result, ctx ) ) ;
 		auto ret = parse_rswitch(cur_ctx, std::move(src), result);
 		nl_controller.update(ret);
 		return ret;

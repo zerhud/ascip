@@ -70,7 +70,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 				auto pr = get<ind>(seq).parse(ctx, src, variant_result<cur_ind<ind>()>(result));
 				src += pr / (pr>=0);
 				prev_pr += pr;
-                update_shift<rvariant_shift_tag>(ctx, pr);
+				update_shift<rvariant_shift_tag>(ctx, pr);
 			}
 			auto total_shift = shift + prev_pr*(prev_pr>0);
 			if constexpr (ind==0) return total_shift;
@@ -90,7 +90,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		parse_result shift_storage=0;
 		auto rctx = make_ctx<rvariant_shift_tag, any_shift_tag>(&shift_storage,
 			replace_in_ctx<true, rvariant_stack_tag>(&mono_ptr,
-			replace_in_ctx<true, rvariant_cpy_result_tag, use_result_tag>((copied_result_type*)nullptr, ctx) ) );
+			replace_in_ctx<true, rvariant_cpy_result_tag>((copied_result_type*)nullptr, ctx) ) );
 		auto mono = rv_utils::mk_mono(this, rctx, src, result);
 		mono_ptr = &mono;
 		return mono.parse_mono(0, src, result);

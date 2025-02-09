@@ -11,6 +11,7 @@ namespace ascip_details {
 
 template<typename type, template<typename...>class tmpl> constexpr bool is_specialization_of = false;
 template<template<typename...>class type, typename... args> constexpr bool is_specialization_of<type<args...>, type> = true;
+template<template<typename...>class tmpl> constexpr static auto is_spec_checker = [](const auto* p) { return is_specialization_of<std::decay_t<decltype(*p)>, tmpl>; };
 
 template<typename...> struct type_list {};
 template<typename,auto...> struct seq_type {};

@@ -2,6 +2,7 @@ namespace ascip_details {
 
 template<typename type, template<typename...>class tmpl> constexpr bool is_specialization_of = false;
 template<template<typename...>class type, typename... args> constexpr bool is_specialization_of<type<args...>, type> = true;
+template<template<typename...>class tmpl> constexpr static auto is_spec_checker = [](const auto* p) { return is_specialization_of<std::decay_t<decltype(*p)>, tmpl>; };
 
 template<typename...> struct type_list {};
 template<typename,auto...> struct seq_type {};
@@ -190,7 +191,7 @@ constexpr static auto make_default_context(auto* nls, auto err_handler) {
 constexpr auto make_test_ctx() { return make_default_context(); }
 constexpr static auto make_test_ctx(auto* nls, auto err_handler){ return make_default_context(nls, std::move(err_handler)); }
 
-template<template<typename...>class tuple, typename... types> constexpr decltype(auto) repack(tuple<types...>&& tup, auto&& fnc) {
+template<template<typename...>class tuple, typename... types> constexpr decltype(auto) repack(tuple<types...> tup, auto&& fnc) {
   return [&]<auto... inds>(std::index_sequence<inds...>){
     return fnc(std::move(get<inds>(tup))...);
   }(std::make_index_sequence<sizeof...(types)>{});
@@ -1750,6 +1751,36 @@ struct seq_result_stack_tag{};
 //          https://www.boost.org/LICENSE_1_0.txt)
 
 
+       
+
+//          Copyright Hudyaev Alexey 2025.
+// Distributed under the Boost Software License, Version 1.0.
+//    (See accompanying file LICENSE_1_0.txt or copy at
+//          https://www.boost.org/LICENSE_1_0.txt)
+
+
+
+
+
+namespace ascip_details::prs {
+
+template<typename tag, parser parser> struct use_result_parser : base_parser<use_result_parser<tag, parser>> {
+	parser p;
+	constexpr static auto use_result_parser_tag = type_c<tag>;
+	constexpr parse_result parse(auto&& ctx, auto src, auto&) const {
+		auto& result = *search_in_ctx<tag>(ctx);
+		return p.parse(ctx, src, result);
+	}
+};
+
+template<typename tag, typename type, template<typename...>class tmpl> constexpr static auto exists_use_result() {
+	return exists_in((std::decay_t<type>*)nullptr, [](const auto* p) {
+		if constexpr(requires{p->use_result_parser_tag;}) return p->use_result_parser_tag == type_c<tag>;
+		else return false;
+	}, is_spec_checker<tmpl>);
+}
+
+}
 
 namespace ascip_details::prs {
 template<parser parser>
@@ -1763,9 +1794,13 @@ struct use_seq_result_parser : base_parser<use_seq_result_parser<parser>> {
 }
 
 namespace ascip_details {
+
 template<parser type> constexpr auto use_seq_result(type&& p) {
-	using ptype = std::decay_t<decltype(p)>;
-	return prs::use_seq_result_parser<ptype>{ {}, std::forward<decltype(p)>(p) }; }
+	using ptype = std::decay_t<type>;
+	//return prs::use_seq_result_parser<ptype>{ {}, std::forward<decltype(p)>(p) }; }
+	return prs::use_result_parser<prs::seq_result_stack_tag, ptype>{ {}, std::forward<decltype(p)>(p) };
+}
+
 }
        
 
@@ -2019,7 +2054,7 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 	template<typename type> constexpr static int num_field_val() { return grab_num_val<type, opt_seq_parser, seq_num_rfield_val>(); }
 	template<typename type> constexpr static auto inc_field_val() { return grab_num_val<type, opt_seq_parser, seq_inc_rfield_val>(); }
 
-	template<typename type> constexpr static bool is_seq_result_required = _exists_in<type>(is_spec_checker<use_seq_result_parser>);
+	template<typename type> constexpr static bool is_seq_result_required = exists_use_result<seq_result_stack_tag, type, opt_seq_parser>();
 	template<typename type> constexpr static bool is_shift_required = exists_in((type*)nullptr, is_any_shift_parser);
 
 	template<auto find> constexpr auto call_parse(ascip_details::parser auto& p, auto&& ctx, auto src, auto& result) const {
@@ -2062,7 +2097,7 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		constexpr bool is_shift_req = (is_shift_required<parsers> + ...) > 0;
 		constexpr bool is_result_req = (is_seq_result_required<parsers> + ...) > 0;
 		auto cur_ctx = make_ctx_if<is_shift_req, seq_shift_stack_tag, any_shift_tag>(&shift_store,
-		  replace_in_ctx<is_result_req, seq_result_stack_tag, use_result_tag>(&result, ctx ) ) ;
+		  replace_in_ctx<is_result_req, seq_result_stack_tag>(&result, ctx ) ) ;
 		auto ret = parse_rswitch(cur_ctx, std::move(src), result);
 		nl_controller.update(ret);
 		return ret;
@@ -3211,7 +3246,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		parse_result shift_storage=0;
 		auto rctx = make_ctx<rvariant_shift_tag, any_shift_tag>(&shift_storage,
 			replace_in_ctx<true, rvariant_stack_tag>(&mono_ptr,
-			replace_in_ctx<true, rvariant_cpy_result_tag, use_result_tag>((copied_result_type*)nullptr, ctx) ) );
+			replace_in_ctx<true, rvariant_cpy_result_tag>((copied_result_type*)nullptr, ctx) ) );
 		auto mono = rv_utils::mk_mono(this, rctx, src, result);
 		mono_ptr = &mono;
 		return mono.parse_mono(0, src, result);
