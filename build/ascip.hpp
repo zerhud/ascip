@@ -1775,6 +1775,7 @@ template<typename tag, parser parser> struct use_result_parser : base_parser<use
 
 template<typename tag, typename type, template<typename...>class tmpl> constexpr static auto exists_use_result() {
 	return exists_in((std::decay_t<type>*)nullptr, [](const auto* p) {
+		//TODO: clang issue, it should to be requires{ p->use_result_parser_tag; requires  p->use_result_parser_tag == type_c<tag>;}
 		if constexpr(requires{p->use_result_parser_tag;}) return p->use_result_parser_tag == type_c<tag>;
 		else return false;
 	}, is_spec_checker<tmpl>);
@@ -1782,22 +1783,10 @@ template<typename tag, typename type, template<typename...>class tmpl> constexpr
 
 }
 
-namespace ascip_details::prs {
-template<parser parser>
-struct use_seq_result_parser : base_parser<use_seq_result_parser<parser>> {
-	parser p;
-	constexpr parse_result parse(auto&& ctx, auto src, auto&) const {
-		auto& result = *search_in_ctx<seq_result_stack_tag>(ctx);
-		return p.parse(ctx, src, result);
-	}
-};
-}
-
 namespace ascip_details {
 
 template<parser type> constexpr auto use_seq_result(type&& p) {
 	using ptype = std::decay_t<type>;
-	//return prs::use_seq_result_parser<ptype>{ {}, std::forward<decltype(p)>(p) }; }
 	return prs::use_result_parser<prs::seq_result_stack_tag, ptype>{ {}, std::forward<decltype(p)>(p) };
 }
 
@@ -2365,13 +2354,6 @@ constexpr auto mk_mono(const parser* p, context ctx, source src, result& r) {
 
 }
 
-template<parser parser> struct use_variant_result_parser : base_parser<use_variant_result_parser<parser>> {
-	parser p;
-	constexpr parse_result parse(auto&& ctx, auto src, auto&) const {
-		return p.parse(ctx, src, *search_in_ctx<variant_stack_result_tag>(ctx));
-	}
-};
-
 template<auto ind> struct variant_shift_parser : base_parser<variant_shift_parser<ind>>, any_shift_parser_tag {
 	constexpr static bool is_special_info_parser=true;
 	constexpr static parse_result parse(auto&& ctx, auto, auto& result) {
@@ -2398,7 +2380,7 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
 
 	template<auto ind, auto cnt, auto cur, typename cur_parser, typename... tail>
 	constexpr static auto _cur_ind() {
-		constexpr bool skip = is_specialization_of<cur_parser, use_variant_result_parser>;
+		constexpr bool skip = exists_use_result<variant_stack_result_tag, cur_parser, variant_parser>();
 		if constexpr (ind == cnt) {
 			if constexpr (skip) return -1;
 			else return cur;
@@ -2441,7 +2423,7 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
 	template<typename type> constexpr static bool _exists_in(auto&& ch) { return exists_in((type*)nullptr, ch, [](const auto* p){ return false; }); }
 	template<typename type> constexpr static bool check_contains_shift = _exists_in<type>(is_castable_checker<any_shift_parser_tag>);
 	template<typename type> constexpr static bool check_contains_recursion = _exists_in<type>(is_castable_checker<variant_recursion_parser_tag>);
-	template<typename type> constexpr static bool check_use_variant_result = _exists_in<type>(is_spec_checker<use_variant_result_parser>);
+	template<typename type> constexpr static bool check_use_variant_result = exists_use_result<variant_stack_result_tag, type, variant_parser>();
 
 	constexpr static bool need_modify_ctx() {
 		return (check_contains_recursion<parsers> + ...) + (check_contains_shift<parsers> + ...) + (check_use_variant_result<parsers> + ...);
@@ -2523,7 +2505,7 @@ constexpr auto operator|(auto&& left, nonparser auto&& right) {
 }
 
 template<parser type> constexpr auto use_variant_result(const type& p) {
-  return prs::use_variant_result_parser<type>{ {}, p };
+  return prs::use_result_parser<prs::variant_stack_result_tag, type>{ {}, p };
 }
 
 }
@@ -3226,7 +3208,7 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 				auto pr = get<ind>(seq).parse(ctx, src, variant_result<cur_ind<ind>()>(result));
 				src += pr / (pr>=0);
 				prev_pr += pr;
-                update_shift<rvariant_shift_tag>(ctx, pr);
+				update_shift<rvariant_shift_tag>(ctx, pr);
 			}
 			auto total_shift = shift + prev_pr*(prev_pr>0);
 			if constexpr (ind==0) return total_shift;
