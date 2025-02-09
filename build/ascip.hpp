@@ -160,11 +160,22 @@ struct skip_parser_tag{};
 struct err_handler_tag{};
 struct new_line_count_tag {};
 struct inverted_result_tag {};
+struct use_result_tag {};
 
 template<typename value_t, typename... t> struct context_frame {
   constexpr static auto tags = type_list<t...>{};
   value_t value;
 };
+template<typename l_value_t, typename... l_t, typename r_value_t, typename... r_t>
+constexpr auto operator+(context_frame<l_value_t, l_t...> left, context_frame<r_value_t, r_t...> right) {
+  return tuple<context_frame<l_value_t, l_t...>, context_frame<r_value_t, r_t...>>{ std::move(left), std::move(right) };
+}
+template<typename... l_frames, typename r_value_t, typename... r_t>
+constexpr auto operator+(tuple<l_frames...> left, context_frame<r_value_t, r_t...> right) {
+  return [&]<auto... inds>(std::index_sequence<inds...>) {
+    return tuple<l_frames..., context_frame<r_value_t, r_t...>>{ get<inds>(left)..., right};
+  }(std::make_index_sequence<sizeof...(l_frames)>{});
+}
 constexpr auto make_default_context() {
   return tuple{context_frame<int, new_line_count_tag>{1}};
 }
@@ -221,6 +232,17 @@ template<typename... tag, typename... frames> constexpr const auto& search_in_ct
 template<typename... _tags, typename... frames> constexpr bool exists_in_ctx(const tuple<frames...>&) {
   constexpr type_list<_tags...> tags{};
   return (contains_any(frames::tags, tags) + ... );
+}
+template<bool cond, typename... _tags, typename value, typename... frames> constexpr auto replace_in_ctx(value&& val, tuple<frames...> prev) {
+  constexpr type_list<_tags...> tags{};
+  if constexpr (!cond) return std::move(prev);
+  else if constexpr((contains_any(frames::tags, tags) + ...)) return repack(std::move(prev), [&](auto... pack) {
+    return (... + [&](auto cur){
+      if constexpr(contains_any(decltype(cur)::tags, tags)) return context_frame<std::decay_t<value>, _tags...>{val};
+      else return cur;
+    }(std::move(pack)));
+  });
+  else return make_ctx<_tags...>(std::forward<decltype(val)>(val), std::move(prev));
 }
 
 
@@ -2040,7 +2062,7 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		constexpr bool is_shift_req = (is_shift_required<parsers> + ...) > 0;
 		constexpr bool is_result_req = (is_seq_result_required<parsers> + ...) > 0;
 		auto cur_ctx = make_ctx_if<is_shift_req, seq_shift_stack_tag, any_shift_tag>(&shift_store,
-		  make_ctx_if<is_result_req, seq_result_stack_tag>(&result, ctx ) ) ;
+		  replace_in_ctx<is_result_req, seq_result_stack_tag, use_result_tag>(&result, ctx ) ) ;
 		auto ret = parse_rswitch(cur_ctx, std::move(src), result);
 		nl_controller.update(ret);
 		return ret;
@@ -2371,7 +2393,7 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
 			parse_result shift_storage=0;
 			auto nctx = make_ctx<variant_shift_tag, any_shift_tag>(&shift_storage,
 				make_ctx<variant_stack_tag>(&mono_ptr,
-					make_ctx<variant_stack_result_tag>(&result, ctx)));
+					replace_in_ctx<true, variant_stack_result_tag, use_result_tag>(&result, ctx)));
 			auto mono = variant_details::mk_mono(this, nctx, src, result);
 			mono_ptr = &mono;
 			return mono.parse_mono(src, result);
@@ -3188,8 +3210,8 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		const mono_type* mono_ptr;
 		parse_result shift_storage=0;
 		auto rctx = make_ctx<rvariant_shift_tag, any_shift_tag>(&shift_storage,
-			make_ctx<rvariant_stack_tag>(&mono_ptr,
-			make_ctx<rvariant_cpy_result_tag>((copied_result_type*)nullptr, ctx) ) );
+			replace_in_ctx<true, rvariant_stack_tag>(&mono_ptr,
+			replace_in_ctx<true, rvariant_cpy_result_tag, use_result_tag>((copied_result_type*)nullptr, ctx) ) );
 		auto mono = rv_utils::mk_mono(this, rctx, src, result);
 		mono_ptr = &mono;
 		return mono.parse_mono(0, src, result);

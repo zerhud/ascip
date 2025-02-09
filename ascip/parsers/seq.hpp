@@ -100,7 +100,7 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		constexpr bool is_shift_req = (is_shift_required<parsers> + ...) > 0;
 		constexpr bool is_result_req = (is_seq_result_required<parsers> + ...) > 0;
 		auto cur_ctx = make_ctx_if<is_shift_req, seq_shift_stack_tag, any_shift_tag>(&shift_store,
-		  make_ctx_if<is_result_req, seq_result_stack_tag>(&result, ctx ) ) ;
+		  replace_in_ctx<is_result_req, seq_result_stack_tag, use_result_tag>(&result, ctx ) ) ;
 		auto ret = parse_rswitch(cur_ctx, std::move(src), result);
 		nl_controller.update(ret);
 		return ret;

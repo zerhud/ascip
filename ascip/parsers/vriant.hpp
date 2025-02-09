@@ -123,7 +123,7 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
 			parse_result shift_storage=0;
 			auto nctx = make_ctx<variant_shift_tag, any_shift_tag>(&shift_storage,
 				make_ctx<variant_stack_tag>(&mono_ptr,
-					make_ctx<variant_stack_result_tag>(&result, ctx)));
+					replace_in_ctx<true, variant_stack_result_tag, use_result_tag>(&result, ctx)));
 			auto mono = variant_details::mk_mono(this, nctx, src, result);
 			mono_ptr = &mono;
 			return mono.parse_mono(src, result);

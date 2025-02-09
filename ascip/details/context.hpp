@@ -14,11 +14,22 @@ struct skip_parser_tag{};
 struct err_handler_tag{};
 struct new_line_count_tag {};
 struct inverted_result_tag {};
+struct use_result_tag {};
 
 template<typename value_t, typename... t> struct context_frame {
   constexpr static auto tags = type_list<t...>{};
   value_t value;
 };
+template<typename l_value_t, typename... l_t, typename r_value_t, typename... r_t>
+constexpr auto operator+(context_frame<l_value_t, l_t...> left, context_frame<r_value_t, r_t...> right) {
+  return tuple<context_frame<l_value_t, l_t...>, context_frame<r_value_t, r_t...>>{ std::move(left), std::move(right) };
+}
+template<typename... l_frames, typename r_value_t, typename... r_t>
+constexpr auto operator+(tuple<l_frames...> left, context_frame<r_value_t, r_t...> right) {
+  return [&]<auto... inds>(std::index_sequence<inds...>) {
+    return tuple<l_frames..., context_frame<r_value_t, r_t...>>{ get<inds>(left)..., right};
+  }(std::make_index_sequence<sizeof...(l_frames)>{});
+}
 constexpr auto make_default_context() {
   return tuple{context_frame<int, new_line_count_tag>{1}};
 }
@@ -33,7 +44,7 @@ constexpr static auto make_default_context(auto* nls, auto err_handler) {
 constexpr auto make_test_ctx() { return make_default_context(); }
 constexpr static auto make_test_ctx(auto* nls, auto err_handler){ return make_default_context(nls, std::move(err_handler)); }
 
-template<template<typename...>class tuple, typename... types> constexpr decltype(auto) repack(tuple<types...>&& tup, auto&& fnc) {
+template<template<typename...>class tuple, typename... types> constexpr decltype(auto) repack(tuple<types...> tup, auto&& fnc) {
   return [&]<auto... inds>(std::index_sequence<inds...>){
     return fnc(std::move(get<inds>(tup))...);
   }(std::make_index_sequence<sizeof...(types)>{});
@@ -75,6 +86,17 @@ template<typename... tag, typename... frames> constexpr const auto& search_in_ct
 template<typename... _tags, typename... frames> constexpr bool exists_in_ctx(const tuple<frames...>&) {
   constexpr type_list<_tags...> tags{};
   return (contains_any(frames::tags, tags) + ... );
+}
+template<bool cond, typename... _tags, typename value, typename... frames> constexpr auto replace_in_ctx(value&& val, tuple<frames...> prev) {
+  constexpr type_list<_tags...> tags{};
+  if constexpr (!cond) return std::move(prev);
+  else if constexpr((contains_any(frames::tags, tags) + ...)) return repack(std::move(prev), [&](auto... pack) {
+    return (... + [&](auto cur){
+      if constexpr(contains_any(decltype(cur)::tags, tags)) return context_frame<std::decay_t<value>, _tags...>{val};
+      else return cur;
+    }(std::move(pack)));
+  });
+  else return make_ctx<_tags...>(std::forward<decltype(val)>(val), std::move(prev));
 }
 
 

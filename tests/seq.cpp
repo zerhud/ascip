@@ -116,6 +116,13 @@ static_assert( []{
 	16*(r1.d == 'd')
 	;
 }() == 31 );
+static_assert( [] {
+	test_1 r1;
+	auto pr = parse(
+		p::char_<'a'>++ >> use_seq_result(p::char_<'a'>++ >> p::char_<'c'> >> use_seq_result(p::char_<'a'>++ >> p::char_<'b'>)),
+		p::make_source("aacab"), r1);
+	return (pr==5) + 2*(r1.b=='b');
+}() == 3 );
 
 constexpr auto ab_req = p::seq_enable_recursion >> (char_<'a'>|'b') >> -(_char<'('> >> p::rec<0> >> _char<')'>);
 static_assert( []{

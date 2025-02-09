@@ -85,6 +85,12 @@ constexpr void test_context() {
 	static_assert(  exists_in_ctx<t1_t>(make_ctx<t1_t>(v1_t{})) );
 	static_assert( !exists_in_ctx<t2_t>(make_ctx<t1_t>(v1_t{})) );
 	(void)( static_cast<const decltype(ctx_not_found)&>(search_in_ctx<0, t2_t>(make_ctx<t1_t>(v2_t{}, make_ctx<t1_t>(v1_t{})))) );
+	static_assert( [] { v1_t v1; v2_t v2; v3_t v3;
+		auto ctx2 = make_ctx<t2_t>(v2, make_ctx<t1_t>(v1));
+		auto ctx = ascip_details::replace_in_ctx<true, t2_t>(v3, ctx2);
+		auto t2_t_count = repack(ctx, [](auto... f){return (contains(f.tags, ascip_details::type_c<t2_t>) + ...);});
+		return (search_in_ctx<0, t2_t>(ctx).v==4) + 2*(t2_t_count==1);
+	}() == 3 );
 }
 
 int main(int,char**) {

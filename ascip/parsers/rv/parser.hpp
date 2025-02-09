@@ -89,8 +89,8 @@ struct rvariant_parser : base_parser<rvariant_parser<maker_type, parsers...>> {
 		const mono_type* mono_ptr;
 		parse_result shift_storage=0;
 		auto rctx = make_ctx<rvariant_shift_tag, any_shift_tag>(&shift_storage,
-			make_ctx<rvariant_stack_tag>(&mono_ptr,
-			make_ctx<rvariant_cpy_result_tag>((copied_result_type*)nullptr, ctx) ) );
+			replace_in_ctx<true, rvariant_stack_tag>(&mono_ptr,
+			replace_in_ctx<true, rvariant_cpy_result_tag, use_result_tag>((copied_result_type*)nullptr, ctx) ) );
 		auto mono = rv_utils::mk_mono(this, rctx, src, result);
 		mono_ptr = &mono;
 		return mono.parse_mono(0, src, result);
