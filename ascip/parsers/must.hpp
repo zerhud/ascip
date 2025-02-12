@@ -9,7 +9,21 @@
 #include "../details/context.hpp"
 #include "../details/string_literal.hpp"
 
+#ifdef ASCIP_WITH_STD_EXCEPTION
+#include <exception>
+#endif
+
 namespace ascip_details::prs {
+struct must_parser_default_exception
+#ifdef ASCIP_WITH_STD_EXCEPTION
+	: std::exception
+#endif
+{
+	virtual ~must_parser_default_exception() =default ;
+	virtual char symbol() const =0 ;
+	virtual int line_number() const =0 ;
+	virtual const char* what() const noexcept =0 ;
+};
 template<string_literal msg, parser type> struct must_parser : base_parser<must_parser<msg, type>> {
 	type p;
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
@@ -20,15 +34,30 @@ template<string_literal msg, parser type> struct must_parser : base_parser<must_
 	constexpr static auto call_if_error(auto& ctx, auto& result, auto orig_ret, auto& src) {
 		if (0 <= orig_ret) return orig_ret;
 		auto err = search_in_ctx<err_handler_tag>(ctx);
-		static_assert( !std::is_same_v<std::decay_t<decltype(err)>, ctx_not_found_type>, "for using the must parser a error handler is required" );
 		if constexpr(requires{(*err)(0, msg);}) return (*err)(new_line_count(ctx), msg);
 		else if constexpr(requires{(*err)(0, src, msg);}) return (*err)(new_line_count(ctx), src, msg);
 		else if constexpr(requires{(*err)(msg);}) return (*err)(msg);
 		else if constexpr(requires{(*err)(result, 0, msg);}) return (*err)(result, new_line_count(ctx), msg);
 		else if constexpr(requires{(*err)(result, src, 0, msg);}) return (*err)(result, src, new_line_count(ctx), msg);
+		else if constexpr(requires{(*err)(result, msg);}) return (*err)(result, msg);
 		else {
-			static_assert( requires{(*err)(result, msg);}, "the error handler have to request no result as parameter or it have to be a template parameter" );
-			return (*err)(result, msg);
+			// for test parsers with must parser without err_handler_tag in context
+			struct exception : must_parser_default_exception {
+				constexpr exception(decltype(new_line_count(ctx)) line, char src, decltype(msg) message)
+				: line(line), src(src), message(message)
+				{}
+				decltype(new_line_count(ctx)) line;
+				char src;
+				decltype(msg) message;
+
+				constexpr char symbol() const override { return src; }
+				constexpr int line_number() const override { return line; }
+				constexpr const char* what() const noexcept override {
+					return message.value;
+				}
+			};
+
+			throw exception{new_line_count(ctx), src(), msg};
 		}
 	}
 };

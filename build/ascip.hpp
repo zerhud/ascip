@@ -383,6 +383,7 @@ namespace ascip_details {
 
 template<typename char_type, auto str_size>
 struct string_literal {
+	constexpr string_literal() =default ;
 	constexpr string_literal(const char_type (&str)[str_size]) {
 		for(auto i=0;i<str_size;++i) value[i] = str[i];
 	}
@@ -416,6 +417,19 @@ struct string_literal {
 		}
 		return true;
 	}
+
+	constexpr auto zero_pos() const {
+		for (auto i=0;i<str_size;++i) if (!value[i]) return i;
+		return str_size;
+	}
+
+	template<auto sz>
+	friend constexpr auto operator+(const string_literal& left, const char_type(&right)[sz]) {
+		string_literal<char_type, str_size + sz - 1> ret;
+		for (auto i=0;i<str_size-1;++i) ret.value[i] = left[i];
+		for (auto i=0;i<sz;++i) ret.value[i+str_size-1] = right[i];
+		return ret;
+	}
 };
 
 template<string_literal str> struct test_tmpl {
@@ -440,6 +454,11 @@ constexpr void test_static_string() {
 
 	static_assert(  string_literal("abc").contains('b') );
 	static_assert( !string_literal("abc").contains('d') );
+	static_assert( [] {
+		string_literal src("src");
+		auto ret = src + "_test";
+		return (ret.size()==8) + 2*(ret == "src_test");
+	}() == 3 );
 }
 
 }
@@ -1667,7 +1686,21 @@ constexpr bool test_def_parser() {
 
 
 
+
+
+
+
 namespace ascip_details::prs {
+struct must_parser_default_exception
+
+
+
+{
+	virtual ~must_parser_default_exception() =default ;
+	virtual char symbol() const =0 ;
+	virtual int line_number() const =0 ;
+	virtual const char* what() const noexcept =0 ;
+};
 template<string_literal msg, parser type> struct must_parser : base_parser<must_parser<msg, type>> {
 	type p;
 	constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
@@ -1678,15 +1711,30 @@ template<string_literal msg, parser type> struct must_parser : base_parser<must_
 	constexpr static auto call_if_error(auto& ctx, auto& result, auto orig_ret, auto& src) {
 		if (0 <= orig_ret) return orig_ret;
 		auto err = search_in_ctx<err_handler_tag>(ctx);
-		static_assert( !std::is_same_v<std::decay_t<decltype(err)>, ctx_not_found_type>, "for using the must parser a error handler is required" );
 		if constexpr(requires{(*err)(0, msg);}) return (*err)(new_line_count(ctx), msg);
 		else if constexpr(requires{(*err)(0, src, msg);}) return (*err)(new_line_count(ctx), src, msg);
 		else if constexpr(requires{(*err)(msg);}) return (*err)(msg);
 		else if constexpr(requires{(*err)(result, 0, msg);}) return (*err)(result, new_line_count(ctx), msg);
 		else if constexpr(requires{(*err)(result, src, 0, msg);}) return (*err)(result, src, new_line_count(ctx), msg);
+		else if constexpr(requires{(*err)(result, msg);}) return (*err)(result, msg);
 		else {
-			static_assert( requires{(*err)(result, msg);}, "the error handler have to request no result as parameter or it have to be a template parameter" );
-			return (*err)(result, msg);
+			// for test parsers with must parser without err_handler_tag in context
+			struct exception : must_parser_default_exception {
+				constexpr exception(decltype(new_line_count(ctx)) line, char src, decltype(msg) message)
+				: line(line), src(src), message(message)
+				{}
+				decltype(new_line_count(ctx)) line;
+				char src;
+				decltype(msg) message;
+
+				constexpr char symbol() const override { return src; }
+				constexpr int line_number() const override { return line; }
+				constexpr const char* what() const noexcept override {
+					return message.value;
+				}
+			};
+
+			throw exception{new_line_count(ctx), src(), msg};
 		}
 	}
 };

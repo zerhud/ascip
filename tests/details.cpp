@@ -94,6 +94,4 @@ constexpr void test_context() {
 }
 
 int main(int,char**) {
-  ascip_details::test_static_string();
-	return 0;
 }

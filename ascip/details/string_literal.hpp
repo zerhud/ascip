@@ -11,6 +11,7 @@ namespace ascip_details {
 
 template<typename char_type, auto str_size>
 struct string_literal {
+	constexpr string_literal() =default ;
 	constexpr string_literal(const char_type (&str)[str_size]) {
 		for(auto i=0;i<str_size;++i) value[i] = str[i];
 	}
@@ -44,6 +45,19 @@ struct string_literal {
 		}
 		return true;
 	}
+
+	constexpr auto zero_pos() const {
+		for (auto i=0;i<str_size;++i) if (!value[i]) return i;
+		return str_size;
+	}
+
+	template<auto sz>
+	friend constexpr auto operator+(const string_literal& left, const char_type(&right)[sz]) {
+		string_literal<char_type, str_size + sz - 1> ret;
+		for (auto i=0;i<str_size-1;++i) ret.value[i] = left[i];
+		for (auto i=0;i<sz;++i) ret.value[i+str_size-1] = right[i];
+		return ret;
+	}
 };
 
 template<string_literal str> struct test_tmpl {
@@ -68,6 +82,11 @@ constexpr void test_static_string() {
 
 	static_assert(  string_literal("abc").contains('b') );
 	static_assert( !string_literal("abc").contains('d') );
+	static_assert( [] {
+		string_literal src("src");
+		auto ret = src + "_test";
+		return (ret.size()==8) + 2*(ret == "src_test");
+	}() == 3 );
 }
 
 }
