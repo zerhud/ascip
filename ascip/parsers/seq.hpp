@@ -19,7 +19,6 @@
 
 namespace ascip_details::prs {
 
-template<string_literal message, parser type> struct seq_error_parser ;
 template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser<parsers...>> {
 	tuple<parsers...> seq;
 

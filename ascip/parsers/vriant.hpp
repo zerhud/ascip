@@ -211,7 +211,7 @@ constexpr auto operator|(auto&& left, nonparser auto&& right) {
 }
 
 template<parser type> constexpr auto use_variant_result(const type& p) {
-  return prs::use_result_parser<prs::variant_stack_result_tag, type>{ {}, p };
+  return prs::use_result_parser<prs::variant_stack_result_tag, type, prs::variant_parser>{ {}, p };
 }
 
 }

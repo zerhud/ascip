@@ -24,11 +24,19 @@ template<typename l_value_t, typename... l_t, typename r_value_t, typename... r_
 constexpr auto operator+(context_frame<l_value_t, l_t...> left, context_frame<r_value_t, r_t...> right) {
   return tuple<context_frame<l_value_t, l_t...>, context_frame<r_value_t, r_t...>>{ std::move(left), std::move(right) };
 }
+template<typename l_value_t, typename... l_t> constexpr auto operator+(int right, context_frame<l_value_t, l_t...> left) { return std::move(left) + right; }
+template<typename l_value_t, typename... l_t> constexpr auto operator+(context_frame<l_value_t, l_t...> left, int) {
+  return tuple<context_frame<l_value_t, l_t...>>{ std::move(left) };
+}
 template<typename... l_frames, typename r_value_t, typename... r_t>
 constexpr auto operator+(tuple<l_frames...> left, context_frame<r_value_t, r_t...> right) {
   return [&]<auto... inds>(std::index_sequence<inds...>) {
     return tuple<l_frames..., context_frame<r_value_t, r_t...>>{ get<inds>(left)..., right};
   }(std::make_index_sequence<sizeof...(l_frames)>{});
+}
+template<typename... l_frames>
+constexpr auto operator+(tuple<l_frames...> left, int) {
+  return left;
 }
 constexpr auto make_default_context() {
   return tuple{context_frame<int, new_line_count_tag>{1}};
@@ -97,6 +105,15 @@ template<bool cond, typename... _tags, typename value, typename... frames> const
     }(std::move(pack)));
   });
   else return make_ctx<_tags...>(std::forward<decltype(val)>(val), std::move(prev));
+}
+
+template<typename tag, typename... frames> constexpr auto remove_from_ctx(tuple<frames...> prev) {
+  return repack(std::move(prev), [](auto... pack) {
+    return (... + [](auto cur) {
+      if constexpr (contains(decltype(cur)::tags, type_c<tag>)) return 1;
+      else return std::move(cur);
+    }(std::move(pack)));
+  });
 }
 
 

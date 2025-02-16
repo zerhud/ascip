@@ -91,6 +91,13 @@ constexpr void test_context() {
 		auto t2_t_count = repack(ctx, [](auto... f){return (contains(f.tags, ascip_details::type_c<t2_t>) + ...);});
 		return (search_in_ctx<0, t2_t>(ctx).v==4) + 2*(t2_t_count==1);
 	}() == 3 );
+	static_assert( [] { v1_t v1; v2_t v2; v3_t v3;
+		auto ctx2 = make_ctx<t2_t>(v2, make_ctx<t1_t>(v1));
+		auto ctx = remove_from_ctx<t1_t>(ctx2);
+		auto t2_t_count = repack(ctx, [](auto... f){return (contains(f.tags, ascip_details::type_c<t2_t>) + ...);});
+		auto t1_t_count = repack(ctx, [](auto... f){return (contains(f.tags, ascip_details::type_c<t1_t>) + ...);});
+		return (t1_t_count==0) + 2*(t2_t_count==1);
+	}() == 3);
 }
 
 int main(int,char**) {

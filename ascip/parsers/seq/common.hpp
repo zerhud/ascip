@@ -6,6 +6,9 @@
 //          https://www.boost.org/LICENSE_1_0.txt)
 
 namespace ascip_details::prs {
+
+template<typename... parsers> struct opt_seq_parser ;
+
 struct seq_stack_tag{};
 struct seq_shift_stack_tag{};
 struct seq_result_stack_tag{};

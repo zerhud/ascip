@@ -11,12 +11,18 @@
 
 namespace ascip_details::prs {
 
-template<typename tag, parser parser> struct use_result_parser : base_parser<use_result_parser<tag, parser>> {
+template<typename tag, typename type, template<typename...>class tmpl> constexpr static auto exists_use_result() ;
+
+template<typename tag, parser parser, template<typename...>class tmpl> struct use_result_parser : base_parser<use_result_parser<tag, parser, tmpl>> {
 	parser p;
 	constexpr static auto use_result_parser_tag = type_c<tag>;
+	constexpr static auto mk_ctx(auto&& ctx) {
+		if constexpr ( exists_use_result<tag, parser, tmpl>() ) return ctx;
+		else return remove_from_ctx<tag>(std::move(ctx));
+	}
 	constexpr parse_result parse(auto&& ctx, auto src, auto&) const {
 		auto& result = *search_in_ctx<tag>(ctx);
-		return p.parse(ctx, src, result);
+		return p.parse(mk_ctx(std::move(ctx)), src, result);
 	}
 };
 

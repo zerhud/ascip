@@ -5,6 +5,8 @@
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          https://www.boost.org/LICENSE_1_0.txt)
 
+#include <ascip/parsers/seq.hpp>
+
 #include "common.hpp"
 #include "../use_result.hpp"
 
@@ -12,7 +14,7 @@ namespace ascip_details {
 
 template<parser type> constexpr auto use_seq_result(type&& p) {
 	using ptype = std::decay_t<type>;
-	return prs::use_result_parser<prs::seq_result_stack_tag, ptype>{ {}, std::forward<decltype(p)>(p) };
+	return prs::use_result_parser<prs::seq_result_stack_tag, ptype, prs::opt_seq_parser>{ {}, std::forward<decltype(p)>(p) };
 }
 
 }
