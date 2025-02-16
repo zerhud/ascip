@@ -76,6 +76,7 @@ here is a list of available parsers. you can find examples below
 - `cast` method try to `static_cast` gotten a result to the required type. it is useful for parse to struct with inheritance as a result due to language limitations. see example below.
 - `rv` method for parse reverse variant with left recursion. see example below. the result will be created same way as in the `|` operator.
 - `reparse` method for parse and shift source position no zero, so the next parser will start from the same place.
+- `by_table` method for replace parser's result with a value gotten from the second parameter. the first parameter creates a temporary parser result, if success, the result is passed to the second parameter and the second's parameter result will be placed as the parser's result. see tests/tricky_parsers.cpp
 
 with sequence parser can be used
 - `cur_pos` just stores to result current position, parse nothing
