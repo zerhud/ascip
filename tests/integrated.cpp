@@ -4,6 +4,8 @@
 //          https://www.boost.org/LICENSE_1_0.txt)
 
 
+#include <iostream>
+
 #include "factory.hpp"
 
 static_assert( test_parser_parse_r_str(p::quoted_string, "'ok'", 4, 'o', 'k') );
@@ -37,7 +39,16 @@ static_assert( []{
   p::quoted_string.parse(ctx, p::make_source("'1\n2\n'"), r);
   return new_line_count(ctx);
 }() == 3, "line count works in quoted_string. the first line is line number 1." );
+static_assert( [] {
+  std::string r;
+  auto pr = parse(p::squoted_string, +p::space, p::make_source(R"-('\\')-"), r);
+  return (pr==4) + 2*(r=="\\");
+}() == 3 );
+static_assert( [] {
+  std::string r;
+  auto pr = parse(p::dquoted_string, +p::space, p::make_source(R"-("\\")-"), r);
+  return (pr==4) + 2*(r=="\\");
+}() == 3 );
 
 int main(int,char**) {
-  return 0;
 }

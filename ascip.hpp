@@ -64,8 +64,8 @@ struct ascip {
   template<auto ind> constexpr static auto any_shift = ascip_details::prs::any_shift_parser<ind>{};
   template<auto ind> constexpr static auto shift = ascip_details::prs::any_shift_parser<ind>{};
 
-  constexpr static auto dquoted_string = lexeme(_char<'"'> >> *(as<'"'>(char_<'\\'> >> char_<'"'>)| (ascip::any - char_<'"'>)) >> _char<'"'>);
-  constexpr static auto squoted_string = lexeme(_char<'\''> >> *(as<'\''>(char_<'\\'> >> char_<'\''>)| (ascip::any - char_<'\''>)) >> _char<'\''>);
+  constexpr static auto dquoted_string = lexeme(_char<'"'> >> *(as<'"'>(char_<'\\'> >> char_<'"'>)    | as<'\\'>(char_<'\\'> >> char_<'\\'>) | (any - char_<'"'>)) >> _char<'"'>);
+  constexpr static auto squoted_string = lexeme(_char<'\''> >> *(as<'\''>(char_<'\\'> >> char_<'\''>) | as<'\\'>(char_<'\\'> >> char_<'\\'>) | (any - char_<'\''>)) >> _char<'\''>);
   constexpr static auto quoted_string = lexeme(squoted_string | dquoted_string);
 
   // helpers
