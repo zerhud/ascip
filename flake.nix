@@ -13,7 +13,7 @@
       tref = params.cppbm.packages."${system}".tref;
       der = pkgs.gcc14Stdenv.mkDerivation {
         name = "ascip";
-        buildInputs = [ tref ];
+        propagatedBuildInputs = [ tref ];
         nativeBuildInputs = [pkgs.clang_19];
         installPhase = "mkdir -p \"$out/include\" && cp ascip.hpp -t \"$out/include\" && cp -rt \"$out/include\" ascip";
         buildPhase = "g++ -std=c++23 -fwhole-program -march=native -I. ./tests/in_parsers.cpp -o ascip_test && ./ascip_test";
