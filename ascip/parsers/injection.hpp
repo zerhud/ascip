@@ -62,6 +62,7 @@ constexpr static bool test_seq_injection() {
 
 	(void)static_cast<const p1_t&>(inject_skipping(p1, p2));
 	(void)static_cast<const opt_seq_parser<inj_t, inj_t>&>(inject_skipping(p1 >> p1, p2));
+	(void)static_cast<const opt_seq_parser<inj_t, must_parser<"unknown", inj_t>>&>(inject_skipping(p1 > p1, p2));
 
 	(void)static_cast<const opt_seq_parser<p1_t, p1_t, p1_t>&>(inject_skipping(lexeme(p1 >> p1 >> p1), p2));
 	(void)static_cast<const opt_seq_parser<p1_t, p1_t, p1_t>&>(inject_skipping(lexeme(lexeme(p1 >> p1 >> p1)), p2));

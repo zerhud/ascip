@@ -33,3 +33,13 @@ constexpr auto by_table(auto maker, auto searcher, auto parser) {
 }
 
 }
+
+namespace ascip_details {
+
+template<typename mutator> constexpr auto transform_special(auto&& src, auto& ctx) requires( requires{static_cast<const by_table_parser_tag&>(src);} ) {
+	auto nctx = mutator::create_ctx(src, ctx);
+	auto np = transform<mutator>( std::move(src.p), nctx );
+	return transform_apply<mutator>( by_table(std::move(src.make), std::move(src.search), std::move(np)), nctx );
+}
+
+}

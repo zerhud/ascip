@@ -101,3 +101,13 @@ constexpr bool test_must_parser() {
 }
 
 } // namespace ascip_details::prs
+
+namespace ascip_details {
+
+template<typename mutator, string_literal msg, parser type> constexpr auto transform_special(prs::must_parser<msg, type>&& src, auto& ctx) {
+	auto nctx = mutator::create_ctx(src, ctx);
+	auto np = transform<mutator>( std::move(src.p), nctx );
+	return transform_apply<mutator>( prs::must<msg>( std::move(np) ), nctx );
+}
+
+}

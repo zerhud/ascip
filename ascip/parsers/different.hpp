@@ -47,7 +47,7 @@ constexpr static bool test_different() {
 namespace ascip_details {
 
 template<typename mutator, typename left_type, typename right_type>
-constexpr static auto transform(prs::different_parser<left_type, right_type>&& src, auto& ctx) {
+constexpr static auto transform_special(prs::different_parser<left_type, right_type>&& src, auto& ctx) {
 	auto nctx = mutator::create_ctx(src, ctx);
 	auto lp = transform<mutator>(std::move(src.lp), nctx);
 	auto rp = transform<mutator>(std::move(src.rp), nctx);

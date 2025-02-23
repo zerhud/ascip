@@ -63,7 +63,7 @@ template<typename... tags, parser type> constexpr auto result_from_ctx(auto&& ac
 }
 
 template<typename mutator, typename parser, typename tag, typename value_type>
-constexpr static auto transform(prs::ctx_change_parser<parser, tag, value_type>&& src, auto& ctx) {
+constexpr static auto transform_special(prs::ctx_change_parser<parser, tag, value_type>&& src, auto& ctx) {
 	auto nctx = mutator::create_ctx(src, ctx);
 	auto np = transform<mutator>( std::move(src.p), nctx );
 	return transform_apply<mutator>( prs::ctx_change_parser<decltype(np), tag, value_type>{ {}, std::move(src.value), std::move(np) }, nctx );

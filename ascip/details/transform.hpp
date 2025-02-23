@@ -54,15 +54,10 @@ constexpr auto transform(wrapper<inner>&& src, auto& ctx) requires (requires{ sr
 		return transform_apply<mutator>(wrapper{std::move(mp)}, nctx);
 }
 template<typename mutator, template<typename...>class semact_wrapper, typename parser, typename act_t, typename... tags>
-constexpr auto transform(semact_wrapper<parser, act_t, tags...>&& src, auto& ctx) requires requires{ src.act; src.p; } {
+constexpr auto transform_special(semact_wrapper<parser, act_t, tags...>&& src, auto& ctx) requires requires{ src.act; src.p; } {
 	auto nctx = mutator::create_ctx(src, ctx);
 	auto np = transform<mutator>( std::move(src.p), nctx );
 	return transform_apply<mutator>( semact_wrapper<std::decay_t<decltype(np)>, std::decay_t<decltype(src.act)>, tags...>{ {}, std::move(src.act), std::move(np) }, nctx );
-}
-template<typename mutator> constexpr auto transform(auto&& src, auto& ctx) requires( requires{static_cast<const by_table_parser_tag&>(src);} ) {
-	auto nctx = mutator::create_ctx(src, ctx);
-	auto np = transform<mutator>( std::move(src.p), nctx );
-	return transform_apply<mutator>( by_table(std::move(src.make), std::move(src.search), std::move(np)), nctx );
 }
 
 }

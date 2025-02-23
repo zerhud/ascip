@@ -35,3 +35,14 @@ template<typename tag, typename type, template<typename...>class tmpl> constexpr
 }
 
 }
+
+namespace ascip_details {
+
+template<typename mutator, typename tag, parser parser, template<typename...>class tmpl>
+constexpr static auto transform_special(prs::use_result_parser<tag, parser, tmpl>&& src, auto& ctx) {
+	auto nctx = mutator::create_ctx(src, ctx);
+	auto np = transform<mutator>( std::move(src.p), nctx );
+	return transform_apply<mutator>( prs::use_result_parser<tag, decltype(np), tmpl>{ {}, std::move(np) }, nctx );
+}
+
+}

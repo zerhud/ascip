@@ -11,6 +11,7 @@
 
 namespace ascip_details::prs {
 
+/// undocumented parser, mostly for inner use
 template<typename t> struct value_parser : base_parser<value_parser<t>> {
 	t val;
 	constexpr value_parser(t v) : val(v) {}
@@ -63,6 +64,16 @@ constexpr static bool test_parser_value() {
 		return (new_line_count(ctx1) == 1) + 2*(new_line_count(ctx2) == 2);
 	}() == 3 );
 	return true;
+}
+
+}
+
+namespace ascip_details {
+
+template<typename mutator, typename value_type>
+constexpr static auto transform_special(prs::value_parser<value_type>&& src, auto& ctx) {
+	auto nctx = mutator::create_ctx(src, ctx);
+	return transform_apply<mutator>(std::move(src), nctx );
 }
 
 }
