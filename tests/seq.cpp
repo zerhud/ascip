@@ -151,6 +151,18 @@ static_assert( [] {
 	auto pr = parser.parse(ctx, p::make_source("\na\n\nb\n\nd"), r);
 	return (pr==8) + 2*(new_line_count(ctx)==5);
 }() == 3 );
+static_assert( [] {
+	auto seq = p::char_<'a'> >> p::char_<'b'> >> -(p::char_<'c'> >> use_seq_result(p::char_<'d'>));
+	const auto& inner = get<2>(seq.seq).p;
+	auto count_seq = apply(seq.seq, [&](auto... types){ return (seq.is_seq_result_required<decltype(+types)> + ...) > 0; });
+	auto count_inner = apply(inner.seq, [&](auto... types){ return (inner.is_seq_result_required<decltype(+types)> + ...) > 0; });
+	return
+	    !count_seq +
+	  2*count_inner +
+	  4*!seq.is_seq_result_required<decltype(+get_type<2>(seq.seq))> +
+	  8*inner.is_seq_result_required<decltype(+get_type<1>(inner.seq))>
+	;
+}() == 15 );
 
 int main(int,char**) {
 	return 0;

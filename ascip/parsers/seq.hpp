@@ -77,7 +77,8 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 
 		if constexpr(requires{is_checking(result).ok;} && is_must_parser<cur_t>) return 0;
 		auto& cur = get<pind>(seq);
-		auto ret = call_parse<cur_field>(cur, ctx, src, result);
+		auto nctx = replace_in_ctx<is_seq_result_required<cur_t>, seq_result_stack_tag>(&result, ctx);
+		auto ret = call_parse<cur_field>(cur, nctx, src, result);
 		src += ret * (0 <= ret);
 		update_shift<seq_shift_stack_tag>(ctx, ret);
 		if constexpr (pind+1 == sizeof...(parsers)) return ret;
@@ -97,9 +98,7 @@ template<typename... parsers> struct opt_seq_parser : base_parser<opt_seq_parser
 		auto nl_controller = make_new_line_count_resetter(ctx, result);
 		auto shift_store = 0;
 		constexpr bool is_shift_req = (is_shift_required<parsers> + ...) > 0;
-		constexpr bool is_result_req = (is_seq_result_required<parsers> + ...) > 0;
-		auto cur_ctx = make_ctx_if<is_shift_req, seq_shift_stack_tag, any_shift_tag>(&shift_store,
-		  replace_in_ctx<is_result_req, seq_result_stack_tag>(&result, ctx ) ) ;
+		auto cur_ctx = make_ctx_if<is_shift_req, seq_shift_stack_tag, any_shift_tag>(&shift_store, ctx) ;
 		auto ret = parse_rswitch(cur_ctx, std::move(src), result);
 		nl_controller.update(ret);
 		return ret;

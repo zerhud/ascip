@@ -20,6 +20,9 @@ template<typename... in_list, typename... what> constexpr bool contains_all(type
 template<typename... in_list, typename... what> constexpr bool contains_any(type_list<in_list...> in, type_list<what...>) {
 	return (contains(in, type_c<what>) + ...);
 }
+template<template<typename...>typename container, typename... list> constexpr auto apply(const container<list...>&, auto&& fnc) {
+	return fnc(type_c<list>...);
+}
 
 static_assert( contains(type_list<int,char>{}, type_c<int>) );
 static_assert( !contains(type_list<int,char>{}, type_c<double>) );
@@ -30,13 +33,13 @@ static_assert( contains_any(type_list<int,char,double>{}, type_list<int,unsigned
 static_assert( !contains_any(type_list<int,char,double>{}, type_list<long,unsigned>{}) );
 
 template<typename type, auto ind> struct tuple_value {
-	type value; //NOTE: we cannot downcast for some reason in get method later, so we need in the fucky g methods
+	type value; //NOTE: we can't downcast for some reason in get method later, so we need the shitty g methods
 	template<auto i> constexpr type& g() requires (i==ind) { return value; }
 	template<auto i> constexpr const type& g() const requires (i==ind) { return value; }
 };
 template<typename... types> struct tuple {
 	consteval static auto mk_storage_type() {
-		return []<typename fucky_clang,auto... inds>(seq_type<fucky_clang,inds...>){
+		return []<typename shim_for_clang_stupidity,auto... inds>(seq_type<shim_for_clang_stupidity,inds...>){
 			struct storage : tuple_value<types, inds>... { using tuple_value<types, inds>::g...; };
 			return type_holder<storage>{};
 		}(
@@ -56,6 +59,7 @@ template<typename... types> struct tuple {
 	constexpr tuple(const tuple& other) : storage(other.storage) {}
 	constexpr explicit tuple(auto&&... args) : storage{std::forward<decltype(args)>(args)...} {}
 
+	template<auto ind> consteval friend auto get_type(const tuple&) { return type_c<__type_pack_element<ind, types...>>; }
 	template<auto ind> constexpr friend auto& get(tuple& t) { return t.storage.template g<ind>(); }
 	template<auto ind> constexpr friend const auto& get(const tuple& t) { return t.storage.template g<ind>(); }
 	friend constexpr auto size(const tuple&) { return sizeof...(types); }
@@ -1158,7 +1162,7 @@ constexpr bool test_literal_parser() {
 
 namespace ascip_details::prs {
 
-//TODO: do we really need this parser?
+/// undocumented parser, mostly for inner use
 template<typename t> struct value_parser : base_parser<value_parser<t>> {
 	t val;
 	constexpr value_parser(t v) : val(v) {}

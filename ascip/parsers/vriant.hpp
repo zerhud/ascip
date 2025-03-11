@@ -95,8 +95,9 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
 	}
 	template<auto ind> consteval static auto cur_ind() { return _cur_ind<ind,0,0,parsers...>(); }
 	template<auto ind> constexpr auto parse_ind(auto&& ctx, auto& src, auto& result) const {
+		auto nctx = replace_in_ctx<check_use_variant_result<__type_pack_element<ind, parsers...>>, variant_stack_result_tag, use_result_tag>(&result, ctx);
 		auto prs = [&](auto&& r) {
-			auto ret = get<ind>(seq).parse(ctx, src, variant_result<cur_ind<ind>()>(r));
+			auto ret = get<ind>(seq).parse(nctx, src, variant_result<cur_ind<ind>()>(r));
 			update_shift<variant_shift_tag>(ctx, ret);
 			return ret;
 		};
@@ -115,8 +116,7 @@ template<parser... parsers> struct variant_parser : base_parser<variant_parser<p
 			mono_type* mono_ptr;
 			parse_result shift_storage=0;
 			auto nctx = make_ctx<variant_shift_tag, any_shift_tag>(&shift_storage,
-				make_ctx<variant_stack_tag>(&mono_ptr,
-					replace_in_ctx<true, variant_stack_result_tag, use_result_tag>(&result, ctx)));
+				make_ctx<variant_stack_tag>(&mono_ptr, ctx));
 			auto mono = variant_details::mk_mono(this, nctx, src, result);
 			mono_ptr = &mono;
 			return mono.parse_mono(src, result);

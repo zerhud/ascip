@@ -15,6 +15,7 @@ struct ascip {
   static constexpr auto nop = ascip_details::prs::nop_parser{};
   template<auto s> static constexpr auto char_ = ascip_details::prs::char_parser<s>{};
   template<auto val> constexpr static auto _char = omit(char_<val>);
+  //TODO: try to template<typeneme char_t, auto n> constexpr static auto lit(char_t(&src)[n]){ return prs::literal_parser<string_literal<char_t, n>{src}>{}; }
   template<ascip_details::string_literal s> static constexpr auto lit = ascip_details::prs::literal_parser<s>{};
   static constexpr auto space = ascip_details::prs::space_parser{};
   static constexpr auto any = ascip_details::prs::any_parser{};
