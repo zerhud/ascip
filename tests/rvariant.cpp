@@ -20,7 +20,7 @@ constexpr auto test_rvariant_val(auto r, auto&& maker, auto pr, auto&& src) {
 		, cast<dbl_expr>(rv_lrec++ >> _char<'-'> >> rv_rrec(rmaker))
 		, int_
 		, cast<dbl_expr>(rv_lrec++ >> _char<'*'> >> rv_rrec(rmaker)) | cast<dbl_expr>(rv_lrec++ >> _char<'/'> >> rv_rrec(rmaker))
-		, cast<dbl_expr>(rv_lrec++ >> lit<"**"> >> rv_rrec(rmaker))
+		, cast<dbl_expr>(rv_lrec++ >> lit<"**">(p{}) >> rv_rrec(rmaker))
 		, p::fp
 		, p::quoted_string
 		, rv_result(_char<'('> >> p::template rv_rec<0> >> _char<')'>)
