@@ -33,3 +33,4 @@
 #include "parsers/injection.hpp"
 #include "parsers/any_shift.hpp"
 #include "parsers/by_table.hpp"
+#include "parsers/by_ind.hpp"

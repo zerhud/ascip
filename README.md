@@ -77,6 +77,7 @@ here is a list of available parsers. you can find examples below
 - `rv` method for parse reverse variant with left recursion. see example below. the result will be created same way as in the `|` operator.
 - `reparse` method for parse and shift source position no zero, so the next parser will start from the same place.
 - `by_table` method for replace parser's result with a value gotten from the second parameter. the first parameter creates a temporary parser result, if success, the result is passed to the second parameter and the second's parameter result will be placed as the parser's result. see tests/tricky_parsers.cpp
+- `by_ind` method for get a result to inner parser using `get<ind>()` method, or try to get field from struct by index
 
 with sequence parser can be used
 - `cur_pos` just stores to result current position, parse nothing
@@ -87,7 +88,7 @@ with sequence parser can be used
 - `--` same as `++` but decrease the number
 - `finc<number>` method. same as `++` or `--` but you can specify the number will be added to current position (the number can also to be negative). the parser should to be the most outter one: char_<'a'> >> -finc<3>(char_<'b'>) will not work.
 - `fnum<number>` method. setts the resulting field position independently of the current one. this parser as the `finc` should to be the most outer one.
-- `use_seq_result` method. use result as it is inside the sequence parser instead of fields from that result.
+- `use_seq_result` method. use the result as it is inside the sequence parser instead of fields from that result.
 - `must` method. causes an error on fail. accepts a message as template parameter. it will be passed to error function, passed in parse method. parameters: result, source on start parser position, current line number, message. in a case if no error method is present, the parser throws a default exception (for fail tests only).
 
 # examples

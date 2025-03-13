@@ -27,10 +27,9 @@ static_assert( ascip_details::prs::test_def_parser<ascip>() );
 static_assert( ascip_details::prs::test_rvariant<ascip>() );
 static_assert( ascip_details::prs::context_parsers<ascip>() );
 static_assert( ascip_details::prs::test_any_shift<ascip>() );
+static_assert( ascip_details::prs::test_by_ind<ascip>() );
 
 static_assert( ascip_details::prs::test_semact<ascip>() );
 static_assert( ascip_details::test_exists_in<ascip>() );
 
-int main(int,char**) {
-	return 0;
-}
+int main(int,char**) { }

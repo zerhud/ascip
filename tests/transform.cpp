@@ -41,10 +41,10 @@ struct t1_to_t2_mutator {
 	}
 };
 
-constexpr static auto test_transform_t_to_p(auto&& parser) {
+constexpr auto test_transform_t_to_p(auto&& parser) {
 	return transform<t1_to_t2_mutator>(std::forward<decltype(parser)>(parser));
 }
-constexpr static bool test_transform_modify_leaf() {
+constexpr bool test_transform_modify_leaf() {
 	using namespace ascip_details::prs;
 #ifndef __clang__
 	static_assert( std::is_same_v<test_parser2, decltype(test_transform_t_to_p(test_parser{}))> );
@@ -56,16 +56,11 @@ constexpr static bool test_transform_modify_leaf() {
 	static_assert( std::is_same_v<lexeme_parser<skip_parser<test_parser2>>, decltype(test_transform_t_to_p(lexeme(skip(test_parser{}))))> );
 	static_assert( std::is_same_v<opt_seq_parser<char_parser<'a'>, test_parser2>, decltype(test_transform_t_to_p(char_<'a'> >> test_parser{}))> );
 	static_assert( std::is_same_v<skip_parser<test_parser2>, decltype(test_transform_t_to_p(skip(test_wrapper{ {}, test_parser{} })))> );
-	/* TODO: will we support a lambda in seq parser?
-	static_assert( ({ char r{}; transform_noncopyable nc;
-		auto p = char_<'a'> >> [&nc](...){ return 0; };
-		test_transform_t_to_p(p).parse(make_test_ctx(), make_source("a"), r);
-	r;}) == 'a' );
-	*/
 	static_assert( std::is_same_v<seq_inc_rfield_val<test_parser2, _seq_rfield_val<1>>, decltype(test_transform_t_to_p(finc<1>(test_parser{})))> );
 	static_assert( std::is_same_v<seq_num_rfield_val<test_parser2, _seq_rfield_val<1>>, decltype(test_transform_t_to_p(fnum<1>(test_parser{})))> );
 	static_assert( std::is_same_v<cast_parser<int,test_parser2>, decltype(test_transform_t_to_p(cast<int>(test_parser{})))> );
 	static_assert( std::is_same_v<result_checker_parser<int,test_parser2>, decltype(test_transform_t_to_p(check<int>(test_parser{})))> );
+	static_assert( std::is_same_v<by_ind_parser<0, test_parser2>, decltype(test_transform_t_to_p(by_ind<0>(test_parser{})))> );
 
 	auto rv_maker = []{};
 	static_assert( std::is_same_v<
@@ -104,17 +99,6 @@ constexpr static bool test_transform_modify_leaf() {
 #endif
 	return true;
 }
-constexpr static bool test_transform_modify_leaf_with_cond() {
-	return true;
-}
-constexpr static bool test_transform() {
-	return
-		   test_transform_modify_leaf()
-		&& test_transform_modify_leaf_with_cond()
-		;
-}
 
 int main(int,char**) {
-	test_transform();
-  return 0;
 }
