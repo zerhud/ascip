@@ -559,7 +559,7 @@ constexpr bool exists_in(auto* src, const auto& checker) {
 }
 
 template<typename p, template<auto>class t=p::template tmpl>
-constexpr static bool test_exists_in() {
+constexpr bool test_exists_in() {
 	auto checker = [](const auto* s){ return std::is_same_v<std::decay_t<decltype(*s)>, std::decay_t<decltype(t<'a'>::char_)>>; };
 	auto pass = [](const auto* s){ return false; };
 	auto stop = [](const auto* s){ return true; };
@@ -581,6 +581,20 @@ constexpr static bool test_exists_in() {
 	static_assert( !exists_in(t<'c'>::char_ - (t<'b'>::char_ >> t<'a'>::char_), checker, stop) );
 	static_assert(  exists_in(skip(t<'c'>::char_ >> t<'b'>::char_ >> t<'a'>::char_++), checker, pass) );
 	static_assert( !exists_in(skip(t<'c'>::char_ >> t<'b'>::char_ >> t<'a'>::char_++), checker, stop) );
+	static_assert( exists_in(t<'a'>::_char([](...){}), checker, pass) );
+	static_assert( exists_in(rv([](...){}, t<'a'>::_char), checker, pass) );
+	static_assert( exists_in(check<const char&>(t<'a'>::_char), checker, pass) );
+	static_assert( exists_in(reparse(t<'a'>::_char), checker, pass) );
+	static_assert( exists_in(-t<'a'>::_char, checker, pass) );
+	static_assert( exists_in(!t<'a'>::_char, checker, pass) );
+	static_assert( exists_in(must<"test">(t<'a'>::_char), checker, pass) );
+	static_assert( exists_in(make_injected(t<'b'>::_char, t<'a'>::char_), checker, pass) );
+	static_assert( !exists_in(make_injected(t<'a'>::_char, t<'b'>::char_), checker, pass), "skip parser doesn't matter for exists method" );
+	static_assert( exists_in(def(t<'a'>::_char), checker, pass) );
+	static_assert( exists_in(by_table([](...){}, [](...){}, t<'a'>::_char), checker, pass) );
+	static_assert( exists_in(t<'a'>::_char % ',', checker, pass) );
+	static_assert( exists_in(as<0>(t<'a'>::_char), checker, pass) );
+	static_assert( exists_in(by_ind<0>(t<'a'>::_char), checker, pass) );
 	return true;
 }
 

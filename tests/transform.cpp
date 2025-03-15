@@ -84,7 +84,7 @@ constexpr bool test_transform_modify_leaf() {
 
 	struct tag1 {};
 	static_assert( std::is_same_v<
-			ctx_change_parser<test_parser2, tag1, int>,
+			add_to_ctx_parser<test_parser2, tag1, int>,
 			decltype(test_transform_t_to_p( add_to_ctx<tag1>(1, test_parser{}) ))
 			> );
 	auto void_act = [](auto&&...){};

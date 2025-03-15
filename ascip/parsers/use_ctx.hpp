@@ -11,7 +11,7 @@
 
 namespace ascip_details::prs {
 
-template<typename parser, typename tag, typename value_type> struct ctx_change_parser : base_parser<ctx_change_parser<parser, tag, value_type>> {
+template<typename parser, typename tag, typename value_type> struct add_to_ctx_parser : base_parser<add_to_ctx_parser<parser, tag, value_type>> {
 	value_type value;
 	[[no_unique_address]] parser p;
 
@@ -49,7 +49,7 @@ namespace ascip_details {
 
 template<typename tag, typename value_type, parser type> constexpr auto add_to_ctx(value_type&& value, type&& p) {
 	using ptype = std::decay_t<decltype(p)>;
-	return prs::ctx_change_parser<type, tag, value_type>{ {}, std::forward<decltype(value)>(value), std::forward<decltype(p)>(p) };
+	return prs::add_to_ctx_parser<type, tag, value_type>{ {}, std::forward<decltype(value)>(value), std::forward<decltype(p)>(p) };
 }
 template<typename... tags, parser type> constexpr auto from_ctx(auto&& act, type&& p) {
 	using ptype = std::decay_t<decltype(p)>;
@@ -63,10 +63,10 @@ template<typename... tags, parser type> constexpr auto result_from_ctx(auto&& ac
 }
 
 template<typename mutator, typename parser, typename tag, typename value_type>
-constexpr static auto transform_special(prs::ctx_change_parser<parser, tag, value_type>&& src, auto& ctx) {
+constexpr static auto transform_special(prs::add_to_ctx_parser<parser, tag, value_type>&& src, auto& ctx) {
 	auto nctx = mutator::create_ctx(src, ctx);
 	auto np = transform<mutator>( std::move(src.p), nctx );
-	return transform_apply<mutator>( prs::ctx_change_parser<decltype(np), tag, value_type>{ {}, std::move(src.value), std::move(np) }, nctx );
+	return transform_apply<mutator>( prs::add_to_ctx_parser<decltype(np), tag, value_type>{ {}, std::move(src.value), std::move(np) }, nctx );
 }
 
 }
