@@ -108,9 +108,11 @@ static_assert( []{
 static_assert( []{
   struct use_ctx_test_tag {};
   char r{};
-  int val{};
-  const auto p = parse(create_in_ctx<use_ctx_test_tag>([](char&){return 7;}, p::char_<'a'> >> from_ctx<use_ctx_test_tag>([&](auto& r, auto& v){val = v;}, p::char_<'b'>)), +p::space, p::make_source("ab"), r);
-  return (p == 2) + 2*(r=='b') + 4*(val==7);
+  int val{1};
+  const auto p = parse(create_in_ctx<use_ctx_test_tag>([](char&){return 11;},
+    (p::char_<'a'> >> from_ctx<use_ctx_test_tag>([&](auto& r, auto& v){val = v;static_assert(std::is_same_v<std::decay_t<decltype(r)>, char>);}, p::char_<'b'>))) | p::char_<'u'>,
+    +p::space, p::make_source("ab"), r);
+  return (p == 2) + 2*(r=='b') + 4*(val==11);
 }() == 7 );
 static_assert( []{
   struct use_ctx_test_tag {};

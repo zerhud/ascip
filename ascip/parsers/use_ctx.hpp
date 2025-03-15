@@ -25,6 +25,9 @@ template<typename parser, typename tag, typename maker_type> struct create_in_ct
   maker_type maker;
   [[no_unique_address]] parser p;
 
+  constexpr parse_result parse(auto&& ctx, auto src, auto& result) const requires requires{ is_parse_non_result(result).ok; } {
+    return p.parse(ctx, src, result);
+  }
   constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
     auto new_ctx = make_ctx<tag>(maker(result), ctx);
     return p.parse(new_ctx, src, result);
@@ -37,7 +40,8 @@ template<typename parser, typename act_type, typename... tags> struct ctx_use_pa
 
   constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
     auto ret = p.parse(ctx, src, result);
-    if(-1 < ret) act(result, search_in_ctx<0, tags>(ctx)...);
+    constexpr bool actual_result = !requires{ is_parse_non_result(result).ok; };
+    if constexpr(actual_result) if(-1 < ret) act(result, search_in_ctx<0, tags>(ctx)...);
     return ret;
   }
 };
@@ -46,9 +50,13 @@ template<typename parser, typename act_type, typename... tags> struct ctx_use_as
   act_type act;
   [[no_unique_address]] parser p;
 
+  constexpr parse_result parse(auto&& ctx, auto src, auto& result) const requires requires{is_checking(result).ok;} {
+    return p.parse(ctx, src, result);
+  }
   constexpr parse_result parse(auto&& ctx, auto src, auto& result) const {
     auto ret = p.parse(ctx, src, search_in_ctx<0, tags>(ctx)...);
-    if(-1 < ret) act(result, search_in_ctx<0, tags>(ctx)...);
+    constexpr bool actual_result = !requires{ is_parse_non_result(result).ok;};
+    if constexpr(actual_result) if(-1 < ret) act(result, search_in_ctx<0, tags>(ctx)...);
     return ret;
   }
 };
