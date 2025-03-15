@@ -68,7 +68,7 @@ here is a list of available parsers. you can find examples below
 - `()` with lambda for the semantic action (semact) or for create the result. if the functor inside `()` receaves reference to the parser result and returns reference or pointer it's a result maker. in other case it's a semact. the semact can to receave nothing, or the returned value by parser and the result, or the returned value by parser, the parsing context, the source and the result.
 - `as` method for treat some parser as value
 - `omit` method for skip value
-- `add_to_ctx` and `from_ctx` methods allows to store value in context and get it later in inner parser.
+- `add_to_ctx`, `create_in_ctx` and `from_ctx` methods allows to store value in context and get it later in inner parser.
 - `result_from_ctx` methods allows to use value stored in context with mehtod `add_to_ctx` as result, the original result will be passed as first parametor to the action.
 - `>>` for sequence parser
 - `>` for sequence parser. it causes an error if the parser fails with a message "unknown" (see must method).

@@ -87,6 +87,10 @@ constexpr bool test_transform_modify_leaf() {
 			add_to_ctx_parser<test_parser2, tag1, int>,
 			decltype(test_transform_t_to_p( add_to_ctx<tag1>(1, test_parser{}) ))
 			> );
+	static_assert( std::is_same_v<
+			test_parser2,
+			decltype(test_transform_t_to_p( create_in_ctx<tag1>([](auto&){return 1;}, test_parser{}) ).p)
+			> );
 	auto void_act = [](auto&&...){};
 	static_assert( std::is_same_v<
 			ctx_use_parser<test_parser2, decltype(void_act), tag1>,
